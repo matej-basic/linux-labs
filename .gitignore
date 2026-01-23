@@ -1,0 +1,28 @@
+# RPM build artifacts
+rpmbuild/BUILD/
+rpmbuild/BUILDROOT/
+rpmbuild/RPMS/
+rpmbuild/SRPMS/
+
+# Tarballs
+*.tar.gz
+*.tar.bz2
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# Backup files
+*.bak
+*.backup
+*.orig
