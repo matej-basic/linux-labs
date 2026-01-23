@@ -1,0 +1,58 @@
+#!/bin/bash
+
+LAB_ROOT="/opt/linux-labs/labs"
+STATE_FILE="/opt/linux-labs/.current_lab"
+
+usage() {
+  echo "Usage: labctl {start|grade|reset|list} <lab>"
+  exit 1
+}
+
+# Require a lab name for commands that need one
+require_lab() {
+  local lab="$1"
+  if [ -z "$lab" ]; then
+    usage
+  fi
+  if [ ! -x "$LAB_ROOT/$lab"/setup.sh ] && [ ! -x "$LAB_ROOT/$lab"/grade.sh ] && [ ! -x "$LAB_ROOT/$lab"/cleanup.sh ]; then
+    echo "Unknown lab: $lab" >&2
+    exit 1
+  fi
+}
+
+case "$1" in
+  start)
+    require_lab "$2"
+    if [ "$EUID" -ne 0 ]; then
+      echo "Error: 'labctl start' requires root. Use: sudo labctl start $2" >&2
+      exit 1
+    fi
+    "$LAB_ROOT/$2/setup.sh"
+    mkdir -p "$(dirname "$STATE_FILE")"
+    echo "$2" > "$STATE_FILE"
+    # Reload profile to update prompt
+    [ -f /etc/profile.d/labctl.sh ] && source /etc/profile.d/labctl.sh
+    ;;
+  grade)
+    require_lab "$2"
+    "$LAB_ROOT/$2/grade.sh"
+    ;;
+  reset)
+    require_lab "$2"
+    if [ "$EUID" -ne 0 ]; then
+      echo "Error: 'labctl reset' requires root. Use: sudo labctl reset $2" >&2
+      exit 1
+    fi
+    "$LAB_ROOT/$2/cleanup.sh"
+    rm -f "$STATE_FILE"
+    # Reload profile to update prompt
+    [ -f /etc/profile.d/labctl.sh ] && source /etc/profile.d/labctl.sh
+    ;;
+  list)
+    ls "$LAB_ROOT"
+    ;;
+  *)
+    usage
+    ;;
+esac
+
