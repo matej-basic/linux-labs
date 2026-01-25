@@ -1,8 +1,5 @@
-# RPM build artifacts
-rpmbuild/BUILD/
-rpmbuild/BUILDROOT/
-rpmbuild/RPMS/
-rpmbuild/SRPMS/
+# RPM build system (local only, not tracked in git)
+packaging/
 
 # Tarballs
 *.tar.gz
