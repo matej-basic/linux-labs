@@ -37,7 +37,7 @@ else
 fi
 
 # Check if postgres user can connect to default database
-if sudo -u postgres psql -d postgres -c "SELECT version();" > /dev/null 2>&1; then
+if cd /tmp && sudo -u postgres psql -d postgres -c "SELECT version();" > /dev/null 2>&1; then
 	pass "PostgreSQL CLI connection successful"
 else
 	fail "PostgreSQL CLI connection failed"
