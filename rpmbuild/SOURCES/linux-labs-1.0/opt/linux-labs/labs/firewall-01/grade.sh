@@ -2,6 +2,12 @@
 source /opt/linux-labs/lib/colors.sh
 rc=0
 
+passcount=0
+failcount=0
+
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+
 # Check if HTTP service is enabled in public zone
 firewall-cmd --list-services --zone=public 2>/dev/null | grep -q http && \
   pass "HTTP service is enabled in public zone" || \
@@ -17,5 +23,14 @@ systemctl is-active firewalld &>/dev/null && \
   pass "Firewalld service is running" || \
   { fail "Firewalld service is not running"; rc=1; }
 
-exit $rc
+echo ""
+echo "Results: $passcount passed, $failcount failed"
+
+if [[ $failcount -eq 0 ]]; then
+  pass "Lab completed successfully"
+  exit 0
+else
+  fail "Lab incomplete"
+  exit 1
+fi
 

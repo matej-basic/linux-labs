@@ -2,6 +2,12 @@
 source /opt/linux-labs/lib/colors.sh
 rc=0
 
+passcount=0
+failcount=0
+
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+
 # Check /tmp/webfiles structure
 if [ -d /tmp/webfiles ] && [ -d /tmp/webfiles/app ] && [ -d /tmp/webfiles/config ] && [ -d /tmp/webfiles/data ]; then
     pass "directory structure created"
@@ -29,4 +35,13 @@ fi
 [ -f /tmp/webfiles/data/app.log ] && [ "$(stat -c '%U:%G %a' /tmp/webfiles/data/app.log 2>/dev/null)" = "www-data:www-data 640" ] && pass "app.log correct" || { fail "app.log missing or wrong"; rc=1; }
 [ -f /tmp/webfiles/data/error.log ] && [ "$(stat -c '%U:%G %a' /tmp/webfiles/data/error.log 2>/dev/null)" = "root:root 644" ] && pass "error.log correct" || { fail "error.log missing or wrong"; rc=1; }
 
-exit $rc
+echo ""
+echo "Results: $passcount passed, $failcount failed"
+
+if [[ $failcount -eq 0 ]]; then
+    pass "Lab completed successfully"
+    exit 0
+else
+    fail "Lab incomplete"
+    exit 1
+fi

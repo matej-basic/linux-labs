@@ -2,6 +2,12 @@
 source /opt/linux-labs/lib/colors.sh
 rc=0
 
+passcount=0
+failcount=0
+
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+
 [ -f /etc/rsyslog.d/myapp.conf ] && pass "Rsyslog config exists" || { fail "Missing /etc/rsyslog.d/myapp.conf"; rc=1; }
 grep -Eq "^\s*local0\.\*\s+/var/log/myapp\.log" /etc/rsyslog.d/myapp.conf 2>/dev/null && pass "Rsyslog local0 facility filter present" || { fail "local0 facility filter not found"; rc=1; }
 grep -Eq ":programname,\s*isequal,\s*\"?myapp\"?.*/var/log/myapp-program\.log" /etc/rsyslog.d/myapp.conf 2>/dev/null && pass "Rsyslog programname filter present" || { fail "programname filter not found"; rc=1; }
@@ -13,4 +19,13 @@ grep -q "rotate 7" /etc/logrotate.d/myapp 2>/dev/null && pass "Logrotate rotate 
 grep -q "compress" /etc/logrotate.d/myapp 2>/dev/null && pass "Logrotate compress" || { fail "compress not set"; rc=1; }
 logrotate -d /etc/logrotate.d/myapp &>/dev/null && pass "Logrotate syntax ok" || { fail "Logrotate syntax invalid"; rc=1; }
 
-exit $rc
+echo ""
+echo "Results: $passcount passed, $failcount failed"
+
+if [[ $failcount -eq 0 ]]; then
+	pass "Lab completed successfully"
+	exit 0
+else
+	fail "Lab incomplete"
+	exit 1
+fi
