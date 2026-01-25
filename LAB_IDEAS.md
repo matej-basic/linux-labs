@@ -67,6 +67,11 @@
 - **postgres-02** (Intermediate): Database and role management
 - **postgres-03** (Advanced): Backup and restore
 
+### ✅ DNS (Completed)
+- **dns-01** (Beginner): BIND DNS server installation
+- **dns-02** (Intermediate): Zone configuration and records
+- **dns-03** (Advanced): DNSSEC and replication
+
 ---
 
 ## Proposed Lab Ideas
@@ -94,9 +99,6 @@
 - **kvm-03** (Advanced): KVM networking and storage
 
 ### Advanced Networking
-- **dns-01** (Beginner): BIND DNS server installation
-- **dns-02** (Intermediate): Zone configuration and records
-- **dns-03** (Advanced): DNSSEC and replication
 - **nfs-01** (Beginner): NFS server setup and mounting
 - **nfs-02** (Intermediate): NFS security and permissions
 - **nfs-03** (Advanced): NFS performance tuning
