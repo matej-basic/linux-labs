@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Reset lab state
-systemctl stop httpd >/dev/null 2>&1
+systemctl stop httpd > /dev/null 2>&1
 rm -rf /var/www/lab2
 rm -f /etc/httpd/conf.d/lab2.conf
 

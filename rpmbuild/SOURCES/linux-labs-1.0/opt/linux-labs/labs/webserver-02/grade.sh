@@ -9,7 +9,7 @@ pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
 fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); rc=1; }
 
 # Check if httpd package is installed and running
-if rpm -q httpd &>/dev/null; then
+if rpm -q httpd > /dev/null 2>&1; then
 	pass "httpd package installed"
 else
 	fail "httpd package not installed"
@@ -36,14 +36,14 @@ else
 fi
 
 # Check if index.html contains required content
-if grep -q "Welcome to Lab 2" /var/www/lab2/html/index.html 2>/dev/null; then
+if grep -q "Welcome to Lab 2" /var/www/lab2/html/index.html > /dev/null 2>&1; then
 	pass "index.html contains 'Welcome to Lab 2'"
 else
 	fail "index.html missing required content"
 fi
 
 # Check if lab2.local is in /etc/hosts
-if grep -q "lab2.local" /etc/hosts 2>/dev/null; then
+if grep -q "lab2.local" /etc/hosts > /dev/null 2>&1; then
 	pass "lab2.local in /etc/hosts"
 else
 	fail "lab2.local not in /etc/hosts"
@@ -64,7 +64,7 @@ else
 fi
 
 # Check if curl can reach lab2.local
-if curl -s http://lab2.local 2>/dev/null | grep -q "Welcome to Lab 2"; then
+if curl -s http://lab2.local > /dev/null 2>&1 | grep -q "Welcome to Lab 2"; then
 	pass "lab2.local is accessible"
 else
 	fail "lab2.local not accessible"

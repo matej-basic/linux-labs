@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Reset lab state
-systemctl stop httpd >/dev/null 2>&1
-yum remove -y httpd >/dev/null 2>&1
+systemctl stop httpd > /dev/null 2>&1
+yum remove -y httpd > /dev/null 2>&1
 
 # Print task description
 cat <<'EOF'

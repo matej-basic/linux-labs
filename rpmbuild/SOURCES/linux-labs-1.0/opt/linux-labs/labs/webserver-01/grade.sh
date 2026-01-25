@@ -9,7 +9,7 @@ pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
 fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); rc=1; }
 
 # Check if httpd package is installed
-if rpm -q httpd &>/dev/null; then
+if rpm -q httpd > /dev/null 2>&1; then
 	pass "httpd package installed"
 else
 	fail "httpd package not installed"
@@ -30,7 +30,7 @@ else
 fi
 
 # Check if Apache is listening on port 80
-if ss -tlnp 2>/dev/null | grep -q ':80 '; then
+if ss -tlnp > /dev/null 2>&1 | grep -q ':80 '; then
 	pass "Apache listening on port 80"
 else
 	fail "Apache not listening on port 80"

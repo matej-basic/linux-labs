@@ -9,7 +9,7 @@ pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
 fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); rc=1; }
 
 # Check if httpd package is installed and running
-if rpm -q httpd &>/dev/null; then
+if rpm -q httpd > /dev/null 2>&1; then
 	pass "httpd package installed"
 else
 	fail "httpd package not installed"
@@ -22,7 +22,7 @@ else
 fi
 
 # Check if mod_ssl is installed
-if rpm -q mod_ssl &>/dev/null; then
+if rpm -q mod_ssl > /dev/null 2>&1; then
 	pass "mod_ssl installed"
 else
 	fail "mod_ssl not installed"
@@ -43,14 +43,14 @@ else
 fi
 
 # Check if index.html contains required content
-if grep -q "Lab 3 HTTPS" /var/www/lab3/html/index.html 2>/dev/null; then
+if grep -q "Lab 3 HTTPS" /var/www/lab3/html/index.html > /dev/null 2>&1; then
 	pass "index.html contains 'Lab 3 HTTPS'"
 else
 	fail "index.html missing required content"
 fi
 
 # Check if lab3.local is in /etc/hosts
-if grep -q "lab3.local" /etc/hosts 2>/dev/null; then
+if grep -q "lab3.local" /etc/hosts > /dev/null 2>&1; then
 	pass "lab3.local in /etc/hosts"
 else
 	fail "lab3.local not in /etc/hosts"
@@ -78,7 +78,7 @@ else
 fi
 
 # Check if config contains HTTPS redirect
-if grep -q "Redirect permanent" /etc/httpd/conf.d/lab3.conf 2>/dev/null; then
+if grep -q "Redirect permanent" /etc/httpd/conf.d/lab3.conf > /dev/null 2>&1; then
 	pass "HTTP to HTTPS redirect configured"
 else
 	fail "HTTPS redirect not configured"
@@ -92,7 +92,7 @@ else
 fi
 
 # Check if Apache is listening on port 443
-if ss -tlnp 2>/dev/null | grep -q ':443 '; then
+if ss -tlnp > /dev/null 2>&1 | grep -q ':443 '; then
 	pass "Apache listening on port 443"
 else
 	fail "Apache not listening on port 443"
