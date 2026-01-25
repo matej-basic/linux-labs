@@ -1,0 +1,4 @@
+category: Web Servers
+complexity: Intermediate
+objective: Configure Apache virtual hosts and serve content from /var/www/lab2/html for domain lab2.local.
+
