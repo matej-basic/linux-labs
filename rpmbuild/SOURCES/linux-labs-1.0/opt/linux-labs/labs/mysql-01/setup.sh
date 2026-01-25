@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Reset lab state
-systemctl stop mysql mariadb mysqld 2>/dev/null
+systemctl stop mysqld mariadb 2>/dev/null
 dnf remove -y mysql-server mariadb-server 2>/dev/null
 rm -rf /var/lib/mysql/*
 
@@ -18,8 +18,8 @@ basic connectivity.
 
 REQUIREMENTS:
 - Install MySQL Server package
-- Start the mysql service
-- Enable mysql to start on boot
+- Start the mysqld service
+- Enable mysqld to start on boot
 - Set root password to: labpassword
 - Verify connection to MySQL CLI
 - Verify MySQL is listening on port 3306

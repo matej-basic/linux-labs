@@ -28,7 +28,7 @@ sudo mysql -u root -plabpassword -e "FLUSH PRIVILEGES;"
 rpm -q mysql-server
 
 # Check if MySQL is running
-sudo systemctl status mysql
+sudo systemctl status mysqld
 
 # Check if port 3306 is listening
 sudo ss -tlnp | grep 3306

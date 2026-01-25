@@ -15,15 +15,15 @@ else
 	fail "MySQL/MariaDB package not installed"
 fi
 
-# Check if mysql service is running
-if systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb || systemctl is-active --quiet mysqld; then
+# Check if mysqld service is running
+if systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb; then
 	pass "MySQL service is running"
 else
 	fail "MySQL service is not running"
 fi
 
-# Check if mysql is enabled on boot
-if systemctl is-enabled --quiet mysqld || systemctl is-enabled --quiet mariadb || systemctl is-enabled --quiet mysqld; then
+# Check if mysqld is enabled on boot
+if systemctl is-enabled --quiet mysqld || systemctl is-enabled --quiet mariadb; then
 	pass "MySQL enabled on boot"
 else
 	fail "MySQL not enabled on boot"
