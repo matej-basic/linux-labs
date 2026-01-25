@@ -1,0 +1,3 @@
+category: Systemd
+complexity: Beginner
+objective: Learn basic systemd service management with systemctl for enabling and running services.

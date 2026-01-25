@@ -1,0 +1,3 @@
+category: Storage
+complexity: Intermediate
+objective: Create physical volumes, volume groups, and logical volumes with LVM and format for use.

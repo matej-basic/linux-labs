@@ -1,0 +1,3 @@
+category: Users
+complexity: Intermediate
+objective: Manage user accounts with password policies, expiration, resource limits, and restrictions.

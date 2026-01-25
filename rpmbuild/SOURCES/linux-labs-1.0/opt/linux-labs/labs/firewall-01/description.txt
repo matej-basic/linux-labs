@@ -1,0 +1,3 @@
+category: Firewall
+complexity: Beginner
+objective: Learn firewalld fundamentals by managing services and ports in the default public zone.

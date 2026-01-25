@@ -1,0 +1,3 @@
+category: Files
+complexity: Intermediate
+objective: Manage file permissions, ownership and directory structures for a web application directory tree.

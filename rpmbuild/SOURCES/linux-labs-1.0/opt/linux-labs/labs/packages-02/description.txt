@@ -1,0 +1,3 @@
+category: Packages
+complexity: Intermediate
+objective: Enable additional repositories like EPEL and install packages from them.

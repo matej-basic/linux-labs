@@ -1,0 +1,3 @@
+category: Firewall
+complexity: Intermediate
+objective: Configure firewalld rich rules and zone assignments for source-based access control.

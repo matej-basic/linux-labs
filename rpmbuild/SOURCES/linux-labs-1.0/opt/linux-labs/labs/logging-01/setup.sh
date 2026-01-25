@@ -7,7 +7,7 @@ cat <<'EOF'
 LAB: Logging 01 - Journalctl Basics
 
 OBJECTIVE
-- Learn to view and filter systemd journal logs.
+Learn to view and filter systemd journal logs.
 
 TASKS
 1) Show entries from systemd-logind:

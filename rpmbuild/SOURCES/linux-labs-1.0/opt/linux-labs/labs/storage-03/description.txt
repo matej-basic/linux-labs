@@ -1,0 +1,3 @@
+category: Storage
+complexity: Advanced
+objective: Create LVM snapshots, manage snapshot space, and demonstrate copy-on-write functionality.

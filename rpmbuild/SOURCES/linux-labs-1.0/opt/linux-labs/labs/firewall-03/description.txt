@@ -1,0 +1,3 @@
+category: Firewall
+complexity: Advanced
+objective: Implement advanced firewall scenarios including masquerading, port forwarding, and custom services.

@@ -1,0 +1,3 @@
+category: Files
+complexity: Advanced
+objective: Configure advanced permissions, ACLs, special bits, and create backups with proper ownership and modes.

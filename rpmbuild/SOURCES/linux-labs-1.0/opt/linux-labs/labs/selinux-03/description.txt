@@ -1,0 +1,3 @@
+category: SELinux
+complexity: Advanced
+objective: Configure SELinux port labeling and policies for non-standard network service ports.

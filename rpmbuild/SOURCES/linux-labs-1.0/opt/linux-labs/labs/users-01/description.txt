@@ -1,0 +1,3 @@
+category: Users
+complexity: Beginner
+objective: Create users and groups with proper home directories, shells, and group memberships.

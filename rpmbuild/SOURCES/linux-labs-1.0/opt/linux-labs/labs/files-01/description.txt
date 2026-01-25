@@ -1,0 +1,3 @@
+category: Files
+complexity: Beginner
+objective: Create the required directory and file so that the system matches the expected final state.

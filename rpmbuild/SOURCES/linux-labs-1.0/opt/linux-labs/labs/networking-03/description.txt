@@ -1,0 +1,3 @@
+category: Networking
+complexity: Advanced
+objective: Configure network bonding or teaming for redundancy with multiple slave interfaces.

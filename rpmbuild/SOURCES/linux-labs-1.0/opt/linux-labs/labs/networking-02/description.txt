@@ -1,0 +1,3 @@
+category: Networking
+complexity: Intermediate
+objective: Create VLAN interfaces and configure hostname resolution in a multi-VLAN environment.

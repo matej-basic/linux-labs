@@ -1,0 +1,3 @@
+category: Logging
+complexity: Intermediate
+objective: Configure rsyslog for custom log facilities and setup logrotate for log management and compression.

@@ -1,0 +1,3 @@
+category: SELinux
+complexity: Beginner
+objective: Enable SELinux enforcing mode and verify the policy is loaded and active.

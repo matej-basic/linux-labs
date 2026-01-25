@@ -1,0 +1,3 @@
+category: Systemd
+complexity: Advanced
+objective: Design and manage systemd timer units for scheduled task execution with persistence.

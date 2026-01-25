@@ -1,0 +1,3 @@
+category: Networking
+complexity: Beginner
+objective: Configure static IP addresses and DNS settings for network interfaces using nmcli.

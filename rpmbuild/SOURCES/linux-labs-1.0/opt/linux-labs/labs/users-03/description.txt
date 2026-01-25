@@ -1,0 +1,3 @@
+category: Users
+complexity: Advanced
+objective: Configure advanced user and group settings including ACLs and default permissions for shared directories.

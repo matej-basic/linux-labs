@@ -1,0 +1,3 @@
+category: SELinux
+complexity: Intermediate
+objective: Apply SELinux file contexts to application directories for proper web server access control.

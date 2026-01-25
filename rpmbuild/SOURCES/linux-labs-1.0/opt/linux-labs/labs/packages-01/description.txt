@@ -1,0 +1,3 @@
+category: Packages
+complexity: Beginner
+objective: Use package management tools to query and install packages from enabled repositories.

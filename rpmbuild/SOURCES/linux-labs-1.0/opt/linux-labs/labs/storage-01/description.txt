@@ -1,0 +1,3 @@
+category: Storage
+complexity: Beginner
+objective: Create loopback devices, filesystems, and mount them for persistent storage.
