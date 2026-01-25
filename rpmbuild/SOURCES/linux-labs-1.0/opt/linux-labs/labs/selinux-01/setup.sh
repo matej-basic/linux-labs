@@ -1,57 +1,34 @@
 #!/bin/bash
 
-# Print task description
+# Set SELinux to permissive mode for the lab to start
+sudo setenforce 0 2>/dev/null || true
+sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config 2>/dev/null || true
+
 cat <<'EOF'
-
 ====================================================
-LAB: SELinux Basics - Modes and Status (selinux-01)
+LAB: SELinux 01 - Enforcing Mode
 ====================================================
 
-OBJECTIVE:
-Understand and manage SELinux modes (enforcing, permissive, disabled)
-and configure persistent SELinux policy settings.
+OBJECTIVE
+Configure SELinux to run in enforcing mode.
 
-TASKS:
+REQUIREMENTS
+1) Set SELinux to enforcing mode immediately
 
-1. Check current SELinux status:
-   - Run: getenforce
-   - Run: sestatus (or sestatus -v for verbose)
-   - Note the current mode (likely enforcing or permissive)
+2) Make the enforcing mode persistent
 
-2. Understand the three SELinux modes:
-   - enforcing: Policy is enforced, violations are blocked and logged
-   - permissive: Policy is NOT enforced, violations are only logged (useful for debugging)
-   - disabled: SELinux is completely disabled
+3) Understand SELinux modes:
+   - enforcing: Policy enforced, violations blocked and logged
+   - permissive: Policy not enforced, violations only logged
+   - disabled: SELinux completely disabled
 
-3. Temporarily switch to permissive mode (requires root):
-   - Command: setenforce 0
-   - Verify: getenforce (should show "Permissive")
-   - This change is temporary (lost on reboot)
+USEFUL COMMANDS
+- getenforce (check current mode)
+- setenforce 0|1 (set permissive|enforcing temporarily)
+- sestatus (detailed SELinux status)
+- /etc/selinux/config (persistent configuration)
 
-4. Switch back to enforcing mode:
-   - Command: setenforce 1
-   - Verify: getenforce (should show "Enforcing")
-
-5. Make SELinux mode persistent:
-   - Edit /etc/selinux/config
-   - Find the line: SELINUX=<mode>
-   - Set it to: SELINUX=enforcing
-   - Save and verify with: grep "^SELINUX=" /etc/selinux/config
-
-6. Check SELinux policy type:
-   - Run: getenforce (or cat /etc/selinux/config)
-   - Typical policies: targeted, mls, strict
-   - Verify with: sestatus | grep "Loaded policy"
-
-NOTES:
-- All commands require root (use sudo)
-- Changes to /etc/selinux/config take effect after reboot
-- Temporary mode changes with setenforce are useful for troubleshooting
-- The lab verifies final state, not the history of commands used
-
-When ready, run:
+Run grading when done:
   sudo labctl grade selinux-01
-
 ====================================================
-
 EOF
