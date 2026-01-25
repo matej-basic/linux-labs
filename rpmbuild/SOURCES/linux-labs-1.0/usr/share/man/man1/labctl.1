@@ -1,0 +1,58 @@
+.TH labctl 1 "January 2026" "linux-labs 1.0" "User Commands"
+.SH NAME
+labctl \- manage Linux labs (setup, grade, cleanup)
+.SH SYNOPSIS
+.B labctl
+.I COMMAND
+.RI [ LAB_NAME ]
+.SH DESCRIPTION
+.B labctl
+is a helper tool to run hands-on Linux labs provided by the linux-labs package.
+It can prepare a lab environment, grade the final state, and clean up afterwards.
+.SH COMMANDS
+.TP
+.B setup
+Prepare the environment for the specified lab.
+Example: 
+.B labctl setup files-01
+.TP
+.B grade
+Run the lab's grading script and print a concise summary of checks.
+Example:
+.B labctl grade files-01
+.TP
+.B list
+List available labs in a two-column table showing the lab name and a brief one-line description. The description is parsed from the lab's
+.I setup.sh
+OBJECTIVE section, or falls back to the first header in
+.I solution.md
+when available.
+.TP
+.B solution
+Display the solution for the specified lab by printing its
+.I solution.md
+file. Uses
+.B less
+when available, otherwise prints to standard output.
+Example:
+.B labctl solution files-01
+.TP
+.B cleanup
+Remove lab-created files and restore the system to its pre-lab state.
+Example:
+.B labctl cleanup files-01
+.SH EXAMPLES
+.nf
+labctl setup users-01
+labctl grade users-01
+labctl cleanup users-01
+.fi
+.SH EXIT STATUS
+The grading command exits 0 on success (no failed checks) and 1 otherwise.
+.SH SEE ALSO
+.BR bash (1),
+.BR systemd (1),
+.BR firewall-cmd (1),
+.BR nmcli (1)
+.SH AUTHORS
+linux-labs maintainers.
