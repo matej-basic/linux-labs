@@ -1,0 +1,4 @@
+category: DNS
+complexity: Advanced
+objective: Configure DNSSEC for a zone, set up a secondary DNS server with zone transfer, and verify DNSSEC validation.
+
