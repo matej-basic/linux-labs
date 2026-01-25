@@ -2,7 +2,7 @@
 # Drop restore database and remove backup file
 echo "Cleaning up MySQL Backup and Restore (mysql-03) lab environment..."
 
-mysql -u root -plabpassword -e "DROP DATABASE IF EXISTS labdb_restore;" 2>/dev/null
+mysql -u root -plabpassword -e "DROP DATABASE IF EXISTS labdb_restore;" > /dev/null 2>&1
 rm -f /tmp/labdb_backup.sql
 
 # End of cleanup message

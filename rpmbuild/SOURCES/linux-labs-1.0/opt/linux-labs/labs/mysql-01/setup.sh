@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Reset lab state
-systemctl stop mysqld mariadb 2>/dev/null
-dnf remove -y mysql-server mariadb-server 2>/dev/null
+systemctl stop mysqld mariadb > /dev/null 2>&1
+dnf remove -y mysql-server mariadb-server > /dev/null 2>&1
 rm -rf /var/lib/mysql/*
 
 # Print task description

@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Reset lab state
-mysql -u root -plabpassword -e "DROP DATABASE IF EXISTS labdb;" 2>/dev/null
-mysql -u root -plabpassword -e "DROP USER IF EXISTS 'labuser'@'localhost';" 2>/dev/null
+mysql -u root -plabpassword -e "DROP DATABASE IF EXISTS labdb;" > /dev/null 2>&1
+mysql -u root -plabpassword -e "DROP USER IF EXISTS 'labuser'@'localhost';" > /dev/null 2>&1
 
 # Print task description
 cat <<'EOF'

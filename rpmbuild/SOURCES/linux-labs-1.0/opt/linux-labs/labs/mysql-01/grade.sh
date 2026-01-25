@@ -9,7 +9,7 @@ pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
 fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); rc=1; }
 
 # Check if MySQL package is installed
-if rpm -q mysql-server mariadb-server 2>/dev/null | grep -q mysql-server || rpm -q mariadb-server &>/dev/null; then
+if rpm -q mysql-server mariadb-server > /dev/null 2>&1 | grep -q mysql-server || rpm -q mariadb-server > /dev/null 2>&1; then
 	pass "MySQL/MariaDB package installed"
 else
 	fail "MySQL/MariaDB package not installed"
@@ -30,14 +30,14 @@ else
 fi
 
 # Check if MySQL is listening on port 3306
-if ss -tlnp 2>/dev/null | grep -q ':3306 '; then
+if ss -tlnp > /dev/null 2>&1 | grep -q ':3306 '; then
 	pass "MySQL listening on port 3306"
 else
 	fail "MySQL not listening on port 3306"
 fi
 
 # Check if root password is set to labpassword
-if mysql -u root -plabpassword -e "SELECT 1" &>/dev/null; then
+if mysql -u root -plabpassword -e "SELECT 1" > /dev/null 2>&1; then
 	pass "Root password set to labpassword"
 else
 	fail "Root password not set correctly"

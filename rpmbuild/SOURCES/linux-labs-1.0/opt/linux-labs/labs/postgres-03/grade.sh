@@ -8,11 +8,11 @@ failcount=0
 pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
 fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); rc=1; }
 
-# Check if MySQL is running
-if systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb; then
-	pass "MySQL service is running"
+# Check if PostgreSQL is running
+if systemctl is-active --quiet postgresql; then
+	pass "PostgreSQL service is running"
 else
-	fail "MySQL service is not running"
+	fail "PostgreSQL service is not running"
 fi
 
 # Check if backup file exists
@@ -30,22 +30,22 @@ else
 fi
 
 # Check if labdb_restore database exists
-if mysql -u root -plabpassword -e "USE labdb_restore;" > /dev/null 2>&1; then
+if cd /tmp && sudo -u postgres psql -d labdb_restore -c "SELECT 1;" > /dev/null 2>&1; then
 	pass "Database labdb_restore exists"
 else
 	fail "Database labdb_restore does not exist"
 fi
 
 # Check if users table exists in labdb_restore
-if mysql -u root -plabpassword labdb_restore -e "DESC users;" > /dev/null 2>&1; then
+if cd /tmp && sudo -u postgres psql -d labdb_restore -c "\dt users" 2>/dev/null | grep -q users; then
 	pass "users table exists in labdb_restore"
 else
 	fail "users table does not exist in labdb_restore"
 fi
 
 # Check row count in original and restored database
-original_count=$(mysql -u root -plabpassword labdb -e "SELECT COUNT(*) FROM users;" > /dev/null 2>&1 | tail -1)
-restored_count=$(mysql -u root -plabpassword labdb_restore -e "SELECT COUNT(*) FROM users;" > /dev/null 2>&1 | tail -1)
+original_count=$(cd /tmp && sudo -u postgres psql -t -d labdb -c "SELECT COUNT(*) FROM users;" 2>/dev/null | xargs)
+restored_count=$(cd /tmp && sudo -u postgres psql -t -d labdb_restore -c "SELECT COUNT(*) FROM users;" 2>/dev/null | xargs)
 
 if [ "$original_count" == "$restored_count" ] && [ -n "$original_count" ]; then
 	pass "Data restored correctly ($original_count rows)"
