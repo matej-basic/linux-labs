@@ -1,0 +1,4 @@
+category: Web Servers
+complexity: Advanced
+objective: Configure HTTPS/SSL certificate for Apache, set up redirect from HTTP to HTTPS, and enable secure communication.
+
