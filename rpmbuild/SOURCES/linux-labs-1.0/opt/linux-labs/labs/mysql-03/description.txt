@@ -1,0 +1,4 @@
+category: Databases
+complexity: Advanced
+objective: Create a MySQL database backup using mysqldump, and restore from backup to verify data integrity.
+
