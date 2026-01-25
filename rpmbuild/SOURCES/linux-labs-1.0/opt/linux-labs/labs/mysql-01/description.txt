@@ -1,0 +1,4 @@
+category: Databases
+complexity: Beginner
+objective: Install MySQL Server, start the service, and verify basic connectivity.
+
