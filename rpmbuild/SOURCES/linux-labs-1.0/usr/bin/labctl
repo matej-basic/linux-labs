@@ -4,7 +4,7 @@ LAB_ROOT="/opt/linux-labs/labs"
 STATE_FILE="/opt/linux-labs/.current_lab"
 
 usage() {
-  echo "Usage: labctl {start|grade|reset|list} <lab>"
+  echo "Usage: labctl {start|grade|reset|list|solution} <lab>"
   exit 1
 }
 
@@ -18,6 +18,21 @@ require_lab() {
     echo "Unknown lab: $lab" >&2
     exit 1
   fi
+}
+
+# Extract a one-line description for a lab from description.txt
+lab_description() {
+  local lab="$1"
+  local desc_file="$LAB_ROOT/$lab/description.txt"
+  local desc=""
+
+  if [ -f "$desc_file" ]; then
+    # Grep the objective line and extract text after "objective: "
+    desc=$(grep "^objective:" "$desc_file" | sed 's/^objective:[[:space:]]*//')
+  fi
+
+  [ -z "$desc" ] && desc="No description available"
+  echo "$desc"
 }
 
 case "$1" in
@@ -49,7 +64,25 @@ case "$1" in
     [ -f /etc/profile.d/labctl.sh ] && source /etc/profile.d/labctl.sh
     ;;
   list)
-    ls "$LAB_ROOT"
+    printf "%-16s  %s\n" "LAB" "DESCRIPTION"
+    printf "%-16s  %s\n" "----------------" "----------------------------------------------"
+    for lab in $(ls -1 "$LAB_ROOT" | sort); do
+      desc=$(lab_description "$lab")
+      printf "%-16s  %s\n" "$lab" "$desc"
+    done
+    ;;
+  solution)
+    require_lab "$2"
+    solfile="$LAB_ROOT/$2/solution.md"
+    if [ ! -f "$solfile" ]; then
+      echo "No solution available for lab: $2" >&2
+      exit 1
+    fi
+    if command -v less >/dev/null 2>&1 && [ -t 1 ]; then
+      less -R "$solfile"
+    else
+      cat "$solfile"
+    fi
     ;;
   *)
     usage
