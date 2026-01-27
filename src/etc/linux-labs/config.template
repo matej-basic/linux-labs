@@ -9,12 +9,12 @@
 
 # Network Configuration
 # Define the network subnet for lab VMs (if using multi-node labs)
-# Format: CIDR notation (e.g., 192.168.100.0/24)
-LAB_NETWORK="192.168.100.0/24"
+# Format: CIDR notation (e.g., 172.25.250.0/24)
+LAB_NETWORK="172.25.250.0/24"
 
 # Default gateway for lab network
 # Should be first or last usable IP in the LAB_NETWORK subnet
-LAB_GATEWAY="192.168.100.1"
+LAB_GATEWAY="172.25.250.1"
 
 # DNS server for lab network
 # Can be local (bind/named) or external (8.8.8.8, 1.1.1.1, etc.)

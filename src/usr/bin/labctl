@@ -63,8 +63,8 @@ setup_default_config() {
   mkdir -p "$CONFIG_DIR"
   cat > "$CONFIG_FILE" << 'EOF'
 # Linux Labs Configuration
-LAB_NETWORK="192.168.100.0/24"
-LAB_GATEWAY="192.168.100.1"
+LAB_NETWORK="172.25.250.0/24"
+LAB_GATEWAY="172.25.250.254"
 LAB_DNS="8.8.8.8"
 NODES_ENABLED=false
 NODE_COUNT=1
@@ -132,11 +132,11 @@ configure_interactive() {
     NODE_IPS=""
   fi
   
-  read -p "Lab network [${LAB_NETWORK}]: " lab_network
-  LAB_NETWORK="${lab_network:-$LAB_NETWORK}"
+  read -p "Lab network [${LAB_NETWORK:-172.25.250.0/24}]: " lab_network
+  LAB_NETWORK="${lab_network:-${LAB_NETWORK:-172.25.250.0/24}}"
   
-  read -p "Gateway IP [${LAB_GATEWAY}]: " lab_gateway
-  LAB_GATEWAY="${lab_gateway:-$LAB_GATEWAY}"
+  read -p "Gateway IP [${LAB_GATEWAY:-172.25.250.254}]: " lab_gateway
+  LAB_GATEWAY="${lab_gateway:-${LAB_GATEWAY:-172.25.250.254}}"
   
   read -p "DNS server [${LAB_DNS}]: " lab_dns
   LAB_DNS="${lab_dns:-$LAB_DNS}"
