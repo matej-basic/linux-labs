@@ -1,0 +1,66 @@
+# Linux Labs System Configuration
+# This file is used to configure the lab environment for multi-node and advanced labs
+# Location: /etc/linux-labs/config (system-wide) or ~/.config/linux-labs/config (user)
+#
+# Configuration Priority:
+# 1. /etc/linux-labs/config (system-wide - highest priority)
+# 2. ~/.config/linux-labs/config (user-specific)
+# 3. Built-in defaults (lowest priority)
+
+# Network Configuration
+# Define the network subnet for lab VMs (if using multi-node labs)
+# Format: CIDR notation (e.g., 192.168.100.0/24)
+LAB_NETWORK="192.168.100.0/24"
+
+# Default gateway for lab network
+# Should be first or last usable IP in the LAB_NETWORK subnet
+LAB_GATEWAY="192.168.100.1"
+
+# DNS server for lab network
+# Can be local (bind/named) or external (8.8.8.8, 1.1.1.1, etc.)
+LAB_DNS="8.8.8.8"
+
+# Multi-node Lab Configuration
+# Enable multi-node labs (requires virtualization or containers)
+NODES_ENABLED="false"
+
+# Number of nodes to provision for multi-node labs
+# Only used if NODES_ENABLED=true
+# Common values: 2, 3, 5
+NODE_COUNT="1"
+
+# Static Node IP Addresses (optional)
+# If set, these IPs will be used instead of auto-calculating from LAB_NETWORK
+# Format: Space-separated list of IP addresses
+# Example: NODE_IPS="192.168.100.11 192.168.100.12 192.168.100.13"
+# Leave empty to auto-calculate IPs from LAB_NETWORK
+NODE_IPS=""
+
+# SSH Configuration (for multi-node labs)
+# Path to SSH private key for connecting to lab nodes
+# Default: ~/.ssh/id_rsa
+SSH_KEY_PATH="$HOME/.ssh/id_rsa"
+
+# SSH user for connecting to lab nodes
+# Default: root
+SSH_USER="root"
+
+# SSH port for connecting to lab nodes
+# Default: 22
+SSH_PORT="22"
+
+# Container/Virtualization Configuration
+# Enable Docker for containerized labs
+DOCKER_ENABLED="false"
+
+# Examples:
+# =========
+# To enable multi-node labs with 3 nodes:
+#   NODES_ENABLED="true"
+#   NODE_COUNT="3"
+#
+# To use a custom SSH key:
+#   SSH_KEY_PATH="/root/.ssh/custom_key"
+#
+# To use a local DNS server (after dns-02 or dns-03):
+#   LAB_DNS="192.168.100.1"
