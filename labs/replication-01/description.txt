@@ -1,0 +1,6 @@
+category: Database Replication
+complexity: Beginner
+objective: Set up MySQL master-slave replication across multiple nodes
+requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=2), SSH access to nodes, MySQL installed on both nodes
+estimated_time: 30 minutes
+skills: MySQL replication, binary logging, relay logs, multi-node SSH execution
