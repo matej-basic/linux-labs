@@ -2,9 +2,32 @@
 
 LAB_ROOT="/opt/linux-labs/labs"
 STATE_FILE="/opt/linux-labs/.current_lab"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/linux-labs"
+CONFIG_FILE="$CONFIG_DIR/config"
+SYSTEM_CONFIG="/etc/linux-labs/config"
+
+# Use system config if available, otherwise user config
+if [[ -f "$SYSTEM_CONFIG" ]]; then
+    CONFIG_FILE="$SYSTEM_CONFIG"
+fi
 
 usage() {
-  echo "Usage: labctl {start|grade|reset|list|solution} <lab>"
+  echo "Usage: labctl {start|grade|reset|list|solution|configure} <lab>"
+  echo ""
+  echo "Commands:"
+  echo "  start <lab>              - Start a lab (requires root)"
+  echo "  grade <lab>              - Grade a lab"
+  echo "  reset <lab>              - Reset a lab (requires root)"
+  echo "  list                     - List all labs"
+  echo "  solution <lab>           - Show lab solution"
+  echo "  configure <action>       - Configure lab environment"
+  echo ""
+  echo "Configuration actions:"
+  echo "  configure interactive    - Interactive configuration wizard"
+  echo "  configure list           - Show current configuration"
+  echo "  configure set KEY VALUE  - Set configuration value"
+  echo "  configure validate       - Validate configuration"
+  echo "  configure reset          - Reset to defaults"
   exit 1
 }
 
@@ -33,6 +56,185 @@ lab_description() {
 
   [ -z "$desc" ] && desc="No description available"
   echo "$desc"
+}
+
+# Setup default configuration
+setup_default_config() {
+  mkdir -p "$CONFIG_DIR"
+  cat > "$CONFIG_FILE" << 'EOF'
+# Linux Labs Configuration
+LAB_NETWORK="192.168.100.0/24"
+LAB_GATEWAY="192.168.100.1"
+LAB_DNS="8.8.8.8"
+NODES_ENABLED=false
+NODE_COUNT=1
+NODE_IPS=""
+SSH_KEY_PATH="$HOME/.ssh/id_rsa"
+SSH_USER="root"
+SSH_PORT="22"
+DOCKER_ENABLED=false
+EOF
+  echo "✓ Created default config at $CONFIG_FILE"
+}
+
+# Load configuration
+load_config() {
+  if [[ ! -f "$CONFIG_FILE" ]]; then
+    setup_default_config
+  fi
+  source "$CONFIG_FILE" 2>/dev/null || true
+}
+
+# Interactive configuration wizard
+configure_interactive() {
+  echo "======================================"
+  echo "Linux Labs Configuration Wizard"
+  echo "======================================"
+  echo ""
+  
+  load_config
+  
+  echo "Current settings:"
+  echo "  Lab Network: $LAB_NETWORK"
+  echo "  Gateway: $LAB_GATEWAY"
+  echo "  DNS: $LAB_DNS"
+  echo "  Multi-node: $NODES_ENABLED"
+  echo "  Node IPs: ${NODE_IPS:-auto-calculated}"
+  echo ""
+  
+  read -p "Enable multi-node labs? (y/n) [n]: " nodes_enabled
+  if [[ "$nodes_enabled" == "y" || "$nodes_enabled" == "Y" ]]; then
+    NODES_ENABLED=true
+    read -p "Number of nodes? [3]: " node_count
+    NODE_COUNT="${node_count:-3}"
+    
+    echo ""
+    echo "Node IP Configuration:"
+    echo "  1. Auto-calculate from network (e.g., 192.168.100.11, .12, .13)"
+    echo "  2. Set static IP addresses"
+    read -p "Choose option [1]: " ip_option
+    
+    if [[ "$ip_option" == "2" ]]; then
+      echo ""
+      echo "Enter static IP addresses (space-separated):"
+      read -p "IPs: " static_ips
+      NODE_IPS="$static_ips"
+      # Update NODE_COUNT based on number of IPs provided
+      NODE_COUNT=$(echo "$NODE_IPS" | wc -w)
+      echo "✓ Using $NODE_COUNT static IPs: $NODE_IPS"
+    else
+      NODE_IPS=""
+      echo "✓ IPs will be auto-calculated from $LAB_NETWORK"
+    fi
+  else
+    NODES_ENABLED=false
+    NODE_COUNT=1
+    NODE_IPS=""
+  fi
+  
+  read -p "Lab network [${LAB_NETWORK}]: " lab_network
+  LAB_NETWORK="${lab_network:-$LAB_NETWORK}"
+  
+  read -p "Gateway IP [${LAB_GATEWAY}]: " lab_gateway
+  LAB_GATEWAY="${lab_gateway:-$LAB_GATEWAY}"
+  
+  read -p "DNS server [${LAB_DNS}]: " lab_dns
+  LAB_DNS="${lab_dns:-$LAB_DNS}"
+  
+  # Save configuration
+  mkdir -p "$CONFIG_DIR"
+  cat > "$CONFIG_FILE" << EOF
+# Linux Labs Configuration
+LAB_NETWORK="$LAB_NETWORK"
+LAB_GATEWAY="$LAB_GATEWAY"
+LAB_DNS="$LAB_DNS"
+NODES_ENABLED=$NODES_ENABLED
+NODE_COUNT=$NODE_COUNT
+NODE_IPS="$NODE_IPS"
+SSH_KEY_PATH="\$HOME/.ssh/id_rsa"
+SSH_USER="root"
+SSH_PORT="22"
+DOCKER_ENABLED=false
+EOF
+  
+  echo ""
+  echo "✓ Configuration saved to $CONFIG_FILE"
+}
+
+# List current configuration
+configure_list() {
+  load_config
+  echo "Current Lab Configuration:"
+  echo "=========================="
+  echo "Network: $LAB_NETWORK"
+  echo "Gateway: $LAB_GATEWAY"
+  echo "DNS: $LAB_DNS"
+  echo "Multi-node enabled: $NODES_ENABLED"
+  echo "Node count: $NODE_COUNT"
+  if [[ -n "$NODE_IPS" ]]; then
+    echo "Node IPs (static): $NODE_IPS"
+  else
+    echo "Node IPs: auto-calculated from network"
+  fi
+  echo "SSH Key: $SSH_KEY_PATH"
+  echo "SSH User: $SSH_USER"
+  echo "SSH Port: $SSH_PORT"
+  echo "Config file: $CONFIG_FILE"
+  echo ""
+}
+
+# Set specific configuration value
+configure_set() {
+  local key="$1"
+  local value="$2"
+  
+  if [[ -z "$key" || -z "$value" ]]; then
+    echo "Usage: labctl configure set KEY VALUE"
+    exit 1
+  fi
+  
+  load_config
+  mkdir -p "$CONFIG_DIR"
+  
+  # Update configuration file
+  if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
+    sed -i "s|^${key}=.*|${key}=\"${value}\"|" "$CONFIG_FILE"
+  else
+    echo "${key}=\"${value}\"" >> "$CONFIG_FILE"
+  fi
+  
+  echo "✓ Set $key = $value"
+}
+
+# Validate configuration
+configure_validate() {
+  load_config
+  
+  echo "Validating configuration..."
+  
+  # Check network syntax
+  if [[ ! "$LAB_NETWORK" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+    echo "✗ Invalid network format: $LAB_NETWORK"
+    return 1
+  fi
+  echo "✓ Network format valid"
+  
+  # Check gateway IP
+  if [[ ! "$LAB_GATEWAY" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    echo "✗ Invalid gateway IP: $LAB_GATEWAY"
+    return 1
+  fi
+  echo "✓ Gateway IP valid"
+  
+  # Check DNS IP
+  if [[ ! "$LAB_DNS" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+    echo "✗ Invalid DNS IP: $LAB_DNS"
+    return 1
+  fi
+  echo "✓ DNS IP valid"
+  
+  echo "✓ All validations passed"
+  return 0
 }
 
 case "$1" in
@@ -83,6 +285,32 @@ case "$1" in
     else
       cat "$solfile"
     fi
+    ;;
+  configure)
+    case "$2" in
+      interactive)
+        configure_interactive
+        ;;
+      list)
+        configure_list
+        ;;
+      set)
+        configure_set "$3" "$4"
+        ;;
+      validate)
+        configure_validate
+        ;;
+      reset)
+        rm -f "$CONFIG_FILE"
+        echo "✓ Configuration reset to defaults"
+        setup_default_config
+        ;;
+      *)
+        echo "Unknown configure action: $2"
+        echo "Valid actions: interactive, list, set, validate, reset"
+        exit 1
+        ;;
+    esac
     ;;
   *)
     usage

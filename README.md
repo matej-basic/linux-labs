@@ -2,6 +2,8 @@
 
 A comprehensive collection of hands-on Linux lab exercises covering essential system administration topics.
 
+**New in v1.0**: Interactive configuration system for multi-node lab support! See [QUICKSTART.md](QUICKSTART.md) or [CONFIGURE_SYSTEM.md](CONFIGURE_SYSTEM.md).
+
 ## Quick Start
 
 Browse available labs in the [`labs/`](labs/) directory. Each lab contains:
@@ -98,6 +100,96 @@ bash cleanup.sh
 - **postgres-01** - Installation and initialization
 - **postgres-02** - Role and database management
 - **postgres-03** - Backup and recovery
+
+### 🌍 DNS (3 labs)
+- **dns-01** - BIND installation and service startup
+- **dns-02** - Zone configuration with DNS records
+- **dns-03** - DNSSEC configuration and zone signing
+
+## Documentation
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for common commands and workflows
+- **[CONFIGURE_SYSTEM.md](CONFIGURE_SYSTEM.md)** - Complete guide to the configuration system
+- **[LAB_IDEAS.md](LAB_IDEAS.md)** - Roadmap of planned labs (392+ labs in 30+ categories)
+
+## Configuration System
+
+The Linux Labs package includes a configuration system for advanced lab setups, particularly for multi-node labs and custom networking:
+
+### Using labctl configure
+
+Configure your lab environment interactively:
+
+```bash
+# Interactive configuration wizard
+sudo labctl configure interactive
+
+# View current configuration
+labctl configure list
+
+# Set a specific value
+labctl configure set NODE_COUNT 3
+
+# Validate your configuration
+labctl configure validate
+
+# Reset to defaults
+sudo labctl configure reset
+```
+
+### Configuration Options
+
+Configuration is stored in:
+- `/etc/linux-labs/config` (system-wide, highest priority)
+- `~/.config/linux-labs/config` (user-specific)
+
+Key configuration parameters:
+
+```bash
+# Network Configuration
+LAB_NETWORK="192.168.100.0/24"    # Lab subnet
+LAB_GATEWAY="192.168.100.1"        # Default gateway
+LAB_DNS="8.8.8.8"                  # DNS server
+
+# Multi-node Lab Configuration
+NODES_ENABLED="false"              # Enable multi-node labs
+NODE_COUNT="1"                     # Number of nodes
+
+# SSH Configuration (for multi-node labs)
+SSH_KEY_PATH="$HOME/.ssh/id_rsa"   # SSH private key
+SSH_USER="root"                    # SSH user
+SSH_PORT="22"                      # SSH port
+```
+
+### Multi-node Labs
+
+For future multi-node labs, enable the configuration system:
+
+```bash
+sudo labctl configure interactive
+# Answer: y for multi-node labs
+# Enter: 3 for three nodes
+# Configure network and SSH settings as needed
+```
+
+Lab scripts can then source the configuration to access these settings:
+
+```bash
+source /opt/linux-labs/lib/load-config.sh
+
+# Access configuration variables
+echo "Network: $LAB_NETWORK"
+echo "Nodes: $NODE_COUNT"
+
+# Get node IPs
+get_all_node_ips
+
+# Test connectivity to a node
+test_node_connectivity 192.168.100.11
+
+# Execute commands on a node
+run_on_node 192.168.100.11 "systemctl status httpd"
+```
 
 ## Future Labs
 

@@ -72,6 +72,11 @@
 - **dns-02** (Intermediate): Zone configuration and records
 - **dns-03** (Advanced): DNSSEC and replication
 
+### ✅ Database Replication (Completed)
+- **replication-01** (Beginner): MySQL master-slave replication
+- **replication-02** (Intermediate): PostgreSQL streaming replication
+- **replication-03** (Advanced): MySQL multi-master circular replication
+
 ---
 
 ## Proposed Lab Ideas
@@ -360,18 +365,25 @@
 - **cryptographic-key-02** (Intermediate): Key management
 - **cryptographic-key-03** (Advanced): Threshold cryptography
 
-### Business Continuity & Disaster Recovery
+### Backup & Disaster Recovery
+- **backup-rsync-01** (Beginner): Rsync backup basics
+- **backup-rsync-02** (Intermediate): Incremental backups
+- **backup-rsync-03** (Advanced): Automated backup strategies
+- **amanda-01** (Beginner): Amanda backup system setup
+- **amanda-02** (Intermediate): Backup scheduling
+- **amanda-03** (Advanced): Restore procedures
+- **bacula-01** (Beginner): Bacula installation
+- **bacula-02** (Intermediate): Backup job configuration
+- **bacula-03** (Advanced): Disaster recovery
+- **dr-01** (Beginner): DR planning basics
+- **dr-02** (Intermediate): Backup testing
+- **dr-03** (Advanced): Full system recovery
 - **failover-testing-01** (Beginner): RTO/RPO planning
 - **failover-testing-02** (Intermediate): DR drills
 - **failover-testing-03** (Advanced): Automated failover
-- **replication-01** (Beginner): Database replication basics
-- **replication-02** (Intermediate): Streaming replication
-- **replication-03** (Advanced): Multi-master replication
 - **clustering-01** (Beginner): HA clustering basics
 - **clustering-02** (Intermediate): Failover mechanisms
 - **clustering-03** (Advanced): Split-brain prevention
-
-### Cloud & Enterprise
 - **aws-basics-01** (Beginner): AWS fundamentals
 - **aws-basics-02** (Intermediate): IAM and security groups
 - **aws-basics-03** (Advanced): Advanced VPC and automation
@@ -386,8 +398,8 @@
 
 ## Lab Statistics
 
-- **Completed Labs**: 42 (39 original + 3 DNS labs)
-- **Proposed Labs**: 350+ (including advanced categories)
+- **Completed Labs**: 45 (39 original + 3 DNS + 3 Replication)
+- **Proposed Labs**: 347+ (including advanced categories)
 - **Total Planned Labs**: 392+
 
 ## Categories Overview
@@ -407,6 +419,7 @@
 | Users | 3 | 0 | 3 |
 | Web Servers | 3 | 0 | 3 |
 | Databases | 6 | 27 | 33 |
+| Database Replication | 3 | 0 | 3 |
 | Containers | 0 | 12 | 12 |
 | Security | 0 | 39 | 39 |
 | Monitoring | 0 | 30 | 30 |
@@ -429,5 +442,5 @@
 | Advanced Cryptography | 0 | 12 | 12 |
 | Business Continuity | 0 | 9 | 9 |
 | Cloud & Enterprise | 0 | 9 | 9 |
-| **TOTAL** | **42** | **350+** | **392+** |
+| **TOTAL** | **45** | **347+** | **392+** |
 
