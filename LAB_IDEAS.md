@@ -156,9 +156,11 @@
 - **tuning-01** (Beginner): Memory and swap tuning
 - **tuning-02** (Intermediate): CPU and I/O optimization
 - **tuning-03** (Advanced): Kernel parameter tuning
-- **lb-01** (Beginner): HAProxy basic load balancing
-- **lb-02** (Intermediate): Nginx reverse proxy
-- **lb-03** (Advanced): Advanced load balancing patterns
+
+### Load Balancing & High Availability
+- **lb-01** (Beginner): HAProxy basic load balancing across 3 web servers
+- **lb-02** (Intermediate): Nginx reverse proxy with health checks
+- **lb-03** (Advanced): Advanced failover with keepalived VIP
 
 ### Backup & Disaster Recovery
 - **backup-rsync-01** (Beginner): Rsync backup basics
