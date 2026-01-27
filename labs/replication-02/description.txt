@@ -1,0 +1,6 @@
+category: Database Replication
+complexity: Intermediate
+objective: Configure PostgreSQL streaming replication with WAL archiving
+requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=2+), SSH access to nodes, PostgreSQL installed on all nodes
+estimated_time: 45 minutes
+skills: PostgreSQL streaming replication, WAL archiving, recovery configuration, synchronous replication
