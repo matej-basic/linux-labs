@@ -5,11 +5,11 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 # Check if HTTP service is enabled in public zone
-firewall-cmd --list-services --zone=public 2>/dev/null | grep -q http && \
+firewall-cmd --query-service=http --zone=public &>/dev/null && \
   pass "HTTP service is enabled in public zone" || \
   { fail "HTTP service not found in public zone"; rc=1; }
 
