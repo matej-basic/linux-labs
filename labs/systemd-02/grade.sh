@@ -5,8 +5,8 @@ source /opt/linux-labs/lib/colors.sh
 passcount=0
 failcount=0
 
-ok()   { pass "$*"; ((passcount++)); }
-err()  { fail "$*"; ((failcount++)); }
+ok()   { pass "$*"; ((++passcount)); }
+err()  { fail "$*"; ((++failcount)); }
 
 # Check unit file exists
 if [[ -f /etc/systemd/system/custom-app.service ]]; then

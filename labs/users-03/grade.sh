@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 # Check groups
 if getent group devops >/dev/null && [ "$(getent group devops | cut -d: -f3)" = "2000" ]; then

@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); rc=1; }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
 
 # Check if MySQL package is installed
 if rpm -q mysql-server mariadb-server > /dev/null 2>&1 | grep -q mysql-server || rpm -q mariadb-server > /dev/null 2>&1; then

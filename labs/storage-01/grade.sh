@@ -6,8 +6,8 @@ failcount=0
 passcount=0
 
 # Helpers
-ok()   { pass "$*"; ((passcount++)); }
-err()  { fail "$*"; ((failcount++)); }
+ok()   { pass "$*"; ((++passcount)); }
+err()  { fail "$*"; ((++failcount)); }
 
 # Check /tmp/disk.img exists
 if [[ -f /tmp/disk.img ]]; then

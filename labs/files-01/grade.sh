@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 [ -d /tmp/data ] && pass "/tmp/data exists" || { fail "/tmp/data missing"; rc=1; }
 [ -f /tmp/data/info.txt ] && pass "info.txt exists" || { fail "info.txt missing"; rc=1; }

@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 rpm -q curl &>/dev/null && pass "curl package is installed" || { fail "curl package not installed"; rc=1; }
 [ -f /tmp/curl-files.txt ] && pass "/tmp/curl-files.txt exists" || { fail "/tmp/curl-files.txt not found"; rc=1; }

@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 dnf repolist | grep -qi "epel" && pass "EPEL repository is enabled" || { fail "EPEL repository not found"; rc=1; }
 rpm -q htop &>/dev/null && pass "htop package is installed" || { fail "htop package not installed"; rc=1; }

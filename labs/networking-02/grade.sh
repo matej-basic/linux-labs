@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 nmcli connection show vlan10 &>/dev/null && pass "Connection 'vlan10' exists" || { fail "Connection 'vlan10' missing"; rc=1; }
 ip link show vlan10 &>/dev/null && pass "VLAN interface vlan10 exists" || { fail "VLAN interface vlan10 missing"; rc=1; }

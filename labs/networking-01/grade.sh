@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 nmcli connection show labnet-static &>/dev/null && pass "Connection 'labnet-static' exists" || { fail "Connection 'labnet-static' missing"; rc=1; }
 ip addr show | grep -q "192.168.1.100" && pass "IP 192.168.1.100 configured" || { fail "IP 192.168.1.100 not found"; rc=1; }

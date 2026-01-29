@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); return 0; }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); return 1; }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); return 0; }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); return 1; }
 
 [ -d /var/log/journal ] && pass "Persistent journal directory exists" || { fail "/var/log/journal not found"; rc=1; }
 journalctl --disk-usage &>/dev/null && pass "Can query journal disk usage" || { fail "Cannot access journal"; rc=1; }

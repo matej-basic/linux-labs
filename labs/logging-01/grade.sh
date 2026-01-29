@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 journalctl -u systemd-logind -n 1 &>/dev/null && pass "Filter by service (journalctl -u)" || { fail "Cannot filter by service"; rc=1; }
 journalctl -p err -n 1 &>/dev/null && pass "Filter by priority (journalctl -p err)" || { fail "Cannot filter by priority"; rc=1; }

@@ -5,8 +5,8 @@ source /opt/linux-labs/lib/colors.sh
 passcount=0
 failcount=0
 
-ok()   { pass "$*"; ((passcount++)); }
-err()  { fail "$*"; ((failcount++)); }
+ok()   { pass "$*"; ((++passcount)); }
+err()  { fail "$*"; ((++failcount)); }
 
 # Check unit files exist
 if [[ -f /etc/systemd/system/lab-worker.service ]]; then

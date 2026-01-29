@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 [ -f /etc/rsyslog.d/myapp.conf ] && pass "Rsyslog config exists" || { fail "Missing /etc/rsyslog.d/myapp.conf"; rc=1; }
 grep -Eq "^\s*local0\.\*\s+/var/log/myapp\.log" /etc/rsyslog.d/myapp.conf 2>/dev/null && pass "Rsyslog local0 facility filter present" || { fail "local0 facility filter not found"; rc=1; }

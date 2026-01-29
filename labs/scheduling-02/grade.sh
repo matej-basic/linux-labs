@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 [ -f /etc/systemd/system/lab-task.service ] && pass "lab-task.service exists" || { fail "lab-task.service missing"; rc=1; }
 grep -q "Type=oneshot" /etc/systemd/system/lab-task.service && pass "Service has Type=oneshot" || { fail "Type=oneshot missing"; rc=1; }
