@@ -5,8 +5,8 @@ rc=0
 passcount=0
 failcount=0
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((passcount++)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((failcount++)); }
+pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
+fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
 
 # Check if the rich rule exists for port 443 from 192.168.1.0/24
 firewall-cmd --list-rich-rules --zone=public 2>/dev/null | grep -q 'source address="192.168.1.0/24".*port="443"' && \
@@ -15,7 +15,7 @@ firewall-cmd --list-rich-rules --zone=public 2>/dev/null | grep -q 'source addre
 
 # Check if trusted zone has an interface assigned
 get_active_zones=$(firewall-cmd --get-active-zones 2>/dev/null)
-echo "$get_active_zones" | grep -A 5 "trusted" | grep -qE "^\s+(eth|ens)" && \
+echo "$get_active_zones" | grep -A 5 "trusted" | grep -qE "(eth|ens)" && \
   pass "Trusted zone has an interface assigned" || \
   { fail "Trusted zone interface assignment not found"; rc=1; }
 
