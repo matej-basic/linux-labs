@@ -3,7 +3,8 @@
 # Print information about cleanup
 echo "Cleaning up Web Servers - SSL Configuration (webserver-03) lab environment..."
 
-systemctl stop httpd > /dev/null 2>&1
+systemctl stop httpd &>/dev/null || true
+systemctl disable httpd &>/dev/null || true
 rm -rf /var/www/lab3
 rm -f /etc/httpd/conf.d/lab3.conf
 rm -f /etc/pki/tls/certs/lab3.crt

@@ -3,7 +3,7 @@
 # Print information about cleanup
 echo "Cleaning up Web Servers - Virtual Hosts (webserver-02) lab environment..."
 
-systemctl stop httpd 2>/dev/null
+systemctl stop httpd &>/dev/null || true
 rm -rf /var/www/lab2
 rm -f /etc/httpd/conf.d/lab2.conf
 sed -i '/lab2.local/d' /etc/hosts

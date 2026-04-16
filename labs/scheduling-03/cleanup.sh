@@ -28,6 +28,6 @@ sudo rm -f /var/log/env-task.log
 sudo rm -f /var/log/anacron-task.log
 sudo rm -f /var/log/persistent-task.log
 
-sudo systemctl daemon-reload
+sudo systemctl daemon-reload &>/dev/null
 
 echo "Cleanup complete."
