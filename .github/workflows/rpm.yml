@@ -1,0 +1,188 @@
+name: rpm
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container: rockylinux/rockylinux:8
+    steps:
+      - name: Install build tools
+        run: dnf -y install rpm-build tar gzip sudo git findutils
+
+      - uses: actions/checkout@v4
+
+      - name: Build RPM
+        run: bash scripts/build-rpm-linux.sh
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-unsigned
+          path: packaging/rpmbuild/RPMS/noarch/*.noarch.rpm
+          if-no-files-found: error
+
+  smoke:
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ['rockylinux/rockylinux:8', 'rockylinux/rockylinux:9']
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpm-unsigned
+
+      - name: Install RPM
+        run: dnf -y install ./linux-labs-*.noarch.rpm
+
+      - name: labctl list
+        run: labctl list
+
+      - name: Check labctl mode is 755
+        run: |
+          mode="$(stat -c %a /usr/bin/labctl)"
+          echo "/usr/bin/labctl mode: $mode"
+          test "$mode" = "755"
+
+      - name: Check sudoers
+        run: visudo -c
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, smoke]
+    runs-on: ubuntu-latest
+    container: rockylinux/rockylinux:8
+    steps:
+      - name: Install signing tools
+        run: dnf -y install rpm-sign gnupg2 git
+
+      - uses: actions/checkout@v4
+
+      - name: Check tag matches spec Version
+        run: |
+          tag_version="${GITHUB_REF_NAME#v}"
+          spec_version="$(awk '/^Version:/ {print $2; exit}' rpm/linux-labs.spec)"
+          echo "tag: $tag_version, spec: $spec_version"
+          if [ "$tag_version" != "$spec_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match spec Version $spec_version"
+            exit 1
+          fi
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpm-unsigned
+          path: dist
+
+      - name: Sign RPM
+        env:
+          RPM_GPG_PRIVATE_KEY: ${{ secrets.RPM_GPG_PRIVATE_KEY }}
+          RPM_GPG_PASSPHRASE: ${{ secrets.RPM_GPG_PASSPHRASE }}
+        run: bash scripts/sign-rpm.sh dist/*.noarch.rpm
+
+      - name: Verify signature
+        run: |
+          rpm --import RPM-GPG-KEY-linux-labs
+          for f in dist/*.noarch.rpm; do
+            out="$(rpm -K "$f")"
+            echo "$out"
+            case "$out" in
+              *"signatures OK"*) ;;
+              *) echo "::error::Bad or missing signature on $f"; exit 1 ;;
+            esac
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm-signed
+          path: dist/*.noarch.rpm
+          if-no-files-found: error
+
+  release-smoke:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release
+    runs-on: ubuntu-latest
+    container: rockylinux/rockylinux:9
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpm-signed
+          path: dist
+
+      - name: Install signed RPM with gpgcheck
+        run: |
+          rpm --import RPM-GPG-KEY-linux-labs
+          dnf -y --setopt=gpgcheck=1 --setopt=localpkg_gpgcheck=1 install ./dist/linux-labs-*.noarch.rpm
+          labctl list
+          test "$(stat -c %a /usr/bin/labctl)" = "755"
+          visudo -c
+
+  publish:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: release-smoke
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: gh-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: rpm-signed
+          path: dist
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" dist/*.noarch.rpm --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" dist/*.noarch.rpm \
+              --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+          fi
+
+      - name: Install createrepo_c
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q createrepo-c
+
+      - name: Check out gh-pages
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null; then
+            git fetch --depth 1 origin +refs/heads/gh-pages:refs/remotes/origin/gh-pages
+            git worktree add -B gh-pages site origin/gh-pages
+          else
+            git worktree add --detach site
+            git -C site checkout --orphan gh-pages
+            git -C site rm -rf --quiet .
+          fi
+
+      - name: Update dnf repo and site files
+        run: bash scripts/update-pages.sh site dist/*.noarch.rpm
+
+      - name: Push gh-pages
+        run: |
+          cd site
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "gh-pages unchanged"
+            exit 0
+          fi
+          git commit -q -m "Publish ${GITHUB_REF_NAME}"
+          git push origin gh-pages

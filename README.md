@@ -238,62 +238,100 @@ linux-labs/
 │       └── share/
 │           └── man/man1/
 │               └── labctl.1 # Man page
-├── scripts/                 # Build automation
-│   └── build-rpm-linux.sh   # Script to build the RPM package
+├── rpm/
+│   └── linux-labs.spec      # RPM spec (Version: is the release version)
+├── scripts/                 # Build and release automation
+│   ├── build-rpm-linux.sh   # Build the RPM (optionally deploy to a test VM)
+│   ├── sign-rpm.sh          # Sign RPMs with the release key (used by CI)
+│   └── update-pages.sh      # Refresh the dnf repo on gh-pages (used by CI)
+├── pages/                   # index.html and .repo file for GitHub Pages
+├── .github/workflows/
+│   └── rpm.yml              # Build, smoke test, sign, release, publish
+├── install.sh               # curl installer, served as /install on Pages
+├── RPM-GPG-KEY-linux-labs   # Public key the RPMs are signed with
 ├── README.md                # This file
 ├── LAB_IDEAS.md            # Comprehensive lab roadmap
 └── .gitignore              # Git configuration
 
 # Local directories (created during build, not in git)
 packaging/
-└── rpmbuild/               # RPM build system (created by build script)
+└── rpmbuild/               # rpmbuild topdir (created by build script)
     ├── SOURCES/
-    ├── SPECS/
+    ├── SPECS/              # Copy of rpm/linux-labs.spec
     ├── BUILD/              # Build artifacts
     ├── BUILDROOT/          # Installation root
     ├── RPMS/               # Built RPM packages
     └── SRPMS/              # Source RPM packages
 ```
 
-## Building the RPM Package
+## Building the RPM package
 
-To create an installable RPM package:
+The spec is `rpm/linux-labs.spec`. Build on a Rocky/RHEL 8 host or container with `rpm-build` and `sudo` installed (`sudo` provides `visudo`, which the spec's `%check` uses to validate the sudoers rule):
 
 ```bash
-cd scripts/
-./build-rpm-linux.sh
+scripts/build-rpm-linux.sh
 ```
 
-This script will:
-1. Sync labs, configuration files, and binaries from the root source directories to the packaging build directory
-2. Create a source tarball with all lab content and system files
-3. Build the RPM using rpmbuild
-4. Place the finished RPM in `packaging/rpmbuild/RPMS/noarch/`
+The script reads `Name:` and `Version:` from the spec, then:
+1. Deletes and re-creates `packaging/rpmbuild/SOURCES/<name>-<version>/` from `labs/`, `src/etc/`, `src/usr/` and `src/opt/linux-labs/lib/`
+2. Copies the spec to `packaging/rpmbuild/SPECS/`
+3. Creates the source tarball and runs `rpmbuild`
+4. Leaves the RPM in `packaging/rpmbuild/RPMS/noarch/`
 
-**Important**: The build script performs these operations on each build:
-- Deletes and re-syncs `labs/` → `packaging/rpmbuild/SOURCES/linux-labs-1.0/opt/linux-labs/labs/`
-- Deletes and re-syncs `src/etc/` → `packaging/rpmbuild/SOURCES/linux-labs-1.0/etc/`
-- Deletes and re-syncs `src/usr/` → `packaging/rpmbuild/SOURCES/linux-labs-1.0/usr/`
+`packaging/` is a local build directory and is not tracked in git. Edit `labs/`, `src/` and `rpm/linux-labs.spec`, never the copies under `packaging/`.
 
-This ensures all changes to `labs/`, `src/etc/`, and `src/usr/` are included in the RPM.
+To install the fresh build on a test VM, add `--deploy`:
 
-**Note**: The `packaging/` directory is local-only and not tracked in git. For development, work directly in the root `labs/` and `src/` directories and the build script will pick up changes automatically on the next build.
+```bash
+scripts/build-rpm-linux.sh --deploy root@10.0.0.149
+```
+
+This copies the RPM to `/root/` on that host with `scp`, then removes and reinstalls `linux-labs` there with `dnf`. Without `--deploy` the script does not contact any host.
+
+The build targets EL8 and the result is one noarch RPM (`Release: 1`, no dist tag) that installs on both EL8 and EL9.
+
+### CI and releases
+
+`.github/workflows/rpm.yml` builds the RPM in a `rockylinux/rockylinux:8` container on every push to `main` and every pull request, then installs it on Rocky 8 and Rocky 9 and runs `labctl list`, checks that `/usr/bin/labctl` is mode 755 and runs `visudo -c`.
+
+To release a new version:
+
+1. Bump `Version:` in `rpm/linux-labs.spec` and add a `%changelog` entry.
+2. Commit and push to `main`.
+3. Tag and push the tag:
+
+   ```bash
+   git tag v1.2.0
+   git push origin v1.2.0
+   ```
+
+On a `vX.Y.Z` tag the workflow also checks that the tag matches the spec `Version:` (and fails if not), signs the RPM with the release key (secrets `RPM_GPG_PRIVATE_KEY` and `RPM_GPG_PASSPHRASE`), installs the signed RPM on Rocky 9 with `gpgcheck=1`, creates a GitHub Release with the RPM attached, and adds the RPM to the dnf repository on the `gh-pages` branch, which GitHub Pages serves at https://matej-basic.github.io/linux-labs/.
 
 ## Installation
 
-To install the labs on a target system:
+On Rocky Linux, RHEL or AlmaLinux 8 or 9:
 
 ```bash
-# Install from RPM
-dnf install linux-labs-1.0-1.el8.noarch.rpm
-
-# Labs will be installed to /opt/linux-labs/
-# The labctl tool will be available in your PATH
+curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
 ```
+
+The installer adds the `linux-labs` dnf repository, imports the signing key and installs the package, or upgrades it if it is already installed. Other distributions and EL10 are rejected.
+
+To do the same by hand:
+
+```bash
+sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://matej-basic.github.io/linux-labs/linux-labs.repo
+sudo rpm --import https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-labs
+sudo dnf install linux-labs
+```
+
+Later versions arrive with `sudo dnf upgrade linux-labs`. Each release RPM is also attached to its [GitHub Release](https://github.com/matej-basic/linux-labs/releases).
+
+Labs are installed to `/opt/linux-labs/` and `labctl` to `/usr/bin/labctl`. Start with `labctl list`.
 
 ## Requirements
 
-- Rocky Linux 8, RHEL 8, or compatible system
+- Rocky Linux, RHEL or AlmaLinux 8 or 9
 - Bash shell
 - Standard Linux utilities (grep, sed, awk, etc.)
 - Root access for some labs

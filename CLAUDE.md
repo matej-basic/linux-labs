@@ -29,7 +29,7 @@ Each lab directory has exactly five files:
 | `description.txt` | `labctl list` | `key: value` lines; `list` shows the `objective:` line |
 | `solution.md` | `labctl solution` | |
 
-labctl only accepts a lab name if at least one of the three scripts is executable on the installed system. File modes in git are inconsistent (most scripts are `100644`, including tested labs such as `lb-01`), so the installed permissions presumably come from the RPM spec, which is not in the repo (see below).
+labctl only accepts a lab name if at least one of the three scripts is executable on the installed system. File modes in git are inconsistent (most scripts are `100644`, including tested labs such as `lb-01`), which does not matter on the installed system: the spec's `%install` runs `chmod 0755` on every `*.sh` under `/opt/linux-labs`.
 
 When adding a lab, also update `LAB_IDEAS.md` (catalog with completion status) and the category list in `README.md`.
 
@@ -46,12 +46,19 @@ Config precedence in `load_lab_config`: environment variables, then the config f
 ## Building the RPM
 
 ```bash
-scripts/build-rpm-linux.sh   # on a Linux host with rpm-build installed
+scripts/build-rpm-linux.sh                    # on an EL8 host with rpm-build and sudo installed
+scripts/build-rpm-linux.sh --deploy user@host # same, then scp + dnf reinstall on that host
 ```
 
-It copies `labs/`, `src/etc`, `src/usr` and `src/opt/linux-labs/lib` into `packaging/rpmbuild/SOURCES/linux-labs-1.0/`, tars it, and runs `rpmbuild`. `packaging/` is gitignored and local only, and the spec file (`packaging/rpmbuild/SPECS/linux-labs.spec`) lives there, not in git. Edit sources in `labs/` and `src/`, never under `packaging/`.
+The spec is in git at `rpm/linux-labs.spec`, and its `Version:` is the release version. The script reads `Name:`/`Version:` from it, recreates `packaging/rpmbuild/SOURCES/<name>-<version>/` from `labs/`, `src/etc`, `src/usr` and `src/opt/linux-labs/lib`, copies the spec into `packaging/rpmbuild/SPECS/`, tars the sources and runs `rpmbuild`. `packaging/` is still a gitignored local build directory. Edit `labs/`, `src/` and `rpm/linux-labs.spec`, never the copies under `packaging/`.
 
-The last two lines of the build script `scp` the RPM to `root@10.0.0.149` and reinstall it there. That is the author's personal test VM; ask before running the script.
+`Release: 1` has no `%{?dist}`: one noarch RPM built on EL8 serves EL8 and EL9. `%check` runs `visudo -cf` on the sudoers rule, so `sudo` is a BuildRequires. labctl is installed 0755; there is no setuid (the kernel ignores it on scripts, sudo gives root).
+
+Without `--deploy` the script contacts no host. With `--deploy root@10.0.0.149` it copies the RPM to the author's personal test VM and reinstalls it there; ask before using that.
+
+## Releases
+
+`.github/workflows/rpm.yml` builds in a `rockylinux/rockylinux:8` container on pushes to `main` and on PRs, and smoke-tests the RPM on Rocky 8 and 9 (`labctl list`, mode 755, `visudo -c`). Pushing a tag `vX.Y.Z` that matches the spec `Version:` also signs the RPM (`scripts/sign-rpm.sh`, secrets `RPM_GPG_PRIVATE_KEY` and `RPM_GPG_PASSPHRASE`, key fingerprint `2C8B8EF02609AF36359D2D7E603E53FE67BA2549`, public half in `RPM-GPG-KEY-linux-labs`), installs it on Rocky 9 with `gpgcheck=1`, creates a GitHub Release, and adds the RPM to the dnf repo on the `gh-pages` branch (`scripts/update-pages.sh`, `createrepo_c --update`). Pages serves that at `https://matej-basic.github.io/linux-labs/`, together with `install.sh` as `/install`. A tag that does not match `Version:` fails the run. To release: bump `Version:`, add a `%changelog` entry, push to `main`, then push the tag.
 
 ## Testing
 

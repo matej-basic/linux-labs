@@ -1,5 +1,15 @@
 # labctl Quick Reference
 
+## 1. Install
+
+On Rocky Linux, RHEL or AlmaLinux 8 or 9:
+
+```bash
+curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
+```
+
+Run the same command again to upgrade. See [README.md](README.md#installation) for the manual steps.
+
 ## Basic Lab Commands
 
 ```bash

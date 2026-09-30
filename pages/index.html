@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>linux-labs</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; background: #fff; }
+  pre { background: #f4f4f4; padding: 0.75rem 1rem; overflow-x: auto; border-radius: 4px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9rem; }
+  a { color: #0645ad; }
+  @media (prefers-color-scheme: dark) {
+    body { color: #ddd; background: #111; }
+    pre { background: #222; }
+    a { color: #8ab4f8; }
+  }
+</style>
+</head>
+<body>
+<h1>linux-labs</h1>
+<p>Hands-on Linux sysadmin labs for Rocky Linux, RHEL and AlmaLinux 8 and 9, driven by the <code>labctl</code> command.</p>
+
+<h2>Install</h2>
+<pre><code>curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash</code></pre>
+<p>The script adds the dnf repository, imports the signing key and installs the <code>linux-labs</code> package. Run it again to upgrade.</p>
+
+<h2>Manual install</h2>
+<pre><code>sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://matej-basic.github.io/linux-labs/linux-labs.repo
+sudo rpm --import https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-labs
+sudo dnf install linux-labs</code></pre>
+
+<h2>First lab</h2>
+<pre><code>labctl list
+sudo labctl start files-01
+labctl grade files-01
+sudo labctl reset files-01</code></pre>
+
+<p>Source, issues and lab list: <a href="https://github.com/matej-basic/linux-labs">github.com/matej-basic/linux-labs</a></p>
+</body>
+</html>

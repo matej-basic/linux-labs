@@ -260,11 +260,12 @@ Static IPs are useful for:
 The configuration system is built into the Linux Labs RPM:
 
 ```bash
-cd scripts/
-./build-rpm-linux.sh
+# Install from the linux-labs dnf repository
+curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
 
-# Install the RPM
-dnf install packaging/rpmbuild/RPMS/noarch/linux-labs-1.0-1.el8.noarch.rpm
+# Or build and install a local RPM
+scripts/build-rpm-linux.sh
+sudo dnf install packaging/rpmbuild/RPMS/noarch/linux-labs-*.noarch.rpm
 ```
 
 On installation, the configuration files are placed at:
