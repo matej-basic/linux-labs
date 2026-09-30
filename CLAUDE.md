@@ -29,7 +29,7 @@ Each lab directory has exactly five files:
 | `description.txt` | `labctl list` | `key: value` lines; `list` shows the `objective:` line |
 | `solution.md` | `labctl solution` | |
 
-labctl only accepts a lab name if at least one of the three scripts is executable, so keep the `+x` bit when creating files.
+labctl only accepts a lab name if at least one of the three scripts is executable on the installed system. File modes in git are inconsistent (most scripts are `100644`, including tested labs such as `lb-01`), so the installed permissions presumably come from the RPM spec, which is not in the repo (see below).
 
 When adding a lab, also update `LAB_IDEAS.md` (catalog with completion status) and the category list in `README.md`.
 
@@ -37,7 +37,9 @@ When adding a lab, also update `LAB_IDEAS.md` (catalog with completion status) a
 
 **Single-node labs** source `colors.sh`, then redefine `pass`/`fail` locally with counters, and chain checks as `test && pass "..." || { fail "..."; rc=1; }`. Increment counters with `((++passcount))`, never `((passcount++))`: post-increment from 0 returns exit status 1, so in an `&& ... ||` chain a passing check also runs `fail`. This was fixed across the graders in commit 262e8b4; don't reintroduce it. The failure label is `NO PASS`.
 
-**Multi-node labs** (`lb-01..03`, `replication-01..03`) source `load-config.sh` and call `load_lab_config`. They check `NODES_ENABLED=true` and `NODE_COUNT`, then use `get_node_ip N`, `get_all_node_ips` and `run_on_node IP "cmd"` (SSH with `SSH_USER`/`SSH_KEY_PATH`/`SSH_PORT`). These use `if/else` blocks with `((PASS_COUNT++))`, which is safe there only because the increment is not part of an `&&/||` chain. `load-config.sh` defines its own `pass`/`fail` (label `FAIL`).
+**Multi-node labs** (`lb-01..03`, `replication-01..03`, `clustering-01..03`) source `load-config.sh` and call `load_lab_config`. They check `NODES_ENABLED=true` and `NODE_COUNT`, then use `get_node_ip N`, `get_all_node_ips` and `run_on_node IP "cmd"` (SSH with `SSH_USER`/`SSH_KEY_PATH`/`SSH_PORT`). These use `if/else` blocks with `((PASS_COUNT++))`, which is safe there only because the increment is not part of an `&&/||` chain. `load-config.sh` defines its own `pass`/`fail` (label `FAIL`).
+
+The clustering labs are a 3-node Pacemaker/Corosync series (basic cluster, STONITH fencing, quorum and split-brain protection). Use `pcs` and `crm_node` in scripts, not `crm`: crmsh is not installed on the student VMs. Pacemaker, pcs and fence agents come from the `ha` repo, which is disabled by default (`dnf install --enablerepo=ha ...`). Nodes have no root SSH to each other, so solutions copy files between nodes through the workstation. `fence_virsh` in clustering-02 cannot reach a real hypervisor in this environment; the solution sets `migration-threshold=INFINITY` so failing fence devices don't block the resource.
 
 Config precedence in `load_lab_config`: environment variables, then the config file, then defaults. The file is `/etc/linux-labs/config` if it exists, otherwise `~/.config/linux-labs/config`. Node IPs come from `NODE_IPS` (space-separated static list) if set; otherwise node N is `<network base>.<N+9>`. The defaults in `labctl`'s `setup_default_config` and in `load-config.sh` must be kept in sync (they currently disagree on the gateway: `.254` vs `.1`).
 
@@ -58,4 +60,5 @@ No automated tests. A lab is verified by installing the RPM on a Rocky VM and ru
 ## Known issues
 
 - `labs/files-02` uses the Debian user `www-data`; on Rocky it is `apache`, so the lab fails as written.
+- `clustering-01..03` are not yet listed in `README.md` or `LAB_IDEAS.md`, and there is no "Tested clustering-NN" commit for them.
 - `brainstorm/` holds design notes for future labctl features (class dashboard, break-fix labs, hub/spoke multi-node). They are plans, not implemented behaviour.
