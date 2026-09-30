@@ -41,7 +41,7 @@ When adding a lab, also update `LAB_IDEAS.md` (catalog with completion status) a
 
 The clustering labs are a 3-node Pacemaker/Corosync series (basic cluster, STONITH fencing, quorum and split-brain protection). Use `pcs` and `crm_node` in scripts, not `crm`: crmsh is not installed on the student VMs. Pacemaker, pcs and fence agents come from the `ha` repo, which is disabled by default (`dnf install --enablerepo=ha ...`). Nodes have no root SSH to each other, so solutions copy files between nodes through the workstation. `fence_virsh` in clustering-02 cannot reach a real hypervisor in this environment; the solution sets `migration-threshold=INFINITY` so failing fence devices don't block the resource.
 
-Config precedence in `load_lab_config`: environment variables, then the config file, then defaults. The file is `/etc/linux-labs/config` if it exists, otherwise `~/.config/linux-labs/config`. Node IPs come from `NODE_IPS` (space-separated static list) if set; otherwise node N is `<network base>.<N+9>`. The defaults in `labctl`'s `setup_default_config` and in `load-config.sh` must be kept in sync (they currently disagree on the gateway: `.254` vs `.1`).
+Config precedence in `load_lab_config`: environment variables, then the config file, then defaults. The file is `/etc/linux-labs/config` if it exists, otherwise `~/.config/linux-labs/config`. Node IPs come from `NODE_IPS` (space-separated static list) if set; otherwise node N is `<network base>.<N+9>`. Defaults (network `172.25.250.0/24`, gateway `.254`, the RH classroom bastion) are duplicated in `labctl`, `load-config.sh`, `config.template` and the docs (README, QUICKSTART, CONFIGURE_SYSTEM); change them everywhere together.
 
 ## Building the RPM
 

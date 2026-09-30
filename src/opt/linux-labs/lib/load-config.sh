@@ -35,7 +35,7 @@ load_lab_config() {
     # Priority order: Environment > Config file > Defaults
     # Restore environment variables if they were set
     LAB_NETWORK="${env_lab_network:-${LAB_NETWORK:-172.25.250.0/24}}"
-    LAB_GATEWAY="${env_lab_gateway:-${LAB_GATEWAY:-172.25.250.1}}"
+    LAB_GATEWAY="${env_lab_gateway:-${LAB_GATEWAY:-172.25.250.254}}"
     LAB_DNS="${env_lab_dns:-${LAB_DNS:-8.8.8.8}}"
     NODES_ENABLED="${env_nodes_enabled:-${NODES_ENABLED:-false}}"
     NODE_COUNT="${env_node_count:-${NODE_COUNT:-1}}"

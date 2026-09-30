@@ -14,7 +14,7 @@ LAB_NETWORK="172.25.250.0/24"
 
 # Default gateway for lab network
 # Should be first or last usable IP in the LAB_NETWORK subnet
-LAB_GATEWAY="172.25.250.1"
+LAB_GATEWAY="172.25.250.254"
 
 # DNS server for lab network
 # Can be local (bind/named) or external (8.8.8.8, 1.1.1.1, etc.)

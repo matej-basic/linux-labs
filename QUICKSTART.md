@@ -59,8 +59,8 @@ sudo labctl start database-replication-01  # (when available)
 
 | Option | Default | Purpose |
 |--------|---------|---------|
-| LAB_NETWORK | 192.168.100.0/24 | Lab subnet (CIDR notation) |
-| LAB_GATEWAY | 192.168.100.1 | Network gateway IP |
+| LAB_NETWORK | 172.25.250.0/24 | Lab subnet (CIDR notation) |
+| LAB_GATEWAY | 172.25.250.254 | Network gateway IP |
 | LAB_DNS | 8.8.8.8 | DNS server for labs |
 | NODES_ENABLED | false | Enable multi-node labs |
 | NODE_COUNT | 1 | Number of nodes (if enabled) |

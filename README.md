@@ -162,8 +162,8 @@ Key configuration parameters:
 
 ```bash
 # Network Configuration
-LAB_NETWORK="192.168.100.0/24"    # Lab subnet
-LAB_GATEWAY="192.168.100.1"        # Default gateway
+LAB_NETWORK="172.25.250.0/24"     # Lab subnet
+LAB_GATEWAY="172.25.250.254"       # Default gateway
 LAB_DNS="8.8.8.8"                  # DNS server
 
 # Multi-node Lab Configuration

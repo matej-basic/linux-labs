@@ -69,8 +69,8 @@ The first file found (in order above) is used. System configuration takes preced
 A template configuration file showing all available options with documentation:
 
 ```bash
-LAB_NETWORK="192.168.100.0/24"    # Lab subnet (CIDR)
-LAB_GATEWAY="192.168.100.1"        # Default gateway
+LAB_NETWORK="172.25.250.0/24"     # Lab subnet (CIDR)
+LAB_GATEWAY="172.25.250.254"       # Default gateway
 LAB_DNS="8.8.8.8"                  # DNS server
 NODES_ENABLED="false"              # Multi-node enablement
 NODE_COUNT="1"                     # Number of nodes
