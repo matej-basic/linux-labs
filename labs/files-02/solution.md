@@ -10,7 +10,7 @@ sudo mkdir -p /tmp/webfiles/app /tmp/webfiles/config /tmp/webfiles/data
 sudo chown root:root /tmp/webfiles
 sudo chmod 755 /tmp/webfiles
 
-sudo chown www-data:www-data /tmp/webfiles/app /tmp/webfiles/data
+sudo chown apache:apache /tmp/webfiles/app /tmp/webfiles/data
 sudo chmod 755 /tmp/webfiles/app /tmp/webfiles/data
 
 sudo chown root:root /tmp/webfiles/config
@@ -24,7 +24,7 @@ sudo tee /tmp/webfiles/data/app.log >/dev/null <<<''
 sudo tee /tmp/webfiles/data/error.log >/dev/null <<<''
 
 # File ownership and perms
-sudo chown www-data:www-data /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php /tmp/webfiles/data/app.log
+sudo chown apache:apache /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php /tmp/webfiles/data/app.log
 sudo chmod 644 /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php
 sudo chmod 640 /tmp/webfiles/data/app.log
 
