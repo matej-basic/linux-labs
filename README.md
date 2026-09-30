@@ -106,6 +106,16 @@ bash cleanup.sh
 - **dns-02** - Zone configuration with DNS records
 - **dns-03** - DNSSEC configuration and zone signing
 
+### 🔄 Database Replication (3 labs, multi-node)
+- **replication-01** - MySQL master-slave replication
+- **replication-02** - PostgreSQL streaming replication with WAL archiving
+- **replication-03** - MySQL multi-master circular replication
+
+### ⚖️ Load Balancing (3 labs, multi-node)
+- **lb-01** - HAProxy load balancing across 3 web servers
+- **lb-02** - Nginx reverse proxy with health checks
+- **lb-03** - keepalived VIP with automatic failover
+
 ### 🖥️ HA Clustering (3 labs, multi-node)
 - **clustering-01** - Pacemaker/Corosync cluster setup across 3 nodes
 - **clustering-02** - STONITH fencing and failover
@@ -215,7 +225,7 @@ linux-labs/
 │   ├── files-01/
 │   ├── mysql-01/
 │   ├── postgres-01/
-│   └── ... (39 labs total)
+│   └── ... (51 labs total)
 ├── src/                     # System files (installed to /, git-tracked)
 │   ├── etc/                 # Configuration files (installed to /etc)
 │   │   ├── profile.d/

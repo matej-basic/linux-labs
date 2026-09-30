@@ -77,6 +77,11 @@
 - **replication-02** (Intermediate): PostgreSQL streaming replication
 - **replication-03** (Advanced): MySQL multi-master circular replication
 
+### ✅ Load Balancing (Completed)
+- **lb-01** (Beginner): HAProxy basic load balancing across 3 web servers
+- **lb-02** (Intermediate): Nginx reverse proxy with health checks
+- **lb-03** (Advanced): Advanced failover with keepalived VIP
+
 ### ✅ High Availability Clustering (Completed)
 - **clustering-01** (Beginner): Pacemaker/Corosync cluster setup across 3 nodes
 - **clustering-02** (Intermediate): STONITH fencing and failover
@@ -161,11 +166,6 @@
 - **tuning-01** (Beginner): Memory and swap tuning
 - **tuning-02** (Intermediate): CPU and I/O optimization
 - **tuning-03** (Advanced): Kernel parameter tuning
-
-### Load Balancing & High Availability
-- **lb-01** (Beginner): HAProxy basic load balancing across 3 web servers
-- **lb-02** (Intermediate): Nginx reverse proxy with health checks
-- **lb-03** (Advanced): Advanced failover with keepalived VIP
 
 ### Backup & Disaster Recovery
 - **backup-rsync-01** (Beginner): Rsync backup basics
@@ -402,8 +402,8 @@
 
 ## Lab Statistics
 
-- **Completed Labs**: 48 (39 original + 3 DNS + 3 Replication + 3 Clustering)
-- **Proposed Labs**: 344+ (including advanced categories)
+- **Completed Labs**: 51 (39 original + 3 DNS + 3 Replication + 3 Load Balancing + 3 Clustering)
+- **Proposed Labs**: 341+ (including advanced categories)
 - **Total Planned Labs**: 392+
 
 ## Categories Overview
@@ -424,6 +424,7 @@
 | Web Servers | 3 | 0 | 3 |
 | Databases | 6 | 27 | 33 |
 | Database Replication | 3 | 0 | 3 |
+| Load Balancing | 3 | 0 | 3 |
 | HA Clustering | 3 | 0 | 3 |
 | Containers | 0 | 12 | 12 |
 | Security | 0 | 39 | 39 |
@@ -447,5 +448,5 @@
 | Advanced Cryptography | 0 | 12 | 12 |
 | Business Continuity | 0 | 6 | 6 |
 | Cloud & Enterprise | 0 | 9 | 9 |
-| **TOTAL** | **48** | **344+** | **392+** |
+| **TOTAL** | **51** | **341+** | **392+** |
 
