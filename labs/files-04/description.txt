@@ -1,0 +1,5 @@
+category: Files
+complexity: Beginner
+objective: Create many files with brace expansion and sort them into a directory tree by name.
+course: aoos
+course_lab: 01

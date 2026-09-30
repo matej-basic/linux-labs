@@ -6,6 +6,7 @@
 - **files-01** (Beginner): Create directories and files
 - **files-02** (Intermediate): File permissions and ownership
 - **files-03** (Advanced): Advanced file management
+- **files-04** (Beginner): Brace expansion and sorting files into a directory tree
 
 ### ✅ Firewall Configuration (Completed)
 - **firewall-01** (Beginner): Firewall basics with firewalld
@@ -26,6 +27,8 @@
 - **packages-01** (Beginner): DNF/YUM basics
 - **packages-02** (Intermediate): Repository management
 - **packages-03** (Advanced): Package dependencies and conflicts
+- **packages-04** (Intermediate): Installing a package from a downloaded RPM file
+- **packages-05** (Advanced): Building software from a source tarball
 
 ### ✅ Scheduling (Completed)
 - **scheduling-01** (Beginner): Cron job basics
@@ -402,20 +405,20 @@
 
 ## Lab Statistics
 
-- **Completed Labs**: 51 (39 original + 3 DNS + 3 Replication + 3 Load Balancing + 3 Clustering)
+- **Completed Labs**: 54 (39 original + 3 DNS + 3 Replication + 3 Load Balancing + 3 Clustering + 3 new)
 - **Proposed Labs**: 341+ (including advanced categories)
-- **Total Planned Labs**: 392+
+- **Total Planned Labs**: 395+
 
 ## Categories Overview
 
 | Category | Completed | Proposed | Total |
 |----------|-----------|----------|-------|
-| Files & Directories | 3 | 0 | 3 |
+| Files & Directories | 4 | 0 | 4 |
 | Firewall | 3 | 0 | 3 |
 | Logging | 3 | 0 | 3 |
 | DNS | 3 | 0 | 3 |
 | Networking | 3 | 18 | 21 |
-| Packages | 3 | 0 | 3 |
+| Packages | 5 | 0 | 5 |
 | Scheduling | 3 | 0 | 3 |
 | SELinux | 3 | 0 | 3 |
 | Storage | 3 | 9 | 12 |
@@ -448,5 +451,5 @@
 | Advanced Cryptography | 0 | 12 | 12 |
 | Business Continuity | 0 | 6 | 6 |
 | Cloud & Enterprise | 0 | 9 | 9 |
-| **TOTAL** | **51** | **341+** | **392+** |
+| **TOTAL** | **54** | **341+** | **395+** |
 

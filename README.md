@@ -36,20 +36,23 @@ bash cleanup.sh
 
 ## Lab Categories
 
-### 📁 File System (3 labs)
+### 📁 File System (4 labs)
 - **files-01** - Basic file operations (create, edit, delete)
 - **files-02** - File permissions and ownership
 - **files-03** - Find and grep commands
+- **files-04** - Brace expansion and directory sorting
 
 ### 🔒 Users & Permissions (3 labs)
 - **users-01** - User and group creation
 - **users-02** - File permissions (rwx)
 - **users-03** - sudo and elevated privileges
 
-### 📦 Package Management (3 labs)
+### 📦 Package Management (5 labs)
 - **packages-01** - Installing and removing packages
 - **packages-02** - Updating systems and dependencies
 - **packages-03** - Repository management
+- **packages-04** - Installing from downloaded RPM files
+- **packages-05** - Building from source tarballs
 
 ### 🌐 Networking (3 labs)
 - **networking-01** - Network interfaces and IP configuration
@@ -225,7 +228,7 @@ linux-labs/
 │   ├── files-01/
 │   ├── mysql-01/
 │   ├── postgres-01/
-│   └── ... (51 labs total)
+│   └── ... (54 labs total)
 ├── src/                     # System files (installed to /, git-tracked)
 │   ├── etc/                 # Configuration files (installed to /etc)
 │   │   ├── profile.d/
