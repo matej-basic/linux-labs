@@ -106,6 +106,11 @@ bash cleanup.sh
 - **dns-02** - Zone configuration with DNS records
 - **dns-03** - DNSSEC configuration and zone signing
 
+### 🖥️ HA Clustering (3 labs, multi-node)
+- **clustering-01** - Pacemaker/Corosync cluster setup across 3 nodes
+- **clustering-02** - STONITH fencing and failover
+- **clustering-03** - Quorum and split-brain prevention
+
 ## Documentation
 
 - **[QUICKSTART.md](QUICKSTART.md)** - Quick reference for common commands and workflows

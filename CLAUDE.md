@@ -60,5 +60,5 @@ No automated tests. A lab is verified by installing the RPM on a Rocky VM and ru
 ## Known issues
 
 - `labs/files-02` uses the Debian user `www-data`; on Rocky it is `apache`, so the lab fails as written.
-- `clustering-01..03` are not yet listed in `README.md` or `LAB_IDEAS.md`, and there is no "Tested clustering-NN" commit for them.
+- There is no "Tested clustering-NN" commit for the clustering labs.
 - `brainstorm/` holds design notes for future labctl features (class dashboard, break-fix labs, hub/spoke multi-node). They are plans, not implemented behaviour.
