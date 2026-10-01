@@ -1,0 +1,55 @@
+OBJECTIVE
+  Create many files with brace expansion and sort them into a
+  directory tree by name.
+
+TASKS
+  1. Work as your normal user, {{LAB_USER}}, without root or sudo.
+  2. Create 108 empty files in /srv/archive. Each file name has the
+     form <type>_<month>_<letter><digit>, for example chart_dec_b2:
+
+       type     report, memo or chart
+       month    sep, oct, nov or dec
+       letter   a, b or c
+       digit    1, 2 or 3
+
+     Every combination occurs exactly once. You should create all
+     108 files with a single command that uses shell brace
+     expansion. How the files are created is not graded.
+  3. Move every file into a directory tree based on its name. A file
+     <type>_<month>_<letter><digit> goes to <type>/<month>/, for
+     example chart_dec_b2 goes to chart/dec/:
+
+       /srv/archive
+       |-- chart
+       |   |-- dec
+       |   |-- nov
+       |   |-- oct
+       |   `-- sep
+       |-- memo
+       |   `-- (same four months)
+       `-- report
+           |-- dec
+           |-- nov
+           |-- oct
+           `-- sep
+               |-- report_sep_a1
+               |-- report_sep_a2
+               |-- ...
+               `-- report_sep_c3
+
+  4. Leave nothing else in /srv/archive or in the type directories.
+     Everything in the tree must belong to your user.
+
+EXPECTED RESULT
+  /srv/archive holds the type directories chart, memo and report.
+  Each has the month directories sep, oct, nov and dec, and each of
+  the 12 month directories holds its 9 files.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man bash (section Brace Expansion), man mkdir and
+    man mv.
+
+GRADING
+  labctl grade files-04

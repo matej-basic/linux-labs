@@ -1,3 +1,4 @@
+title: Brace expansion and file organisation
 category: Files
 complexity: Beginner
 objective: Create many files with brace expansion and sort them into a directory tree by name.

@@ -1,32 +1,47 @@
-# Files 04 Solution
+# files-04: Brace expansion and file organisation
 
-Commands to reach the expected state, run as your normal user (not root):
+## Solution
 
-```bash
-cd /srv/archive
+1. [user] Change to the lab directory and create the 108 files with
+   brace expansion:
 
-# Create the 108 files
-touch {report,memo,chart}_{sep,oct,nov,dec}_{a,b,c}{1,2,3}
+   ```bash
+   cd /srv/archive
+   touch {report,memo,chart}_{sep,oct,nov,dec}_{a,b,c}{1,2,3}
+   ```
 
-# Create the 3 x 4 directory tree
-mkdir -p {report,memo,chart}/{sep,oct,nov,dec}
+2. [user] Create the 3 x 4 directory tree:
 
-# Move the files by name
-for t in report memo chart; do
-  for m in sep oct nov dec; do
-    mv ${t}_${m}_* $t/$m/
-  done
-done
-```
+   ```bash
+   mkdir -p {report,memo,chart}/{sep,oct,nov,dec}
+   ```
 
-Each glob such as `report_sep_*` matches exactly the nine files of one
-type and month, so twelve `mv` calls move everything. Use `man mv` and
-`mkdir --help` if an option is unclear.
+3. [user] Move the files by name:
 
-Verify:
+   ```bash
+   for t in report memo chart; do
+     for m in sep oct nov dec; do
+       mv ${t}_${m}_* $t/$m/
+     done
+   done
+   ```
+
+## Verification
+
 ```bash
 ls /srv/archive
-ls report/sep
+ls /srv/archive/report/sep
 find /srv/archive -type f | wc -l
-sudo labctl grade files-04
+labctl grade files-04
 ```
+
+## Explanation
+
+Each glob such as `report_sep_*` matches exactly the nine files of one
+type and month, so twelve `mv` calls move all 108 files. `mkdir -p`
+with two brace lists creates the three type directories and their four
+month directories in one command.
+
+All commands run as your normal user, so you own every file and
+directory you create. Files created as root or with sudo belong to root
+and fail the ownership criterion.
