@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>$pagetitle$ - linux-labs</title>
+<meta name="description" content="$description$">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../">linux<span>-</span>labs</a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="../#install">Install</a></li>
+      <li><a href="../catalog.html">Catalog</a></li>
+      <li><a href="getting-started.html" aria-current="page">Docs</a></li>
+      <li><a href="https://github.com/matej-basic/linux-labs">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main" class="page">
+<nav aria-label="Student guides">
+  <ul class="subnav">
+    <li><a href="getting-started.html"$if(nav-getting-started)$ aria-current="page"$endif$>Getting started</a></li>
+    <li><a href="commands.html"$if(nav-commands)$ aria-current="page"$endif$>Commands</a></li>
+    <li><a href="troubleshooting.html"$if(nav-troubleshooting)$ aria-current="page"$endif$>Troubleshooting</a></li>
+  </ul>
+</nav>
+<article class="prose">
+$body$
+</article>
+</main>
+
+<footer class="foot">
+  <span>linux-labs @VERSION@ &middot; <a href="../catalog.html">Catalog</a> &middot; <a href="getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
+</footer>
+</body>
+</html>
