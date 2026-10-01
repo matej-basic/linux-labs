@@ -21,6 +21,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - Hints: an optional `## Hints` section in solution.md, shown one at a time by labctl hint <lab> (with --all for teachers). All 55 labs have hints, and check-labs.sh enforces 2 to 4 hints with no solving commands.
 - labctl solution asks for confirmation in a terminal; --yes skips the question.
 - A new GitHub Pages site: front page with the install command and an example labctl session, the lab catalog, and the student guides rendered from docs/student. scripts/preview-pages.sh builds and serves it locally.
+- Per-lab known issues: an optional labs/<id>/known-issues.md that check-labs.sh validates and the catalog counts in a new "Known issues" column. It stays in the repo and is never shipped in the RPM.
 - Release notes come from this file: scripts/release-notes.sh extracts the section of the tagged version, and the release fails when it is missing.
 
 ### Changed

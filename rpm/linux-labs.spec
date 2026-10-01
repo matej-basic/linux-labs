@@ -45,7 +45,10 @@ cp -pr opt/linux-labs/* %{buildroot}/opt/linux-labs/
 # and solution.md. solve.sh is the automatic solver used by
 # scripts/test-lab.sh and is never shipped (build-rpm-linux.sh already
 # leaves it out of the tarball; this is a second guard).
+# known-issues.md (optional, notes for teachers and authors) is likewise
+# never shipped.
 find %{buildroot}/opt/linux-labs/labs -type f -name solve.sh -delete
+find %{buildroot}/opt/linux-labs/labs -type f -name known-issues.md -delete
 
 # Ensure all shell scripts in the labs tree are executable
 find %{buildroot}/opt/linux-labs -type f -name '*.sh' -exec chmod 0755 {} +

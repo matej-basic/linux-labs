@@ -355,7 +355,14 @@ Format: the heading `# <id>: known issues`, then one list entry per issue in thi
 - The catalog shows the number of `open` and `workaround` entries per lab, with a link to the file; `fixed` entries are not counted. Course sheets will list the entries in full later.
 - What belongs in the file and who writes it is in [testing.md](testing.md) ("Known issues").
 
-Planned, not yet implemented: `check-labs.sh` does not validate the file yet (line shape, date, release, status, text rules), and it does not accept it either: until the file set criterion is extended, a lab with `known-issues.md` fails "Lab directory has exactly the 2.0 file set". The catalog column does not exist yet, and `build-rpm-linux.sh` and the spec do not yet leave the file out of the RPM. Add the first entry together with those changes.
+`check-labs.sh` accepts the file as an optional extra in the lab file set. When it exists, the criterion "known-issues.md follows the format" checks:
+
+- the first line is exactly `# <id>: known issues`, followed by a blank line and at least one entry (a file with only the heading fails: remove the file instead)
+- each entry starts with `- ` and has exactly four ` | ` separated fields: a valid `YYYY-MM-DD` date, the releases (`all`, or `rocky8` and `rocky9` separated by `, `, no repeats), the status (`open`, `workaround` or `fixed`) and a non-empty description
+- continuation lines are indented by exactly two spaces; the only other lines allowed are blank lines between entries
+- the text rules of `task.txt` (ASCII, at most 72 columns, no tabs, no trailing spaces, no exclamation marks) and the no-solving-commands rule over the description text, including the `scripts/check-labs.allow` escape
+
+`scripts/gen-catalog.sh` adds the column "Known issues" to the catalog (Markdown and the Pages HTML): `-` when no entry is counted, otherwise for example `2 open`, `1 workaround` or `1 open, 1 workaround`, linked to the file on GitHub. `build-rpm-linux.sh` deletes the file from the copied labs, and the spec `%install` deletes it a second time, so the RPM never contains it.
 
 ## labctl behaviour during the migration
 

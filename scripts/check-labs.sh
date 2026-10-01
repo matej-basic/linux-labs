@@ -40,6 +40,8 @@ CATEGORIES="Database Replication|Databases|DNS|Files|Firewall|High Availability 
 ROOT_ALLOWED="README.md CHANGELOG LICENSE CLAUDE.md .github .gitignore .claude labs src rpm scripts pages docs"
 NEEDS_ITEM='(internet|reboot|free-nic|nodes=[0-9]+)'
 LAB_FILES="setup.sh grade.sh cleanup.sh description.txt task.txt solution.md solve.sh"
+# Optional extra file, repo only (see docs/author/framework.md)
+OPTIONAL_FILES="known-issues.md"
 SCRIPTS="setup.sh grade.sh cleanup.sh solve.sh"
 # task.txt describes the end state, never how to reach it. A body line is
 # flagged when, after its indent and an optional "- " or "N. " marker, it
@@ -143,7 +145,12 @@ c_file_set() {
 		name="${f##*/}"
 		case " $LAB_FILES " in
 			*" $name "*) ;;
-			*) echo "unexpected: $name" ;;
+			*)
+				case " $OPTIONAL_FILES " in
+					*" $name "*) ;;
+					*) echo "unexpected: $name" ;;
+				esac
+				;;
 		esac
 	done
 }
@@ -512,6 +519,88 @@ c_hints_no_commands() {
 	rm -f "$tmp"
 }
 
+# The optional known-issues.md: heading "# <lab>: known issues", a blank
+# line, then entries "- DATE | RELEASES | STATUS | text" with continuation
+# lines indented by exactly two spaces and blank lines only between entries.
+# The text rules are checked separately (c_text_rules known-issues.md).
+c_known_issues() {
+	local f="$D/known-issues.md"
+	[ -f "$f" ] || return 0
+	[ "$(head -n 1 "$f")" = "# $LAB: known issues" ] || echo "line 1 is not '# $LAB: known issues'"
+	if [ "$(wc -l <"$f")" -ge 2 ] && [ -n "$(sed -n 2p "$f")" ]; then echo "line 2 must be blank"; fi
+	awk '
+		function trim(s) { sub(/^ +/, "", s); sub(/ +$/, "", s); return s }
+		function bad_date(d,   m, dd) {
+			if (d !~ /^[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]$/) return 1
+			m = substr(d, 6, 2) + 0; dd = substr(d, 9, 2) + 0
+			return (m < 1 || m > 12 || dd < 1 || dd > 31)
+		}
+		function bad_releases(r,   k, i, seen, x) {
+			if (r == "all") return 0
+			k = split(r, x, ", ")
+			for (i = 1; i <= k; i++) {
+				if (x[i] != "rocky8" && x[i] != "rocky9") return 1
+				if (x[i] in seen) return 1
+				seen[x[i]] = 1
+			}
+			return 0
+		}
+		NR == 1 { next }
+		$0 == "" {
+			if (NR > 2 && !inentry) print "line " NR ": blank lines belong only between entries"
+			if (NR > 2) inentry = 0
+			next
+		}
+		/^- / {
+			entries++; inentry = 1
+			k = split(substr($0, 3), f, "[ ][|][ ]")
+			if (k != 4) {
+				print "line " NR ": entry has " k " fields, expected 4 separated by \" | \""
+				next
+			}
+			if (bad_date(f[1])) print "line " NR ": date \"" f[1] "\" is not a valid YYYY-MM-DD"
+			if (bad_releases(f[2])) print "line " NR ": releases \"" f[2] "\" must be all, or rocky8 and rocky9 separated by \", \""
+			if (f[3] != "open" && f[3] != "workaround" && f[3] != "fixed") print "line " NR ": status \"" f[3] "\" is not open, workaround or fixed"
+			if (trim(f[4]) == "") print "line " NR ": empty description"
+			next
+		}
+		/^  [^ ]/ {
+			if (!inentry) print "line " NR ": continuation line without an entry above it"
+			next
+		}
+		/^ / { print "line " NR ": continuation lines are indented by exactly two spaces"; next }
+		{ print "line " NR ": not an entry (\"- DATE | RELEASES | STATUS | text\"), a continuation line or a blank line" }
+		END { if (!entries) print "no entries: remove the file instead of keeping only the heading" }
+	' "$f"
+}
+
+# The description text of known-issues.md is held to the same
+# no-solving-commands rule as task.txt. A temporary copy keeps the line
+# numbers: the text of each entry (after the fourth field) and the
+# continuation lines are indented by two spaces, everything else is blank.
+c_known_issues_no_commands() {
+	local f="$D/known-issues.md" tmp
+	[ -f "$f" ] || return 0
+	tmp=$(mktemp "${TMPDIR:-/tmp}/known.XXXXXX")
+	awk '
+		/^- / {
+			k = split(substr($0, 3), f, "[ ][|][ ]")
+			if (k == 4) print "  " f[4]; else print ""
+			next
+		}
+		/^  [^ ]/ { print; next }
+		{ print "" }
+	' "$f" >"$tmp"
+	c_task_no_commands "$tmp"
+	rm -f "$tmp"
+}
+
+c_known_issues_all() {
+	c_known_issues
+	c_text_rules known-issues.md
+	c_known_issues_no_commands
+}
+
 c_solution_steps() {
 	local nums expect=1 x
 	[ -f "$D/solution.md" ] || return 0
@@ -663,6 +752,9 @@ check_lab() {
 	check "solution.md has the 2.0 headings" c_solution_headings
 	check "Hints (optional) are 2 to 4 numbered items before Solution" c_hints
 	check "Hints name no solving commands, brace patterns or globs" c_hints_no_commands
+	if [ -f "$D/known-issues.md" ]; then
+		check "known-issues.md follows the format" c_known_issues_all
+	fi
 	check "Solution steps are numbered and marked [user] or [sudo]" c_solution_steps
 	check "Verification runs labctl grade $LAB" c_solution_verification
 	check "grade.sh uses lib/grading.sh" c_grade_library
