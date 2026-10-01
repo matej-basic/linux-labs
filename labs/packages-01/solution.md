@@ -1,5 +1,14 @@
 # packages-01: Package management basics
 
+## Hints
+
+1. Package management on Rocky Linux is done with dnf. Installing
+   needs root privileges.
+2. Look at man dnf, the install command. After installing, rpm can
+   tell you whether a package is present in the local database.
+3. The git command should end up in /usr/bin. Check it with
+   `command -v git` and `git --version`.
+
 ## Solution
 
 1. [user] Search the repositories for git packages (optional):

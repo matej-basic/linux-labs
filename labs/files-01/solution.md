@@ -1,5 +1,14 @@
 # files-01: Directories and files
 
+## Hints
+
+1. Two separate steps: first make the directory, then create a file
+   inside it that has the text in it.
+2. man mkdir covers directories. For writing text into a file without
+   an editor, see Redirection in man bash.
+3. The output redirection operator creates the file if it is missing.
+   The word must stand alone, so write it on its own.
+
 ## Solution
 
 1. [user] Create the directory:

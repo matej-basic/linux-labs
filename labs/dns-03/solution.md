@@ -1,5 +1,20 @@
 # dns-03: DNSSEC signed zone with zone transfer
 
+## Hints
+
+1. Work in three layers: a plain unsigned zone file, the two keys, and
+   the signed zone that named loads. The zone statement must point at
+   the signed output, not at the unsigned file.
+2. The tools are dnssec-keygen and dnssec-signzone, see their man
+   pages. On Rocky 9 they may need the package bind-dnssec-utils.
+3. Run dnssec-keygen twice for labsecure.com, with -a for the
+   algorithm. The option -f KSK makes the key signing key, a run
+   without it makes the zone signing key.
+4. For dnssec-signzone the option -S picks up the keys from the
+   current directory, and -o sets the zone name. For the transfer
+   limit, use allow-transfer inside the zone statement with the two
+   loopback addresses (man named.conf).
+
 ## Solution
 
 1. [sudo] Install BIND and the client tools. On Rocky 9 the signing

@@ -1,5 +1,19 @@
 # users-03: Users, groups and ACLs for shared directories
 
+## Hints
+
+1. Fixed IDs are options of groupadd and useradd, see their man
+   pages. Create the groups first, so the users can refer to them.
+2. The command useradd creates home directories with mode 700, so the
+   mode 750 needs a separate step. The account expiry date is set with
+   chage.
+3. ACLs are handled by setfacl and getfacl (man setfacl). A default
+   ACL is a different option than an ordinary entry. Set owner and
+   mode of a directory before the ACL, because chmod changes the mask.
+4. charlie can not reach /srv/shared/analytics through the group
+   devops. Give charlie only the search permission (execute) on
+   /srv/shared with one more ACL entry for that user.
+
 ## Solution
 
 1. [sudo] Create the two groups with fixed GIDs:

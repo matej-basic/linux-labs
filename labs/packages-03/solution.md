@@ -1,5 +1,15 @@
 # packages-03: Package file lists
 
+## Hints
+
+1. The RPM database knows which files each installed package owns.
+   Query it instead of searching the file system.
+2. Read man rpm, section Query Options. One option lists the files
+   of a package, another reads from a package file instead.
+3. The query mode is -q and the option -l lists files. Use shell
+   redirection to write the output to /tmp/curl-files.txt. No root
+   is needed for the query.
+
 ## Solution
 
 1. [sudo] Make sure the curl package is installed (it normally is):

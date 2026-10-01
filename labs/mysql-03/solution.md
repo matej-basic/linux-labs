@@ -1,5 +1,18 @@
 # mysql-03: MySQL backup and restore
 
+## Hints
+
+1. A logical backup is a text file of SQL statements that recreates the
+   tables and rows. MySQL ships a client program for exactly this, and
+   a restore feeds such a file back to the server.
+2. Read man mysqldump for the backup. The restore uses the ordinary
+   mysql client, and the target database must exist before the load.
+3. Name only labdb on the mysqldump command line and redirect the
+   output to the file. Skip the --databases option: it adds a USE
+   statement that sends the restore back into labdb.
+4. For the restore, give mysql the name labdb_restore as its default
+   database and read the backup file on standard input.
+
 ## Solution
 
 1. [user] Dump the database labdb into a file:

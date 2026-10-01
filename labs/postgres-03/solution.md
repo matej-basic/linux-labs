@@ -1,5 +1,16 @@
 # postgres-03: PostgreSQL backup and restore
 
+## Hints
+
+1. The PostgreSQL dump tool writes a plain SQL script by default. Run
+   it as the database administrator account, not as your own user.
+2. Read man pg_dump. Redirect the output into /tmp/labdb_backup.sql
+   and leave out the format options, because only plain SQL is
+   accepted.
+3. The dump does not contain CREATE DATABASE, so labdb_restore must
+   exist first. Create it with psql, then replay the file into it
+   with the -d and -f options of psql.
+
 ## Solution
 
 1. [sudo] Create a plain-text backup of labdb. The redirect is done by

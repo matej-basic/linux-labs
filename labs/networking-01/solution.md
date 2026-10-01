@@ -1,5 +1,18 @@
 # networking-01: Static IP address and DNS with NetworkManager
 
+## Hints
+
+1. Compare the output of ip route show default with the list of
+   devices in nmcli device status. The free interface is the first
+   ethernet device that the default route does not use.
+2. The profile is created with nmcli connection add. The settings
+   you need are described in man nm-settings-nmcli, section ipv4.
+3. Use the connection type ethernet and bind the profile with the
+   ifname option. Set ipv4.method, ipv4.addresses and ipv4.dns, and
+   look at ipv4.never-default for the missing default route.
+4. A new profile is not active yet. nmcli connection up activates
+   it, and ip addr show confirms the address.
+
 ## Solution
 
 1. [user] Find the interface that carries the default route and the

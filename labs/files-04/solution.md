@@ -1,5 +1,16 @@
 # files-04: Brace expansion and file organisation
 
+## Hints
+
+1. The shell can generate many words from one pattern before a command
+   runs. Read man bash, section Brace Expansion.
+2. The command mkdir has an option that creates missing parent
+   directories. The shell expands the same kind of pattern for it, so
+   one command can create the whole tree.
+3. The nine files of one type and month share the start of their name.
+   A wildcard after that start matches exactly those nine, and mv takes
+   the target directory as its last argument.
+
 ## Solution
 
 1. [user] Change to the lab directory and create the 108 files with

@@ -105,7 +105,6 @@ Three details:
 
 - The wizard always writes the SSH settings back to their defaults (`$HOME/.ssh/id_rsa`, `root`, `22`). Run `configure set` for `SSH_KEY_PATH`, `SSH_USER` or `SSH_PORT` after the wizard, not before.
 - With static addresses the wizard sets `NODE_COUNT` to the number of addresses you typed.
-- The wizard's own hint "e.g., 192.168.100.11, .12, .13" is out of date. The derived addresses start at .10, as in the table above.
 
 `validate` checks nothing about the nodes. It does not look at `NODE_IPS` and does not try to connect.
 

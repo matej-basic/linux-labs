@@ -1,5 +1,21 @@
 # replication-03: MySQL multi-master circular replication
 
+## Hints
+
+1. A ring is three ordinary source and replica pairs. Every node is
+   the source of exactly one replica, so every node needs a replication
+   account, an open port 3306 and its own server ID.
+2. Server IDs belong in a file below /etc/my.cnf.d, so they survive a
+   restart of mysqld. Fresh nodes all start with the same ID, and a
+   replica ignores events that carry its own ID.
+3. The statements CHANGE REPLICATION SOURCE TO and START REPLICA set up
+   one link. The starting point is the file and position that SHOW
+   BINARY LOG STATUS (SHOW MASTER STATUS before MySQL 8.2) reports on
+   the source.
+4. Without TLS, the default password plugin needs the option
+   GET_SOURCE_PUBLIC_KEY=1 on the replica. Look at Last_IO_Error in
+   SHOW REPLICA STATUS when a thread does not run.
+
 ## Solution
 
 1. [user] On the workstation, load the node addresses from the lab

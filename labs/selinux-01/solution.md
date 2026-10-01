@@ -1,5 +1,15 @@
 # selinux-01: SELinux enforcing mode
 
+## Hints
+
+1. The mode of the running kernel and the mode at boot are two separate
+   settings, and both are graded.
+2. See man setenforce for the runtime change. The boot setting is in
+   the file /etc/selinux/config, described in man selinux_config.
+3. In that file the SELINUX variable takes the value enforcing. Leave
+   SELINUXTYPE alone. Run sestatus to check the mode and the loaded
+   policy name.
+
 ## Solution
 
 1. [sudo] Switch the running system to enforcing mode:

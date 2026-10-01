@@ -1,5 +1,21 @@
 # logging-01: Filtering the systemd journal with journalctl
 
+## Hints
+
+1. All five files come from the same tool, which reads the journal and
+   can narrow it down by syslog identifier, priority, order and
+   output format. Remember that the output goes to a file in
+   ~/journal-lab.
+2. See man journalctl for the options that select by identifier and by
+   priority. A priority selects that level and everything more severe,
+   so one level name is enough for errors.txt and for warnings.txt.
+3. Newest first needs an option that reverses the order, and limiting
+   the output to three entries needs an option that takes a number.
+   Combine the two for latest.txt.
+4. For errors.json look at the output formats in the description of
+   the -o option. The plain json format prints one entry per line,
+   the pretty variant does not.
+
 ## Solution
 
 1. [sudo] Save all entries of the identifier labjournal. The

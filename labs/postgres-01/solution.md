@@ -1,5 +1,15 @@
 # postgres-01: PostgreSQL installation and first start
 
+## Hints
+
+1. The package installs the programs but creates no database. A fresh
+   cluster has to be created before the service can start.
+2. Read man postgresql-setup. It is the helper that creates the
+   cluster for the data directory the unit file expects.
+3. Run the helper with the --initdb option, then enable and start the
+   service with systemctl. To run psql as the postgres user, use sudo
+   with the -u option, and do it from a directory such as /tmp.
+
 ## Solution
 
 1. [sudo] Install the server package. The default module stream

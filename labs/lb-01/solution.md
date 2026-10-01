@@ -1,5 +1,19 @@
 # lb-01: HAProxy load balancing for three web servers
 
+## Hints
+
+1. On node 1, Apache and HAProxy cannot both own port 80. The Listen
+   directive in /etc/httpd/conf/httpd.conf sets the Apache port, and
+   each node needs its own index page.
+2. HAProxy is configured with a frontend and a backend section. In
+   man haproxy, read about the balance keyword, option httpchk and
+   the check keyword on the server lines.
+3. With SELinux enforcing, HAProxy is denied connections to port
+   8080. Search the booleans with getsebool -a and make the change
+   persistent with the -P option of setsebool.
+4. Check the syntax with the -c option of haproxy before starting the
+   service. Firewall rules need --permanent plus a reload.
+
 ## Solution
 
 1. [user] On the workstation, load the node addresses from the lab

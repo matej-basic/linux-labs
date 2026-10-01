@@ -1,5 +1,21 @@
 # postgres-02: PostgreSQL database and role management
 
+## Hints
+
+1. Two things are needed: the server must ask for a password on TCP
+   connections, and the database objects and privileges must exist.
+   Look at the authentication file first.
+2. The file is /var/lib/pgsql/data/pg_hba.conf. The localhost lines
+   use the ident method, which ignores passwords. Choose a method
+   that checks them, and reload the service afterwards.
+3. Create the role with LOGIN and PASSWORD, and without the
+   administrative attributes. Create the database as the postgres
+   user. Connecting, schema use and table access are separate
+   privileges, each given with GRANT.
+4. In labdb, grant USAGE on the public schema and the four table
+   privileges on users. An id column of type SERIAL also needs a
+   grant on its sequence before labuser can insert.
+
 ## Solution
 
 1. [sudo] Switch the localhost TCP rules in pg_hba.conf from ident to

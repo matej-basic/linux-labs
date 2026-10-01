@@ -1,5 +1,22 @@
 # networking-03: Network bonding with failover
 
+## Hints
+
+1. A bond is a NetworkManager connection of its own type, and each
+   free interface needs a separate profile that points to it. Teaming
+   is not used in this lab.
+2. See man nmcli-examples for a bonding example and man
+   nm-settings-nmcli for the bond and connection settings. The kernel
+   side is visible in /proc/net/bonding/bond0.
+3. Create the bond with the connection type bond and set
+   bond.options for the mode and the monitoring interval, both given
+   as key=value pairs. The address belongs to the bond profile
+   (ipv4.method manual), not to the ports.
+4. Each port profile is an ethernet profile with the slave-type bond
+   and the master option naming bond0. Bring up the bond and then the
+   port profiles with nmcli connection up, and read
+   /proc/net/bonding/bond0 to see the active port.
+
 ## Solution
 
 1. [user] Find the interface that carries the default route and the

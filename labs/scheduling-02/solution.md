@@ -1,5 +1,19 @@
 # scheduling-02: Systemd timers
 
+## Hints
+
+1. A timer unit does not run anything itself. It activates a service
+   unit with the same base name, so you need a script, a service and a
+   timer.
+2. The service runs once and exits, which is a Type value described in
+   man systemd.service. The timer keys OnBootSec and OnUnitActiveSec
+   are in man systemd.timer.
+3. Starting at boot comes from an [Install] section in the timer unit
+   with WantedBy set to timers.target.
+4. After writing the unit files, systemd has to reread them. Then
+   the enable subcommand of systemctl with the --now option installs
+   and starts the timer in one step.
+
 ## Solution
 
 1. [sudo] Create the script and make it executable:

@@ -1,5 +1,18 @@
 # packages-05: Build joe from source with a custom prefix
 
+## Hints
+
+1. A source build has three stages: configure, compile, install.
+   Only the last one needs root. Unpack the tarball with tar first.
+2. Run the configure script with --help. It lists the options that
+   change where files are installed. The default prefix is
+   /usr/local.
+3. Two options matter here: --prefix for the program files and
+   --sysconfdir for the configuration. Compile with make, then
+   run make install as root.
+4. The tools gcc and make may be missing. Install them with dnf.
+   The SourceForge link redirects, so curl needs the -L option.
+
 ## Solution
 
 1. [sudo] Install the compiler and build tools. gcc and make are enough

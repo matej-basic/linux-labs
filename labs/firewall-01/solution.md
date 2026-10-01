@@ -1,5 +1,16 @@
 # firewall-01: Firewalld services and ports
 
+## Hints
+
+1. Both rules go to the running firewall of the public zone, and the
+   command firewall-cmd can name the zone explicitly.
+2. Look in man firewall-cmd under the options for services and for
+   ports. The firewall-cmd command also has list options to check the
+   result.
+3. The options are --add-service and --add-port. A port is written as
+   number, slash, protocol. Without --permanent the change is runtime
+   only, which is enough here.
+
 ## Solution
 
 1. [sudo] Make sure firewalld is running:

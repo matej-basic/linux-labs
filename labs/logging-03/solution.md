@@ -1,5 +1,22 @@
 # logging-03: Persistent journal and a failing service
 
+## Hints
+
+1. Without the directory /var/log/journal, journald keeps its data in
+   memory only. See the Storage= setting in man journald.conf to
+   see how journald decides where to write.
+2. Once the directory exists with the right owner and no write access
+   for others, journald has to be told about it. Restart the
+   service, or ask it to flush with journalctl, and check that a
+   system.journal file appears below the directory.
+3. Unit files use the INI format with the sections named in the
+   task, and the settings need an equals sign. See man systemd.service
+   for Type and ExecStart.
+4. After creating a unit file, systemd has to reread its
+   configuration before it can start the unit. A Type=simple service
+   counts as started once its process is forked, so the failure
+   appears afterwards. systemctl is-failed shows the state.
+
 ## Solution
 
 1. [sudo] Create the persistent journal directory and make journald use

@@ -1,5 +1,21 @@
 # replication-01: MySQL source-replica replication
 
+## Hints
+
+1. Two things are identical on both nodes at the start: the server ID
+   and the missing firewall rule. Replication needs the IDs to differ,
+   and the replica needs to reach port 3306 on node 1.
+2. Server settings go into a file below /etc/my.cnf.d, so they survive
+   a restart of mysqld. The replica starts from the binary log file and
+   position of the source, which the SHOW BINARY LOG STATUS statement
+   (SHOW MASTER STATUS before MySQL 8.2) reports.
+3. The statement for the replica is CHANGE REPLICATION SOURCE TO,
+   followed by START REPLICA. See the chapter Replication in the MySQL
+   manual.
+4. If the I/O thread stays in the Connecting state, read Last_IO_Error
+   in SHOW REPLICA STATUS. The account uses caching_sha2_password, so
+   look at the GET_SOURCE_PUBLIC_KEY option.
+
 ## Solution
 
 1. [user] On the workstation, load the node addresses from the lab

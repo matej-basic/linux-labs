@@ -1,5 +1,20 @@
 # systemd-03: Systemd timers and scheduled services
 
+## Hints
+
+1. Two of the three units are plain oneshot services. The third is a
+   timer that triggers one of them. Build the script first, then the
+   services, then the timer.
+2. The timer options are in man systemd.timer. Compare the monotonic
+   timers that count from boot with those that count from the last
+   activation of the service.
+3. The timer needs a Timer section with OnBootSec and OnUnitActiveSec,
+   and an Install section with WantedBy=timers.target. The timer finds
+   its service by the matching base name.
+4. After daemon-reload, enable the timer, not the service. The timer
+   may not fire for a while, so the log file may stay empty until you
+   run the script some other way.
+
 ## Solution
 
 1. [sudo] Create the worker script and make it executable:

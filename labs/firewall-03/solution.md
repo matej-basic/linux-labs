@@ -1,5 +1,19 @@
 # firewall-03: Masquerading, port forwarding and custom services
 
+## Hints
+
+1. Do everything with --permanent and activate it at the end. A
+   service must exist in the permanent configuration before a zone can
+   allow it, so define custom-app first.
+2. For masquerading and the port forward, look in man firewall-cmd for
+   the options --add-masquerade and --add-forward-port. The forward
+   needs port, proto and toport but no toaddr.
+3. For the service, see the --new-service option and the --service
+   option with --set-description and --add-port, described in
+   man firewall-cmd. The file layout is in man firewalld.service.
+4. Allow custom-app and http in the public zone with --add-service.
+   Finish with --reload, then compare --list-all of the zone.
+
 ## Solution
 
 1. [sudo] Make sure firewalld is enabled and running:

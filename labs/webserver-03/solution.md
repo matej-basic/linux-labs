@@ -1,5 +1,20 @@
 # webserver-03: HTTPS with a self-signed certificate
 
+## Hints
+
+1. Work in layers: packages, name resolution, content, certificate,
+   virtual hosts. The certificate and the virtual hosts are where
+   most mistakes happen.
+2. For the certificate, see man openssl-req. It can create a key and a
+   self-signed certificate in one run, and the common name must match
+   the host name.
+3. The mod_ssl package adds /etc/httpd/conf.d/ssl.conf. In your own
+   file you need two virtual hosts: one for port 80 and one for port
+   443.
+4. The first host needs the Redirect directive with the permanent
+   keyword. The second needs SSLEngine, SSLCertificateFile and
+   SSLCertificateKeyFile next to ServerName and DocumentRoot.
+
 ## Solution
 
 1. [sudo] Install Apache and the TLS module:

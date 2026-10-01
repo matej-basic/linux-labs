@@ -1,5 +1,17 @@
 # storage-03: LVM snapshots on a loopback volume group
 
+## Hints
+
+1. A snapshot is a logical volume of its own that records the state of
+   another volume at one moment, so the order of the files matters:
+   before.txt first, then the snapshot, then testfile.txt.
+2. Look in man lvcreate for the snapshot option -s. There -L sets the
+   size of the snapshot area, not of a copy of the volume.
+3. The origin is named as the volume group and logical volume at the
+   end of the lvcreate call. Mount the snapshot like any other logical
+   volume. Writes to original use up the snapshot area, so avoid large
+   writes after the snapshot exists.
+
 ## Solution
 
 1. [sudo] Create the image and attach it to a loop device:

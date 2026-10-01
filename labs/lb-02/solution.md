@@ -1,5 +1,22 @@
 # lb-02: Nginx reverse proxy with health checks
 
+## Hints
+
+1. nginx needs an upstream block with both backends and a location
+   that uses proxy_pass. The stock server block in
+   /etc/nginx/nginx.conf can take over port 80, so look at it.
+2. The ngx_http_upstream_module documentation covers the max_fails
+   and fail_timeout parameters of the server line and the keepalive
+   directive. ngx_http_proxy_module covers proxy_set_header and
+   proxy_http_version.
+3. Keepalive to the backends works only with HTTP/1.1 and an empty
+   Connection header. The client address and the original host are
+   available as the variables $host and $remote_addr, and
+   $proxy_add_x_forwarded_for.
+4. Under SELinux, nginx runs as httpd_t. Look for a network connect
+   boolean with getsebool -a. Node 1 needs the http service in the
+   firewall, the backends need port 8080.
+
 ## Solution
 
 The commands run on the nodes, over SSH from the workstation. The

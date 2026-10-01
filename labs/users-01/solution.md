@@ -1,5 +1,18 @@
 # users-01: Users, groups and shared directories
 
+## Hints
+
+1. Most of this is one tool: man useradd. Read the options for the
+   primary group, supplementary groups, home directory and shell.
+2. A system account is created with a different option than a normal
+   user, and it gets no home directory by default. Check what the
+   home directory options do for such an account.
+3. The command useradd does not set the permissions 750 or the owner
+   of a home directory that you created by hand. Use chown and chmod
+   for that.
+4. For /srv/project, the leading digit of the four-digit mode in
+   man chmod is the setgid bit.
+
 ## Solution
 
 1. [sudo] Create the group:

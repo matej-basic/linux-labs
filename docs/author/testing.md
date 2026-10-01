@@ -19,6 +19,7 @@ It runs on macOS bash 3.2 and on Linux. For each converted lab it checks:
 - `description.txt` keys and values, including `needs:` and its cross-checks against `# solve: reboot` and the `TOPOLOGY` section
 - the `task.txt` sections, numbering, placeholders, `GRADING` line, text rules and the no-solving-commands rule
 - the `solution.md` headings, step markers, `Verification` line and text rules
+- the optional `## Hints` section: before `## Solution`, 2 to 4 numbered hints, no solving commands (the same heuristic as `task.txt`)
 - that `grade.sh` uses `grading.sh` and has no legacy helpers, and that `setup.sh` prints no banner
 - the `solve.sh` directives and its `solve-lib.sh` line
 - `bash -n` and shellcheck on all four scripts

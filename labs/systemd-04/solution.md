@@ -1,5 +1,14 @@
 # systemd-04: Default boot target
 
+## Hints
+
+1. The default target is a persistent setting. Switching the running
+   system and changing the default are two different things.
+2. Look at the get-default and set-default subcommands in man
+   systemctl. Targets are described in man systemd.special.
+3. The change only takes effect at the next boot, and the task asks
+   you to prove it with a reboot.
+
 ## Solution
 
 1. [user] Check the current default target. It is graphical.target

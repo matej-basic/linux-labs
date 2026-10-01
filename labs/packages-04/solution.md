@@ -1,5 +1,17 @@
 # packages-04: RPM queries and installing from a file
 
+## Hints
+
+1. First list the EPEL directory and find the exact joe file name
+   for your version and architecture. A browser or curl can do it.
+2. The command dnf can install from a local file, not only from a
+   repository. See man dnf, the install command, and give it a path
+   to the file.
+3. Run the install from the directory of the file, or pass the full
+   path. Otherwise dnf reports that the file does not exist.
+4. For the removal use the dnf remove command. man dnf-history
+   shows how dnf records the source of each transaction.
+
 ## Solution
 
 1. [user] Find the file name in the EPEL directory and download it. The

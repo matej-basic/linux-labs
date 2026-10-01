@@ -1,5 +1,16 @@
 # webserver-01: Install and run Apache HTTP Server
 
+## Hints
+
+1. The package and the service are two separate things. The package
+   comes from the repositories, the service is controlled through
+   systemd.
+2. Look at the dnf install command for the package, and at the enable
+   and start subcommands in man systemctl.
+3. One systemctl option on the enable subcommand also starts the unit
+   in the same step. The default configuration already listens on
+   port 80.
+
 ## Solution
 
 1. [sudo] Install the Apache HTTP Server package:

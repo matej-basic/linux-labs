@@ -1,5 +1,21 @@
 # lb-03: Highly available load balancer with keepalived
 
+## Hints
+
+1. Build it in layers: httpd on port 8080 on all three nodes, the
+   same HAProxy configuration on nodes 1 and 2, then keepalived on
+   nodes 1 and 2 on top.
+2. VRRP is neither TCP nor UDP. firewalld has to allow the protocol
+   itself, see the --add-protocol option in man firewall-cmd. HAProxy
+   also needs an SELinux boolean to reach port 8080.
+3. In man keepalived.conf, read the vrrp_instance block: state,
+   interface, virtual_router_id, priority, authentication and
+   virtual_ipaddress. The interface is the one that carries the node
+   address, see ip addr.
+4. Both nodes need the same router ID and password (at most 8
+   characters). The VIP is written with the prefix length of the node
+   network, and node 1 needs the higher priority.
+
 ## Solution
 
 Work on the nodes over SSH. The commands use these values; set them on

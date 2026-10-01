@@ -162,20 +162,30 @@ the next one.
 
 Work through these steps in order. Each one gives away a little more.
 
-1. Read the task again with labctl task files-01. Compare each FAIL
+1. Ask for a hint, if the lab has one:
+
+       labctl hint files-01
+
+   Each call shows one more hint, from a general direction to a
+   specific detail. The first call shows hint 1, the second shows
+   hints 1 and 2, and so on. Take them one at a time and try again
+   after each. A lab without hints tells you so.
+2. Read the task again with labctl task files-01. Compare each FAIL
    line in the grade output with the task. The FAIL text names the
    thing that is not right yet.
-2. Read the manual pages named under NOTES in the task, for example:
+3. Read the manual pages named under NOTES in the task, for example:
 
        man mkdir
 
    Press q to leave a man page. Press / and type a word to search in it.
-3. Read the reference solution:
+4. Read the reference solution:
 
        labctl solution files-01
 
-   It shows the commands, then explains why they work. Press q to
-   leave it. Try to do the lab yourself first: you learn more that way.
+   labctl asks "This shows the full solution. Continue? [y/N]" first.
+   Answer y to go on. The solution shows the commands, then explains
+   why they work. Press q to leave it. Try to do the lab yourself
+   first: you learn more that way.
 
 If labctl itself shows an error, see troubleshooting.md.
 

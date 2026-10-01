@@ -1,5 +1,16 @@
 # scheduling-01: Cron jobs basics
 
+## Hints
+
+1. A crontab entry has five time fields before the command. Check
+   their order and meaning in man 5 crontab.
+2. The entry must go into the crontab of root, so the editor has to be
+   started with root rights. See the -e and -l options in man 1
+   crontab.
+3. The log line is added with the shell append redirection, not the
+   overwrite one. The log file does not have to exist yet, the first
+   run creates it.
+
 ## Solution
 
 1. [sudo] Open the root crontab in an editor:

@@ -1,5 +1,20 @@
 # firewall-02: Rich rules and zone assignment
 
+## Hints
+
+1. Two things must exist twice: the rich rule and the interface
+   assignment each need the running and the permanent configuration.
+   The free interface name is on the first line of the state file.
+2. For the rule, read man firewalld.richlanguage: it describes the
+   family, source, port and action elements. For the interface, look
+   at the zone options in man firewall-cmd.
+3. Use --add-rich-rule for the rule and --change-interface for the
+   interface, both with --permanent and --zone. The values in the rule
+   are quoted, so put the whole rule in single quotes.
+4. A permanent change does not touch the running firewall. Look for
+   the option of the command firewall-cmd that loads the permanent
+   configuration.
+
 ## Solution
 
 1. [sudo] Make sure firewalld is enabled and running:

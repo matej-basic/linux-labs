@@ -1,5 +1,16 @@
 # mysql-01: MySQL installation and root password
 
+## Hints
+
+1. Three separate things are needed: the package, a running service
+   that survives a reboot, and a password for the database account.
+   Port 3306 needs no work of its own.
+2. Package and service are handled by dnf and systemctl. In man
+   systemctl, look at the enable command and its --now option.
+3. A fresh MySQL installation lets root in without a password when the
+   mysql client runs as the Linux root user. Change the password with
+   the SQL statement ALTER USER, described in the MySQL manual.
+
 ## Solution
 
 1. [sudo] Install MySQL Server:

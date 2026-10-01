@@ -1,5 +1,17 @@
 # systemd-02: Custom systemd service
 
+## Hints
+
+1. The work has three parts: a script, a unit file and telling systemd
+   about the unit. The script has to stay running, so it needs a loop.
+2. Unit files are described in man systemd.service (the Service
+   section) and man systemd.unit (the Install section). Custom units
+   go into /etc/systemd/system.
+3. The unit needs the keys Type, ExecStart and, in an Install section,
+   WantedBy. The target for WantedBy is multi-user.target.
+4. systemd reads new unit files only after a reload. Look for
+   daemon-reload in man systemctl, then enable and start the unit.
+
 ## Solution
 
 1. [sudo] Create the executable script:

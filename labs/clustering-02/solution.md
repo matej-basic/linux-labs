@@ -1,5 +1,20 @@
 # clustering-02: STONITH fencing for a Pacemaker cluster
 
+## Hints
+
+1. Fencing needs two things first: the agent installed on every node
+   and one device per node. Switch fencing on only after the devices
+   exist.
+2. Fence devices are managed with the stonith part of pcs, not with
+   pcs resource. See man pcs, section stonith, and the output of
+   crm_node with the -l option for the node names Pacemaker uses.
+3. Each device needs a host list restricting it to one node, set with
+   the pcmk_host_list option. Without it a device claims to fence
+   every node.
+4. The fence_virsh agent needs ipaddr and login values, but any values
+   are accepted here. The cluster property to switch on is
+   stonith-enabled.
+
 ## Solution
 
 The names servera, serverb and serverc below are the Pacemaker node

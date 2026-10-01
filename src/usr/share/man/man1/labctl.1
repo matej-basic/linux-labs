@@ -37,8 +37,11 @@ setup exit status.
 .BI task " LAB"
 Print the task of the lab again: the header line, the category and level
 line, the optional Needs line (what the lab requires: internet, reboot, a
-free network interface, a number of nodes) and the task text. It does not
-change the system and does not need root.
+free network interface, a number of nodes) and the task text. When the lab
+has hints, a last line "Stuck? Run labctl hint LAB" follows; the same line
+ends the output of
+.BR start .
+It does not change the system and does not need root.
 .TP
 .BI grade " LAB"
 Check the current state of the system against the lab criteria. Each
@@ -67,8 +70,31 @@ Print the command summary. Running
 .B labctl
 without arguments does the same.
 .TP
-.BI solution " LAB"
-Show the reference solution of the lab. Uses
+.BI hint " LAB"
+Show a hint for the lab, one more each time you run it. The first call
+prints hint 1, the second prints hints 1 and 2, and so on, with a header
+"LAB: hint N of M". Hints go from a direction to a tool to a detail and
+never contain the complete solution. After the last hint, the same call
+repeats all hints. A lab without hints says so and points to
+.BR solution .
+The number of hints shown is kept per user in
+.IR ~/.local/state/linux-labs/hints/LAB ;
+.B start
+and
+.B reset
+delete it. Needs no root.
+.TP
+.BI hint " LAB " \-\-all
+Show every hint of the lab at once. The hint counter does not change.
+.TP
+.BI solution " LAB " [\-\-yes]
+Show the reference solution of the lab. When standard input and standard
+output are both terminals, labctl first asks
+"This shows the full solution. Continue? [y/N]" and shows the solution only
+after y or yes.
+.B \-\-yes
+skips the question. Without a terminal (a pipe, a script) the solution is
+printed without asking. Uses
 .B less
 when standard output is a terminal.
 .TP
@@ -87,6 +113,7 @@ or
 .nf
 sudo labctl start files-04
 labctl task files-04
+labctl hint files-04
 labctl grade files-04
 labctl solution files-04
 sudo labctl reset files-04
@@ -110,6 +137,9 @@ Installed labs.
 .TP
 .I /opt/linux-labs/.current_lab
 Name of the active lab.
+.TP
+.I ~/.local/state/linux-labs/hints/
+One file per lab with the number of hints already shown to the user.
 .TP
 .I /usr/share/doc/linux-labs/
 Student documentation (Markdown).

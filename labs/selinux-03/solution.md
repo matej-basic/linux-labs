@@ -1,5 +1,21 @@
 # selinux-03: SELinux labels for Apache on a non-standard port
 
+## Hints
+
+1. Two labels are wrong: one on the TCP port and one on the content
+   directory. Both must be changed in the persistent policy, not
+   only on the running system.
+2. The port label is handled by semanage port (man semanage-port).
+   List the existing assignments first, because the default policy
+   may already give port 8081 to another type.
+3. If the port is already defined, adding it fails. In that case the
+   existing entry has to be modified instead, using the target type
+   http_port_t.
+4. For the content use semanage fcontext with the type
+   httpd_sys_content_t and a path expression that covers the
+   directory and the files in it, then apply it with restorecon.
+   Start httpd afterwards.
+
 ## Solution
 
 1. [sudo] Look at the current assignment of port 8081 and at the

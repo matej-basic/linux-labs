@@ -15,7 +15,7 @@ A converted lab directory has exactly these seven files and nothing else:
 | `cleanup.sh` | yes | `labctl reset` (as root) | undoes setup and solution |
 | `description.txt` | yes | `labctl list`, task header | metadata |
 | `task.txt` | yes | `labctl start`, `labctl task` | the task text shown to the student |
-| `solution.md` | yes | `labctl solution` | reference solution for students |
+| `solution.md` | yes | `labctl solution`, `labctl hint` | optional hints and the reference solution for students |
 | `solve.sh` | no | `scripts/test-lab.sh` (as root) | automatic solver, same steps as `solution.md` |
 
 `setup.sh`, `grade.sh`, `cleanup.sh` and `solve.sh` start with `#!/bin/bash` and are executable on disk and in git (mode `100755`; `git update-index --chmod=+x` if needed). labctl only accepts a lab name if at least one of the three shipped scripts is executable on the installed system; the spec's `%install` also runs `chmod 0755` on every `*.sh`. All shipped text files are plain ASCII.
@@ -235,6 +235,13 @@ Same ASCII, width (72 columns, URL lines exempt), whitespace and tone rules as `
 ````
 # files-04: Brace expansion and file organisation
 
+## Hints
+
+1. The shell can generate many words from one pattern before a command
+   runs. Read man bash, section Brace Expansion.
+2. The command mkdir has an option that creates missing parent
+   directories. The shell expands the same kind of pattern for it.
+
 ## Solution
 
 1. [user] Change to the lab directory and create the 108 files with
@@ -262,10 +269,38 @@ labctl grade files-04
 Short prose: why the steps work, and the pitfalls the grader catches.
 ````
 
-- Line 1 is `# <id>: <title>` with the title from `description.txt`. The only `##` headings are `Solution`, `Verification`, `Explanation`, in that order. `###` subheadings inside `Solution` are allowed (for example one per node).
+- Line 1 is `# <id>: <title>` with the title from `description.txt`. The only `##` headings are `Hints` (optional), `Solution`, `Verification`, `Explanation`, in that order. `###` subheadings inside `Solution` are allowed (for example one per node).
 - Steps are numbered `1.`, `2.`, ... in column 0, without gaps, and each starts with `[user]` (run as the normal lab user, no sudo) or `[sudo]` (needs root; the commands carry `sudo`). Code blocks are indented three spaces under their step.
 - `## Verification` runs `labctl grade <id>`; other read-only commands may come before it.
 - `## Explanation` is short prose, no step list.
+
+### Hints
+
+`## Hints` is optional; a lab without it works, and `labctl hint` says the lab has no hints. `labctl hint <id>` reads only this section. The rules, all checked by `check-labs.sh`:
+
+- The section comes before `## Solution`, with one blank line after the heading. Contents are numbered items in column 0 (`1. `, `2. `, ...) from 1 without gaps. A hint that wraps continues on lines indented by three spaces. Blank lines between items are allowed. No code fences, no other kinds of lines.
+- 2 to 4 hints, from vague to concrete: a direction or concept first, then the tool or man page section, then optionally the specific option or structure.
+- The hints follow the rule for `task.txt` ("Describe the end state, never the solution"): no complete solving command, no brace pattern, no glob. Command and option names are allowed in prose. The same pattern check as for `task.txt` runs over the section, so an item or continuation line must not start with a command name followed by an argument (write "The command mkdir has an option ..." instead of "mkdir has an option ..."). The `scripts/check-labs.allow` file works for hints too, with entries in the form `<lab>: <line without its indent>`. Ready-to-copy lines belong in `## Solution`.
+- The text rules of the whole file apply (ASCII, 72 columns, no exclamation marks).
+- A lab with independent parts may group its hints. A line in column 0 that starts with `Task N:` opens a group, for example `Task 3: the directory tree`. Numbering restarts at 1 in each group and each group has 2 to 4 hints. Hints before the first group line are not allowed once groups are used.
+
+Example with groups:
+
+```
+## Hints
+
+Task 2: the files
+
+1. First hint for task 2.
+2. Second hint for task 2.
+
+Task 3: the tree
+
+1. First hint for task 3.
+2. Second hint for task 3.
+```
+
+`labctl hint` numbers the hints 1 to M across groups and prints the group line above the first hint of each group. Each call shows all hints given so far plus one more; the count is kept in `~/.local/state/linux-labs/hints/<id>` of the user and removed by `labctl start` and `labctl reset`. This is a learning aid on the honour system: students can read `solution.md` anyway.
 
 ## solve.sh
 
@@ -327,5 +362,7 @@ Planned, not yet implemented: `check-labs.sh` does not validate the file yet (li
 - `start`: for a converted lab, runs `setup.sh`; if it fails, prints `Error: setup of lab <id> failed (exit N). The lab was not started.` to stderr and exits with that status. Otherwise writes `.current_lab` and prints the header and task. For a legacy lab, runs `setup.sh` (which prints its own banner) and writes `.current_lab` as before, ignoring the setup status. Both exit 0 on success.
 - `task`: converted labs only; for a legacy lab it tells the student to use `sudo labctl start`. Needs no root and changes nothing.
 - `reset`: runs `cleanup.sh` and removes `.current_lab`; for a converted lab a failed cleanup is reported and its status returned.
-- `grade`, `solution` and `configure` are unchanged; `list` gained the `--course` and `--level` filters. labctl output is plain ASCII.
+- `start` and `task` end with `Stuck? Run labctl hint <id>` when `solution.md` has a `## Hints` section. `start` and `reset` delete the hint counter of the calling user (`SUDO_USER`).
+- `hint <id>` shows the hints given so far plus the next one; `hint <id> --all` shows all of them and leaves the counter alone. `solution <id>` asks "This shows the full solution. Continue? [y/N]" when stdin and stdout are terminals; `--yes` skips the question, and without a terminal (pipes, scripts, `test-lab.sh`) nothing is asked.
+- `grade` and `configure` are unchanged; `list` gained the `--course` and `--level` filters. labctl output is plain ASCII.
 - The `[LAB:...]` prompt comes from `PROMPT_COMMAND` in `/etc/profile.d/labctl.sh` reading `.current_lab` at every prompt; labctl does not source it.

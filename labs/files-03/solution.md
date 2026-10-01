@@ -1,5 +1,19 @@
 # files-03: Special permissions, ACLs and backup
 
+## Hints
+
+1. Work through the tasks in order and create the archive last, after
+   every owner, mode and ACL is set. tar records what the tree looks
+   like at that moment.
+2. The special bits are the leading digit of a four-digit octal mode:
+   setuid, setgid and sticky each have their own value in man chmod.
+3. ACL entries are set with setfacl and read back with getfacl. The
+   -m option modifies an entry, and the entry syntax is g:name:perms
+   for a group or u:name:perms for a user.
+4. Run chmod before setfacl, because chmod on the group bits changes
+   the ACL mask. For the archive, see the -c, -z and -f options in
+   man tar.
+
 ## Solution
 
 1. [sudo] Create the group and the user with the required IDs:

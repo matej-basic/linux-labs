@@ -12,7 +12,9 @@ The full reference is the manual page:
 | `sudo labctl start <lab>` | prepares the system and prints the task | yes |
 | `labctl task <lab>` | prints the task again, changes nothing | no |
 | `labctl grade <lab>` | checks your work, one PASS or FAIL line per requirement | no |
-| `labctl solution <lab>` | shows the reference solution (press q to leave) | no |
+| `labctl hint <lab>` | shows the next hint; each call adds one, and the count is reset when the lab is started or reset | no |
+| `labctl solution <lab>` | asks "Continue? [y/N]", then shows the reference solution (press q to leave) | no |
+| `labctl solution <lab> --yes` | shows the reference solution without asking | no |
 | `sudo labctl reset <lab>` | undoes the lab and your changes, ends the lab | yes |
 | `labctl help` | prints a short summary of the commands | no |
 

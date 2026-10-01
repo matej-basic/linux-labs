@@ -38,7 +38,7 @@ fix_config_owner() {
 }
 
 usage() {
-  echo "Usage: labctl {start|task|grade|reset|list|solution|configure} <lab>"
+  echo "Usage: labctl {start|task|grade|reset|list|hint|solution|configure} <lab>"
   echo ""
   echo "Commands:"
   echo "  start <lab>              - Start a lab and show its task (requires root)"
@@ -49,7 +49,9 @@ usage() {
   echo "                           - List labs, optionally filtered by course"
   echo "                             and level (beginner, intermediate, advanced)"
   echo "  help                     - Show this help"
-  echo "  solution <lab>           - Show lab solution"
+  echo "  hint <lab> [--all]       - Show the next hint (--all: every hint)"
+  echo "  solution <lab> [--yes]   - Show lab solution (asks first on a"
+  echo "                             terminal; --yes skips the question)"
   echo "  configure <action>       - Configure lab environment"
   echo ""
   echo "Configuration actions:"
@@ -168,6 +170,106 @@ render_task() (
   printf '%s\n' "$text"
 )
 
+# Hints: the "## Hints" section of solution.md
+#
+# Format (checked by scripts/check-labs.sh):
+#   ## Hints
+#
+#   1. First hint, may wrap onto
+#      indented continuation lines.
+#   2. Second hint.
+#
+# A lab with several independent parts may group its hints. A line in
+# column 0 that starts with "Task N:" opens a group, and the numbering
+# restarts at 1 in each group. labctl numbers hints 1..M across groups
+# and prints the group line before the first hint of the group.
+# Blank lines are ignored. The section ends at the next "## " heading.
+hints_section() {
+  awk '/^## /{insec=($0=="## Hints");next} insec{print}' \
+    "$LAB_ROOT/$1/solution.md"
+}
+
+lab_has_hints() {
+  [ -f "$LAB_ROOT/$1/solution.md" ] && grep -qx '## Hints' "$LAB_ROOT/$1/solution.md"
+}
+
+# Number of hints in the section
+hint_count() {
+  hints_section "$1" | grep -cE '^[0-9]+\. '
+}
+
+# Print the first $2 hints with their group lines
+print_hints() {
+  hints_section "$1" | awk -v shown="$2" '
+    /^$/ { next }
+    /^Task [0-9]+:/ { group = $0; newgroup = 1; next }
+    /^[0-9]+\. / {
+      idx++
+      if (idx > shown) { on = 0; next }
+      on = 1
+      if (newgroup) { if (idx > 1) print ""; print group; newgroup = 0 }
+      sub(/^[0-9]+\. /, "")
+      print idx ". " $0
+      next
+    }
+    on { print }
+  '
+}
+
+# The invoking user's hint counter (SUDO_USER's home under sudo)
+hint_counter_file() {
+  printf '%s\n' "$_lab_user_home/.local/state/linux-labs/hints/$1"
+}
+
+# Write the counter. Directories created here under sudo go to the user.
+write_hint_counter() {
+  local file="$1" value="$2" dir top
+  dir="$(dirname "$file")"
+  top="$dir"
+  while [ ! -e "$(dirname "$top")" ]; do top="$(dirname "$top")"; done
+  mkdir -p "$dir" || return 1
+  printf '%s\n' "$value" > "$file"
+  if [ "$EUID" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+    [ -e "$top" ] && [ ! "$top" = "$dir" ] && chown -R "$SUDO_USER": "$top" 2>/dev/null
+    chown "$SUDO_USER": "$dir" "$file" 2>/dev/null
+  fi
+  return 0
+}
+
+# Remove the invoking user's hint counter of a lab
+clear_hint_counter() {
+  rm -f "$(hint_counter_file "$1")"
+}
+
+show_hint() {
+  local lab="$1" all="$2" total given shown file
+  if ! lab_has_hints "$lab" || [ "$(hint_count "$lab")" -eq 0 ]; then
+    echo "This lab has no hints. Use labctl solution $lab to see the full solution."
+    return 0
+  fi
+  total=$(hint_count "$lab")
+  if [ "$all" = yes ]; then
+    printf '%s: all %s hints\n\n' "$lab" "$total"
+    print_hints "$lab" "$total"
+    return 0
+  fi
+  file=$(hint_counter_file "$lab")
+  given=0
+  [ -f "$file" ] && given=$(head -n 1 "$file")
+  case "$given" in ''|*[!0-9]*) given=0 ;; esac
+  shown=$((given + 1))
+  [ "$shown" -le "$total" ] || shown=$total
+  write_hint_counter "$file" "$shown" || echo "labctl: warning: cannot save the hint counter" >&2
+  printf '%s: hint %s of %s\n\n' "$lab" "$shown" "$total"
+  print_hints "$lab" "$shown"
+  echo ""
+  if [ "$shown" -lt "$total" ]; then
+    echo "Run labctl hint $lab again for the next hint."
+  else
+    echo "That was the last hint. labctl solution $lab shows the full solution."
+  fi
+}
+
 # Print the task header and the task text of a converted lab
 print_task() {
   local lab="$1"
@@ -188,6 +290,9 @@ print_task() {
   fi
   printf '%s\n\n' "========================================================================"
   render_task "$lab"
+  if lab_has_hints "$lab"; then
+    printf '\nStuck? Run labctl hint %s\n' "$lab"
+  fi
 }
 
 # Setup default configuration
@@ -244,7 +349,7 @@ configure_interactive() {
     
     echo ""
     echo "Node IP Configuration:"
-    echo "  1. Auto-calculate from network (e.g., 192.168.100.11, .12, .13)"
+    echo "  1. Auto-calculate from network (e.g., 172.25.250.10, .11, .12)"
     echo "  2. Set static IP addresses"
     read -p "Choose option [1]: " ip_option
     
@@ -382,6 +487,7 @@ case "$1" in
       echo "Error: 'labctl start' requires root. Use: sudo labctl start $2" >&2
       exit 1
     fi
+    clear_hint_counter "$2"
     if [ -f "$LAB_ROOT/$2/task.txt" ]; then
       # Framework 2.0 lab: setup prints nothing, labctl prints the task.
       # A failed setup leaves the lab not started.
@@ -435,6 +541,7 @@ case "$1" in
     "$LAB_ROOT/$2/cleanup.sh"
     rc=$?
     rm -f "$STATE_FILE"
+    clear_hint_counter "$2"
     if [ -f "$LAB_ROOT/$2/task.txt" ] && [ "$rc" -ne 0 ]; then
       # Framework 2.0 lab: report a failed cleanup
       echo "Error: cleanup of lab $2 failed (exit $rc)." >&2
@@ -488,12 +595,41 @@ case "$1" in
       echo "No labs match."
     fi
     ;;
+  hint)
+    require_lab "$2"
+    hint_all=no
+    if [ "$#" -ge 3 ]; then
+      if [ "$3" = "--all" ] && [ "$#" -eq 3 ]; then
+        hint_all=yes
+      else
+        echo "Error: unknown option for hint: $3" >&2
+        usage
+      fi
+    fi
+    show_hint "$2" "$hint_all"
+    ;;
   solution)
     require_lab "$2"
+    sol_yes=no
+    if [ "$#" -ge 3 ]; then
+      if [ "$3" = "--yes" ] && [ "$#" -eq 3 ]; then
+        sol_yes=yes
+      else
+        echo "Error: unknown option for solution: $3" >&2
+        usage
+      fi
+    fi
     solfile="$LAB_ROOT/$2/solution.md"
     if [ ! -f "$solfile" ]; then
       echo "No solution available for lab: $2" >&2
       exit 1
+    fi
+    if [ "$sol_yes" = no ] && [ -t 0 ] && [ -t 1 ]; then
+      read -r -p "This shows the full solution. Continue? [y/N] " sol_answer
+      case "$sol_answer" in
+        y|Y|yes|YES|Yes) ;;
+        *) exit 0 ;;
+      esac
     fi
     if command -v less >/dev/null 2>&1 && [ -t 1 ]; then
       less -R "$solfile"

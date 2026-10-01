@@ -1,5 +1,21 @@
 # selinux-02: SELinux contexts for a web application
 
+## Hints
+
+1. Files created under /webapp get a generic default type that httpd
+   is not allowed to read. Request the page and look at the type
+   with the -Z option of ls, then at the AVC denial in the audit log.
+2. A label set with chcon is lost on a relabel. A rule that survives
+   one is stored with semanage fcontext (man semanage-fcontext) and
+   applied with restorecon.
+3. The rule needs the type httpd_sys_rw_content_t and a path
+   expression that matches /webapp/www and everything below it, so it
+   ends in a regular expression for optional subpaths. Do not match
+   the other /webapp directories.
+4. Apply the rule with restorecon and its -R option, then check the
+   result with ls -dZ. The virtual host needs ServerName,
+   DocumentRoot and a Directory block that grants access.
+
 ## Solution
 
 1. [sudo] Install Apache and enable it:

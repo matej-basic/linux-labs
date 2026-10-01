@@ -1,5 +1,20 @@
 # dns-02: DNS forward zone with A, CNAME and MX records
 
+## Hints
+
+1. named loads only the zones declared in its main configuration, so
+   a correct zone file alone answers nothing. You need both the zone
+   file and the declaration.
+2. The zone file starts with a TTL line and an SOA record, then NS,
+   MX, A and CNAME records. A name without a trailing dot gets the
+   zone name appended, so write absolute names with the dot. Check
+   the file with named-checkzone (man named-checkzone).
+3. In /etc/named.conf add a zone statement of type master with a file
+   option pointing at the zone file. Run named-checkconf before
+   starting the service (man named.conf).
+4. If the zone does not load, read the journal of the named unit. The
+   zone file must be readable by the named group.
+
 ## Solution
 
 1. [sudo] Install BIND and the client tools:

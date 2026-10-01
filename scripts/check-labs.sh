@@ -394,9 +394,11 @@ c_task_placeholders() {
 }
 
 # Print "line N: <kind>: <text>" for every task.txt line that looks like a
-# solving command, brace pattern or glob and is not in check-labs.allow
+# solving command, brace pattern or glob and is not in check-labs.allow.
+# An optional argument names another file in the same format (used for the
+# hints of solution.md).
 c_task_no_commands() {
-	local f="$D/task.txt" n kind text entry ln
+	local f="${1:-$D/task.txt}" n kind text entry ln
 	[ -f "$f" ] || return 0
 	awk -v cmds="$TASK_COMMANDS" '
 		BEGIN { k = split(cmds, a, " "); for (i = 1; i <= k; i++) c[a[i]] = 1 }
@@ -444,8 +446,10 @@ c_solution_headings() {
 	[ "$(head -n 1 "$f")" = "# $LAB: $title" ] || echo "first line is not '# $LAB: $title'"
 	[ "$(grep -c '^# ' "$f")" -eq 1 ] || echo "more than one '# ' heading"
 	heads=$(grep '^## ' "$f" | tr '\n' '|')
-	[ "$heads" = "## Solution|## Verification|## Explanation|" ] \
-		|| echo "'## ' headings are '${heads}', expected Solution, Verification, Explanation in that order"
+	case "$heads" in
+		"## Solution|## Verification|## Explanation|"|"## Hints|## Solution|## Verification|## Explanation|") ;;
+		*) echo "'## ' headings are '${heads}', expected [Hints,] Solution, Verification, Explanation in that order" ;;
+	esac
 	[ $(($(grep -c '^ *```' "$f") % 2)) -eq 0 ] || echo "unbalanced code fences"
 	return 0
 }
@@ -455,6 +459,57 @@ solution_section() {
 		/^## / { insec = ($0 == s); next }
 		insec { print }
 	' "$D/solution.md"
+}
+
+# The optional "## Hints" section: 2 to 4 numbered items, from 1 without
+# gaps (restarting in each "Task N:" group), continuation lines indented by
+# three spaces, no code fences. The text rules cover the whole file.
+c_hints() {
+	local f="$D/solution.md"
+	[ -f "$f" ] || return 0
+	grep -qx '## Hints' "$f" || return 0
+	[ "$(grep -cx '## Hints' "$f")" -eq 1 ] || echo "more than one '## Hints' heading"
+	awk '
+		function endgroup() {
+			if (count < 2 || count > 4)
+				print label ": " count " hints, expected 2 to 4"
+		}
+		/^## / {
+			if (insec) { endgroup(); insec = 0 }
+			if ($0 == "## Hints") { insec = 1; count = 0; groups = 0; label = "Hints"; expect = 1 }
+			next
+		}
+		!insec { next }
+		/^```/ { print "line " NR ": code fence in Hints"; next }
+		/^$/ { next }
+		/^Task [0-9]+:/ {
+			if (groups > 0) endgroup()
+			else if (count > 0) print "line " NR ": hints before the first Task group"
+			groups++; count = 0; expect = 1; label = $0; next
+		}
+		/^[0-9]+\. / {
+			n = $0; sub(/\..*/, "", n)
+			if (n + 0 != expect) print "line " NR ": hint " n " found where " expect " was expected"
+			expect = n + 1; count++; next
+		}
+		/^   [^ ]/ { if (count == 0) print "line " NR ": continuation line before the first hint"; next }
+		{ print "line " NR ": not a numbered hint, Task line or continuation indented by 3 spaces" }
+		END { if (insec) endgroup() }
+	' "$f"
+	awk '/^## Solution$/ { sol = NR } /^## Hints$/ { h = NR } END { if (h && sol && h > sol) print "## Hints must come before ## Solution" }' "$f"
+}
+
+# Hints are held to the same no-solving-commands rule as task.txt. The
+# section is indented by two spaces into a temporary copy that keeps the
+# line numbers of solution.md.
+c_hints_no_commands() {
+	local f="$D/solution.md" tmp
+	[ -f "$f" ] || return 0
+	grep -qx '## Hints' "$f" || return 0
+	tmp=$(mktemp "${TMPDIR:-/tmp}/hints.XXXXXX")
+	awk '/^## / { insec = ($0 == "## Hints"); print ""; next } insec && $0 != "" { print "  " $0; next } { print "" }' "$f" >"$tmp"
+	c_task_no_commands "$tmp"
+	rm -f "$tmp"
 }
 
 c_solution_steps() {
@@ -606,6 +661,8 @@ check_lab() {
 	check "task.txt states the end state, no solving commands" c_task_no_commands
 	check "solution.md follows the text rules" c_text_rules solution.md
 	check "solution.md has the 2.0 headings" c_solution_headings
+	check "Hints (optional) are 2 to 4 numbered items before Solution" c_hints
+	check "Hints name no solving commands, brace patterns or globs" c_hints_no_commands
 	check "Solution steps are numbered and marked [user] or [sudo]" c_solution_steps
 	check "Verification runs labctl grade $LAB" c_solution_verification
 	check "grade.sh uses lib/grading.sh" c_grade_library

@@ -1,5 +1,15 @@
 # packages-02: Enable the EPEL repository and install a package from it
 
+## Hints
+
+1. EPEL is not a repository you add by hand here. Think about which
+   package could provide its repository definition.
+2. The Rocky Linux extras repository is enabled by default and
+   offers a package named epel-release. Install it with dnf first.
+3. Use `dnf repolist` to check that the epel repository appeared,
+   then install htop. The "From repo" line in `dnf info htop`
+   shows where an installed package came from.
+
 ## Solution
 
 1. [sudo] Install the EPEL repository package. It is in the Rocky

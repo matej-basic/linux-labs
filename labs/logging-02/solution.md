@@ -1,5 +1,21 @@
 # logging-02: Custom rsyslog rules and logrotate
 
+## Hints
+
+1. Two files are involved. rsyslog decides where messages go, so write
+   the rules in /etc/rsyslog.d/myapp.conf. logrotate handles rotation
+   through its own file in /etc/logrotate.d.
+2. In man rsyslog.conf, read the sections on selectors (facility and
+   priority) and on property-based filters. The first rule selects by
+   facility, the second by the program name, which is the tag.
+3. rsyslog creates new files with mode 600, so create both log files
+   yourself and set the mode before testing. Restart the service so
+   it reads the new rules.
+4. In man logrotate, look for the directives for daily rotation, the
+   number of kept logs, compression, missing and empty files, and
+   create. The reopen step belongs in a postrotate script. Check the
+   file with the debug option, which changes nothing.
+
 ## Solution
 
 1. [sudo] Create the rsyslog rules:

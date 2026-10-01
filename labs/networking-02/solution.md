@@ -1,5 +1,20 @@
 # networking-02: VLAN interface and hostname
 
+## Hints
+
+1. The free interface is the first ethernet device that does not
+   carry the default route. Its name is also on the first line of the
+   state file mentioned in the task.
+2. A VLAN is a NetworkManager connection of its own type. See man
+   nm-settings, section vlan, for the parent interface and the ID.
+3. With nmcli connection add, use the connection type vlan. The dev
+   option names the parent interface and id gives the VLAN ID. Set
+   ipv4.method to manual, then activate the profile with the up
+   subcommand of nmcli connection.
+4. The static hostname is set with hostnamectl, see its
+   set-hostname command. The name resolution entry goes into
+   /etc/hosts: one line with an address, the full name and the alias.
+
 ## Solution
 
 1. [user] Find the free interface. It is the first ethernet interface

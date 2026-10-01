@@ -1,5 +1,20 @@
 # clustering-01: Basic three-node Pacemaker cluster
 
+## Hints
+
+1. Three things come before the cluster exists: the packages from the
+   High Availability repository, the firewall, and a password for the
+   hacluster account with the pcs daemon running on every node.
+2. The pcs tool does the rest from one node. Read man pcs, the
+   sections host (authentication) and cluster (setup), and use the
+   --start and --enable options of the setup subcommand.
+3. In the setup, pass each node as its host name with an addr value
+   holding its IP address. The firewall service for the cluster is
+   called high-availability.
+4. For the resource, look at man ocf_heartbeat_apache. The cluster
+   starts httpd itself, so httpd must stay disabled in systemd, and
+   Pacemaker will not start resources while stonith-enabled is true.
+
 ## Solution
 
 All steps run on the workstation as the lab user. They reach the nodes

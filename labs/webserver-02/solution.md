@@ -1,5 +1,19 @@
 # webserver-02: Apache name-based virtual host
 
+## Hints
+
+1. Four things have to line up: the page content, name resolution, a
+   virtual host definition and a running service that has loaded it.
+2. For the name, see man hosts and the file /etc/hosts. For the
+   virtual host, put a file under /etc/httpd/conf.d and read the
+   Apache documentation on name-based virtual hosts.
+3. The block needs the directives ServerName and DocumentRoot, and a
+   Directory block that grants access, because the path is outside the
+   default web root configuration.
+4. Check the syntax with the -t option of httpd, and compare with
+   the -S option, which lists the virtual hosts Apache loaded. A
+   configuration change needs a restart or reload.
+
 ## Solution
 
 1. [sudo] Install Apache, enable it and start it:

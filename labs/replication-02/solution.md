@@ -1,5 +1,21 @@
 # replication-02: PostgreSQL streaming replication with WAL archiving
 
+## Hints
+
+1. Both nodes need work before the copy is made. Node 1 must listen on
+   a non-local address, allow the role repl to connect for replication
+   and archive its WAL. Node 2 must start from a copy of node 1.
+2. The access rule for replication connections goes into pg_hba.conf
+   on node 1, with the database field set to replication. Settings such
+   as archive_mode and archive_command can be changed with ALTER SYSTEM,
+   and archive_mode takes effect only after a restart.
+3. On node 2, read man pg_basebackup. The target directory must be
+   empty, and the options -R and -X stream make the copy a ready
+   standby. The password for repl has to be available without a prompt,
+   see the .pgpass file in the home directory of the postgres user.
+4. Check the result with pg_stat_replication on node 1 and
+   pg_is_in_recovery() on node 2.
+
 ## Solution
 
 Below, <node1-ip> and <node2-ip> are the addresses shown by

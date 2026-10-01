@@ -1,5 +1,16 @@
 # storage-01: Loopback filesystem with persistent mount
 
+## Hints
+
+1. A regular file becomes a disk once a loop device is attached to it,
+   and mount can do the attaching itself.
+2. Read man mkfs.ext4 for the option that allows formatting a regular
+   file, and man mount for the loop option.
+3. In /etc/fstab the first field holds the image path instead of a
+   UUID, and the options field needs loop and nofail. Set the mode 755
+   on /mnt/data after the mount, because before it you only change the
+   empty directory underneath.
+
 ## Solution
 
 1. [sudo] Create the 100 MiB image:

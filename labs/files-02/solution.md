@@ -1,5 +1,16 @@
 # files-02: Web directory permissions and ownership
 
+## Hints
+
+1. Plan the order: create the directories and files first, then fix
+   owners and modes. Files made with sudo start out owned by root.
+2. Ownership is changed with chown (owner:group in one argument) and
+   permissions with chmod. Both accept several paths at once.
+3. Only the apache entries need chown, since root already owns the
+   rest. The mode may be given as three octal digits.
+4. Check the result with ls -l, and use sudo to look inside config,
+   because its mode is 700.
+
 ## Solution
 
 1. [sudo] Create the directories:

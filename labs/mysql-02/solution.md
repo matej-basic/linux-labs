@@ -1,5 +1,20 @@
 # mysql-02: MySQL database and user management
 
+## Hints
+
+1. Everything is done as the MySQL root account inside the server, with
+   SQL statements. The order matters: database and user first, then
+   the grant, then the table and rows.
+2. The reference sections are CREATE DATABASE, CREATE USER and GRANT in
+   the MySQL manual. Use the mysql client with the -e option to run a
+   statement without an interactive session.
+3. An account is a pair of user name and host name. The task wants the
+   host part to be localhost. Name the privileges one by one and limit
+   them to all tables of one database with the ON clause of GRANT.
+4. Create the table with CREATE TABLE and fill it with INSERT INTO. Give
+   the mysql client the database name so the statements run in labdb.
+   Test as labuser to see whether the grant works.
+
 ## Solution
 
 1. [user] Create the database, the user and its privileges. The root

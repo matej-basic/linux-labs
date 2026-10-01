@@ -1,5 +1,20 @@
 # scheduling-03: Anacron, persistent timers and cron variables
 
+## Hints
+
+1. Part 1: each line in /etc/anacrontab has four fields: period in
+   days, delay in minutes, job identifier and command. See man
+   anacrontab.
+2. Part 2: catching up on missed runs is a key of the [Timer] section
+   in man systemd.timer. The unit files follow the same pattern as an
+   ordinary service and timer pair.
+3. Part 3: cron applies variable assignments only to job lines below
+   them. In man 5 crontab, look at the hour field for the step
+   syntax with a slash.
+4. The script in part 3 must read the log path from the environment
+   variable instead of using a fixed path, and the variables have to
+   be saved in root's crontab, not in the script.
+
 ## Solution
 
 1. [sudo] Create the anacron script and make it executable:

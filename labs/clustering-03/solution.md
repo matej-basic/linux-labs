@@ -1,5 +1,20 @@
 # clustering-03: Quorum and split-brain protection
 
+## Hints
+
+1. Quorum behaviour comes from two places: the quorum block in
+   corosync.conf and a Pacemaker cluster property. Check the current
+   state with corosync-quorumtool before you change anything.
+2. Read man votequorum for the three options and man pcs, section
+   property, for the policy that decides what a partition without
+   quorum does. That property is called no-quorum-policy.
+3. The options go into the quorum block of the file
+   /etc/corosync/corosync.conf, on every node, next to the provider
+   line. Corosync reads the file only when it starts.
+4. Restart the cluster services one node at a time and wait until the
+   node has rejoined, so the other two keep quorum. Stopping two nodes
+   at once costs the cluster its quorum.
+
 ## Solution
 
 1. [user] On the workstation, load the lab configuration and define

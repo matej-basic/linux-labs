@@ -1,5 +1,17 @@
 # users-02: User accounts, password aging and limits
 
+## Hints
+
+1. Separate the per-account settings (dave, eve) from the system-wide
+   defaults. They live in different places and need different tools.
+2. For aging and expiry of one account, read man chage. Account
+   expiry and password expiry are two separate fields there.
+3. In man limits.conf, look at the domain field: a group needs a
+   prefix character, and each limit needs a soft and a hard line.
+   The item names for open files and processes are in the same page.
+4. The defaults are the PASS_ keys in /etc/login.defs. Edit them in
+   place so that each key appears only once.
+
 ## Solution
 
 1. [sudo] Create the group:
