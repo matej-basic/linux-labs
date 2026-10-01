@@ -2,3 +2,4 @@ title: Nginx reverse proxy with health checks
 category: Load Balancing
 complexity: Intermediate
 objective: Configure Nginx as a reverse proxy with passive health checks in front of two Apache backends.
+needs: internet, nodes=3

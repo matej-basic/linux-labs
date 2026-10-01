@@ -2,3 +2,4 @@ title: Highly available load balancer with keepalived
 category: Load Balancing
 complexity: Advanced
 objective: Build an active/passive HAProxy pair with a keepalived virtual IP in front of three Apache backends.
+needs: internet, nodes=3

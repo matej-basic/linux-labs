@@ -4,3 +4,4 @@ complexity: Advanced
 objective: Build and install the joe editor from a source tarball with a custom installation prefix.
 course: aoos
 course_lab: 02
+needs: internet

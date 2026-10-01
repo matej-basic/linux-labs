@@ -2,3 +2,4 @@ title: Basic three-node Pacemaker cluster
 category: High Availability Clustering
 complexity: Beginner
 objective: Build a three-node Pacemaker/Corosync cluster and run an Apache resource on it.
+needs: internet, nodes=3

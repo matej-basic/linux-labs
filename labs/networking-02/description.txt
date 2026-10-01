@@ -2,3 +2,4 @@ title: VLAN interface and hostname
 category: Networking
 complexity: Intermediate
 objective: Create a persistent VLAN interface on a free NIC and configure the hostname and local name resolution.
+needs: free-nic

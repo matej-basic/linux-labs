@@ -45,6 +45,7 @@ SRC_DIR="$ROOT_DIR/src"
 ETC_SOURCE="$SRC_DIR/etc"
 USR_SOURCE="$SRC_DIR/usr"
 OPT_SOURCE="$SRC_DIR/opt"
+DOC_SOURCE="$ROOT_DIR/docs/student"
 
 if [[ ! -f "$SPEC_SOURCE" ]]; then
         echo "Error: spec not found at $SPEC_SOURCE" >&2
@@ -76,6 +77,11 @@ if [[ ! -d "$OPT_SOURCE" ]]; then
         exit 1
 fi
 
+if ! compgen -G "$DOC_SOURCE/*.md" >/dev/null; then
+        echo "Error: no student documentation (*.md) in $DOC_SOURCE" >&2
+        exit 1
+fi
+
 if ! command -v rpmbuild >/dev/null 2>&1; then
         echo "Error: rpmbuild not found. Install with: dnf install rpm-build" >&2
         exit 1
@@ -96,6 +102,7 @@ LABS_DEST="$SOURCE_DIR/opt/linux-labs/labs"
 ETC_DEST="$SOURCE_DIR/etc"
 USR_DEST="$SOURCE_DIR/usr"
 OPT_DEST="$SOURCE_DIR/opt"
+DOC_DEST="$SOURCE_DIR/doc"
 
 echo "==> Building $NAME $VERSION"
 
@@ -120,6 +127,10 @@ cp -r "$USR_SOURCE" "$USR_DEST"
 
 echo "==> Syncing opt from $OPT_SOURCE to $OPT_DEST"
 cp -r "$OPT_SOURCE/linux-labs/lib" "$OPT_DEST/linux-labs/"
+
+echo "==> Syncing student docs from $DOC_SOURCE to $DOC_DEST"
+mkdir -p "$DOC_DEST"
+cp "$DOC_SOURCE"/*.md "$DOC_DEST/"
 
 echo "==> Creating source tarball: $TARBALL"
 tar -czf "$TARBALL" -C "$TOPDIR/SOURCES" "$NAME-$VERSION"

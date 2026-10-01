@@ -45,7 +45,10 @@ usage() {
   echo "  task <lab>               - Show the task of a lab again"
   echo "  grade <lab>              - Grade a lab"
   echo "  reset <lab>              - Reset a lab (requires root)"
-  echo "  list                     - List all labs"
+  echo "  list [--course <c>] [--level <l>]"
+  echo "                           - List labs, optionally filtered by course"
+  echo "                             and level (beginner, intermediate, advanced)"
+  echo "  help                     - Show this help"
   echo "  solution <lab>           - Show lab solution"
   echo "  configure <action>       - Configure lab environment"
   echo ""
@@ -55,7 +58,10 @@ usage() {
   echo "  configure set KEY VALUE  - Set configuration value"
   echo "  configure validate       - Validate configuration"
   echo "  configure reset          - Reset to defaults"
-  exit 1
+  echo ""
+  echo "Documentation: man labctl, /usr/share/doc/linux-labs/"
+  echo "Online: https://matej-basic.github.io/linux-labs/"
+  exit "${1:-1}"
 }
 
 # Require a lab name for commands that need one
@@ -91,6 +97,19 @@ lab_field() {
   local desc_file="$LAB_ROOT/$lab/description.txt"
   [ -f "$desc_file" ] || return 0
   sed -n "s/^${key}:[[:space:]]*//p" "$desc_file" | head -n 1
+}
+
+# Turn the needs: value ("internet, reboot, free-nic, nodes=3") into text
+needs_text() {
+  local item out=""
+  for item in $(printf '%s\n' "$1" | tr -d ','); do
+    case "$item" in
+      free-nic) item="free network interface" ;;
+      nodes=*) item="${item#nodes=} nodes" ;;
+    esac
+    out="${out:+$out, }$item"
+  done
+  printf '%s\n' "$out"
 }
 
 # Print task.txt with the known placeholders filled in. Runs in a subshell
@@ -152,10 +171,11 @@ render_task() (
 # Print the task header and the task text of a converted lab
 print_task() {
   local lab="$1"
-  local title category level
+  local title category level needs
   title=$(lab_field "$lab" title)
   category=$(lab_field "$lab" category)
   level=$(lab_field "$lab" complexity)
+  needs=$(lab_field "$lab" needs)
 
   if [ -n "$title" ]; then
     printf '%s: %s\n' "$lab" "$title"
@@ -163,6 +183,9 @@ print_task() {
     printf '%s\n' "$lab"
   fi
   printf 'Category: %s    Level: %s\n' "${category:-unknown}" "${level:-unknown}"
+  if [ -n "$needs" ]; then
+    printf 'Needs: %s\n' "$(needs_text "$needs")"
+  fi
   printf '%s\n\n' "========================================================================"
   render_task "$lab"
 }
@@ -420,12 +443,50 @@ case "$1" in
     exit 0
     ;;
   list)
+    shift
+    want_course=""
+    want_level=""
+    while [ "$#" -gt 0 ]; do
+      case "$1" in
+        --course|--level)
+          if [ "$#" -lt 2 ] || [ -z "$2" ]; then
+            echo "Error: $1 needs a value" >&2
+            exit 1
+          fi
+          if [ "$1" = "--course" ]; then want_course="$2"; else want_level="$2"; fi
+          shift 2
+          ;;
+        *)
+          echo "Error: unknown option for list: $1" >&2
+          usage
+          ;;
+      esac
+    done
+    want_course=$(printf '%s' "$want_course" | tr '[:upper:]' '[:lower:]')
+    want_level=$(printf '%s' "$want_level" | tr '[:upper:]' '[:lower:]')
+    case "$want_level" in
+      ""|beginner|intermediate|advanced) ;;
+      *) echo "Error: --level must be beginner, intermediate or advanced" >&2; exit 1 ;;
+    esac
     printf "%-16s  %s\n" "LAB" "DESCRIPTION"
     printf "%-16s  %s\n" "----------------" "----------------------------------------------"
+    shown=0
     for lab in $(ls -1 "$LAB_ROOT" | sort); do
+      if [ -n "$want_course" ]; then
+        c=$(lab_field "$lab" course | tr '[:upper:]' '[:lower:]')
+        [ "$c" = "$want_course" ] || continue
+      fi
+      if [ -n "$want_level" ]; then
+        l=$(lab_field "$lab" complexity | tr '[:upper:]' '[:lower:]')
+        [ "$l" = "$want_level" ] || continue
+      fi
       desc=$(lab_description "$lab")
       printf "%-16s  %s\n" "$lab" "$desc"
+      shown=$((shown + 1))
     done
+    if [ "$shown" -eq 0 ]; then
+      echo "No labs match."
+    fi
     ;;
   solution)
     require_lab "$2"
@@ -465,6 +526,9 @@ case "$1" in
         exit 1
         ;;
     esac
+    ;;
+  help|-h|--help)
+    usage 0
     ;;
   *)
     usage

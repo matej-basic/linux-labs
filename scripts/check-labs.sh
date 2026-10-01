@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Static checker for the lab framework 2.0 contract (see CLAUDE.md).
+# Static checker for the lab framework 2.0 contract (see docs/author/framework.md).
 #
 # Usage: scripts/check-labs.sh [--strict] [<lab>...]
 #
@@ -12,6 +12,10 @@
 # (koalaman/shellcheck:stable), else skipped with a note on stderr. Set
 # SHELLCHECK=none to skip it, or SHELLCHECK=docker to force the docker
 # image (CI does this so its findings match local runs).
+#
+# A run without lab names also checks two repo-level criteria: the repo
+# root holds only the allowed files and directories, and docs/catalog.md is
+# up to date (scripts/gen-catalog.sh regenerates it).
 #
 # Exit status: 0 when every checked lab passes, 1 otherwise, 2 on usage
 # errors. Runs on bash 3.2 (macOS) and later.
@@ -30,6 +34,11 @@ MAX_WIDTH=72
 PLACEHOLDERS="EL_MAJOR ARCH HOSTNAME LAB_USER NODE_COUNT NODE1_IP NODE2_IP NODE3_IP NODE4_IP NODE5_IP NODE6_IP NODE7_IP NODE8_IP NODE9_IP"
 SECTIONS="OBJECTIVE|TOPOLOGY|PREREQUISITES|TASKS|EXPECTED RESULT|PRACTICE (not graded)|NOTES|GRADING"
 CATEGORIES="Database Replication|Databases|DNS|Files|Firewall|High Availability Clustering|Load Balancing|Logging|Networking|Packages|Scheduling|SELinux|Storage|Systemd|Users|Web Servers"
+# Files and directories allowed in the repo root (tracked, or untracked and
+# not ignored). Keep in sync with the root-file rule in CLAUDE.md and
+# docs/author/testing.md.
+ROOT_ALLOWED="README.md CHANGELOG LICENSE CLAUDE.md .github .gitignore .claude labs src rpm scripts pages docs"
+NEEDS_ITEM='(internet|reboot|free-nic|nodes=[0-9]+)'
 LAB_FILES="setup.sh grade.sh cleanup.sh description.txt task.txt solution.md solve.sh"
 SCRIPTS="setup.sh grade.sh cleanup.sh solve.sh"
 # task.txt describes the end state, never how to reach it. A body line is
@@ -61,7 +70,9 @@ while [ "$#" -gt 0 ]; do
 	shift
 done
 
+repo_checks=0
 if [ "${#labs[@]}" -eq 0 ]; then
+	repo_checks=1
 	for d in "$ROOT_DIR"/labs/*/; do
 		d="${d%/}"
 		labs+=("${d##*/}")
@@ -177,11 +188,11 @@ c_desc_format() {
 	keys=$(sed -n 's/^\([a-z_]*\): .*/\1/p' "$f")
 	for key in $keys; do
 		case "$key" in
-			title|category|complexity|objective|course|course_lab) ;;
+			title|category|complexity|objective|course|course_lab|needs) ;;
 			*) echo "unknown key: $key" ;;
 		esac
 	done
-	for key in title category complexity objective course course_lab; do
+	for key in title category complexity objective course course_lab needs; do
 		n=$(printf '%s\n' "$keys" | grep -cx "$key")
 		[ "$n" -gt 1 ] && echo "duplicate key: $key"
 	done
@@ -224,6 +235,43 @@ c_desc_values() {
 	if [ -n "$v" ] && ! printf '%s\n' "$v" | grep -qxE '[0-9][0-9]'; then
 		echo "course_lab '$v' is not two digits"
 	fi
+	return 0
+}
+
+# needs: optional, items in the fixed order internet, reboot, free-nic,
+# nodes=N, separated by ", ". reboot must match "# solve: reboot" in solve.sh
+# and nodes=N (N >= 2) must go with a TOPOLOGY section in task.txt.
+c_desc_needs() {
+	local v item rank last=-1 n has_reboot=0 has_nodes=0 solve_reboot=0 topology=0
+	[ -f "$D/description.txt" ] || return 0
+	v=$(desc_value needs)
+	if [ -n "$v" ]; then
+		if ! printf '%s\n' "$v" | grep -qE "^$NEEDS_ITEM(, $NEEDS_ITEM)*\$"; then
+			echo "needs '$v' is not a list of internet, reboot, free-nic, nodes=N separated by \", \""
+			return 0
+		fi
+		for item in $(printf '%s\n' "$v" | tr -d ','); do
+			case "$item" in
+				internet) rank=0 ;;
+				reboot) rank=1; has_reboot=1 ;;
+				free-nic) rank=2 ;;
+				nodes=*)
+					rank=3
+					has_nodes=1
+					n="${item#nodes=}"
+					[ "$n" -ge 2 ] || echo "needs: $item, N must be at least 2"
+					;;
+			esac
+			if [ "$rank" -le "$last" ]; then
+				echo "needs: $item is repeated or out of order (internet, reboot, free-nic, nodes=N)"
+			fi
+			last=$rank
+		done
+	fi
+	grep -qx '# solve: reboot' "$D/solve.sh" 2>/dev/null && solve_reboot=1
+	grep -qx 'TOPOLOGY' "$D/task.txt" 2>/dev/null && topology=1
+	[ "$has_reboot" -eq "$solve_reboot" ] || echo "needs reboot and '# solve: reboot' in solve.sh must go together"
+	[ "$has_nodes" -eq "$topology" ] || echo "needs nodes=N and a TOPOLOGY section in task.txt must go together"
 	return 0
 }
 
@@ -497,6 +545,46 @@ c_shellcheck() {
 	return 0
 }
 
+# --- repo-level checks ---------------------------------------------------
+
+c_root_files() {
+	local name
+	{
+		git -C "$ROOT_DIR" ls-files 2>/dev/null
+		git -C "$ROOT_DIR" ls-files --others --exclude-standard 2>/dev/null
+	} | awk -F/ '{ print $1 }' | sort -u | while IFS= read -r name; do
+		# A tracked file that is deleted on disk is not in the root
+		[ -e "$ROOT_DIR/$name" ] || [ -L "$ROOT_DIR/$name" ] || continue
+		case " $ROOT_ALLOWED " in
+			*" $name "*) ;;
+			*) echo "not allowed in the repo root: $name" ;;
+		esac
+	done
+}
+
+c_catalog() {
+	local tmp
+	if [ ! -f "$ROOT_DIR/docs/catalog.md" ]; then
+		echo "docs/catalog.md is missing: run scripts/gen-catalog.sh"
+		return 0
+	fi
+	tmp=$(mktemp "${TMPDIR:-/tmp}/catalog.XXXXXX")
+	if ! "$ROOT_DIR/scripts/gen-catalog.sh" --md "$tmp" >/dev/null 2>&1; then
+		echo "scripts/gen-catalog.sh failed"
+	elif ! diff -q "$ROOT_DIR/docs/catalog.md" "$tmp" >/dev/null 2>&1; then
+		echo "docs/catalog.md is out of date: run scripts/gen-catalog.sh"
+	fi
+	rm -f "$tmp"
+}
+
+check_repo() {
+	grade_reset
+	printf 'Checking the repository\n\n'
+	check "Repo root holds only the allowed files" c_root_files
+	check "docs/catalog.md is up to date" c_catalog
+	grade_summary
+}
+
 check_lab() {
 	LAB="$1"
 	D="$ROOT_DIR/labs/$LAB"
@@ -509,6 +597,7 @@ check_lab() {
 	check "description.txt has only known key: value lines" c_desc_format
 	check "description.txt has title, category, complexity, objective" c_desc_required
 	check "description.txt values are valid" c_desc_values
+	check "description.txt needs: is valid and matches the lab" c_desc_needs
 	check "task.txt follows the text rules" c_text_rules task.txt
 	check "task.txt has the required sections in order" c_task_sections
 	check "TASKS are numbered from 1" c_task_numbering
@@ -532,6 +621,15 @@ check_lab() {
 
 results=()
 failed=0
+if [ "$repo_checks" -eq 1 ]; then
+	if check_repo; then
+		results+=("repository|PASS")
+	else
+		failed=1
+		results+=("repository|FAIL")
+	fi
+	echo ""
+fi
 converted=0
 passed=0
 legacy=0

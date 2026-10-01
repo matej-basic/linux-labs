@@ -58,6 +58,10 @@ install -m 0440 etc/sudoers.d/labctl %{buildroot}/etc/sudoers.d/labctl
 mkdir -p %{buildroot}%{_mandir}/man1
 install -m 0644 usr/share/man/man1/labctl.1 %{buildroot}%{_mandir}/man1/labctl.1
 
+# Student documentation (docs/student/*.md in the repo)
+mkdir -p %{buildroot}%{_docdir}/%{name}
+install -m 0644 doc/*.md %{buildroot}%{_docdir}/%{name}/
+
 %check
 visudo -cf %{buildroot}/etc/sudoers.d/labctl
 
@@ -69,6 +73,7 @@ visudo -cf %{buildroot}/etc/sudoers.d/labctl
 /opt/linux-labs
 %config(noreplace) %attr(0440,root,root) /etc/sudoers.d/labctl
 %{_mandir}/man1/labctl.1*
+%doc %{_docdir}/%{name}
 
 %changelog
 * Thu Oct 01 2026 Matej Basic <matej.basic@outlook.com> - 1.1.0-1

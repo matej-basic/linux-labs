@@ -2,3 +2,4 @@ title: MySQL backup and restore
 category: Databases
 complexity: Advanced
 objective: Back up a MySQL database to an SQL file and restore it into a new database to verify data integrity.
+needs: internet

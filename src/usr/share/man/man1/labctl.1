@@ -5,6 +5,12 @@ labctl \- start, grade and reset hands-on Linux labs
 .B labctl
 .I COMMAND
 .RI [ LAB ]
+.br
+.B labctl list
+.RB [ \-\-course
+.IR COURSE ]
+.RB [ \-\-level
+.IR LEVEL ]
 .SH DESCRIPTION
 .B labctl
 runs the hands-on Linux labs provided by the linux-labs package.
@@ -30,8 +36,9 @@ setup exit status.
 .TP
 .BI task " LAB"
 Print the task of the lab again: the header line, the category and level
-line and the task text. It does not change the system and does not need
-root.
+line, the optional Needs line (what the lab requires: internet, reboot, a
+free network interface, a number of nodes) and the task text. It does not
+change the system and does not need root.
 .TP
 .BI grade " LAB"
 Check the current state of the system against the lab criteria. Each
@@ -42,8 +49,23 @@ the overall result and the number of criteria met.
 Undo the lab setup and the changes the solution makes, and clear the active
 lab. Requires root.
 .TP
-.B list
+.B list [\-\-course \fICOURSE\fP] [\-\-level \fILEVEL\fP]
 List the installed labs with their objective.
+.B \-\-course
+shows only the labs of one course (for example
+.BR aoos ) .
+.B \-\-level
+shows only labs of one level:
+.BR beginner ,
+.B intermediate
+or
+.BR advanced .
+Both match without regard to case and can be combined.
+.TP
+.B help
+Print the command summary. Running
+.B labctl
+without arguments does the same.
 .TP
 .BI solution " LAB"
 Show the reference solution of the lab. Uses
@@ -88,6 +110,9 @@ Installed labs.
 .TP
 .I /opt/linux-labs/.current_lab
 Name of the active lab.
+.TP
+.I /usr/share/doc/linux-labs/
+Student documentation (Markdown).
 .TP
 .I /etc/linux-labs/config
 System-wide configuration; otherwise

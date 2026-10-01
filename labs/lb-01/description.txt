@@ -2,3 +2,4 @@ title: HAProxy load balancing for three web servers
 category: Load Balancing
 complexity: Beginner
 objective: Set up HAProxy on node 1 to balance HTTP traffic round-robin across three Apache servers on port 8080.
+needs: internet, nodes=3

@@ -114,7 +114,7 @@ jobs:
 
       - name: Verify signature
         run: |
-          rpm --import RPM-GPG-KEY-linux-labs
+          rpm --import pages/RPM-GPG-KEY-linux-labs
           for f in dist/*.noarch.rpm; do
             out="$(rpm -K "$f")"
             echo "$out"
@@ -145,7 +145,7 @@ jobs:
 
       - name: Install signed RPM with gpgcheck
         run: |
-          rpm --import RPM-GPG-KEY-linux-labs
+          rpm --import pages/RPM-GPG-KEY-linux-labs
           dnf -y --setopt=gpgcheck=1 --setopt=localpkg_gpgcheck=1 install ./dist/linux-labs-*.noarch.rpm
           labctl list
           test "$(stat -c %a /usr/bin/labctl)" = "755"

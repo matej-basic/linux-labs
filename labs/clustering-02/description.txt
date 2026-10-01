@@ -2,3 +2,4 @@ title: STONITH fencing for a Pacemaker cluster
 category: High Availability Clustering
 complexity: Intermediate
 objective: Add STONITH fence devices for all three nodes to an existing Pacemaker cluster and enable fencing.
+needs: internet, nodes=3

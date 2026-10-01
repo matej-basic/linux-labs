@@ -2,3 +2,4 @@ title: HTTPS with a self-signed certificate
 category: Web Servers
 complexity: Advanced
 objective: Serve a site over HTTPS with Apache and a self-signed certificate, and redirect HTTP to HTTPS.
+needs: internet

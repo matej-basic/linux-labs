@@ -2,3 +2,4 @@ title: MySQL source-replica replication
 category: Database Replication
 complexity: Beginner
 objective: Set up MySQL replication from node 1 (source) to node 2 (replica) and prove that data written on node 1 appears on node 2.
+needs: internet, nodes=2

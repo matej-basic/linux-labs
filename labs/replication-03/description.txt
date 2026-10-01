@@ -2,3 +2,4 @@ title: MySQL multi-master circular replication
 category: Database Replication
 complexity: Advanced
 objective: Configure MySQL circular multi-master replication across three nodes.
+needs: internet, nodes=3

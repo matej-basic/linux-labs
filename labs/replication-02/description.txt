@@ -2,3 +2,4 @@ title: PostgreSQL streaming replication with WAL archiving
 category: Database Replication
 complexity: Intermediate
 objective: Configure a PostgreSQL primary with WAL archiving and a streaming standby on a second node.
+needs: internet, nodes=2

@@ -2,3 +2,4 @@ title: Rich rules and zone assignment
 category: Firewall
 complexity: Intermediate
 objective: Configure a firewalld rich rule for source-based access control and assign an interface to a zone.
+needs: free-nic

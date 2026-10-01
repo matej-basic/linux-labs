@@ -2,3 +2,4 @@ title: SELinux labels for Apache on a non-standard port
 category: SELinux
 complexity: Advanced
 objective: Configure SELinux port labeling and policies for non-standard network service ports.
+needs: internet

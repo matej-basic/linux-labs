@@ -2,3 +2,4 @@ title: Quorum and split-brain protection
 category: High Availability Clustering
 complexity: Advanced
 objective: Protect a three-node Pacemaker cluster against split-brain with votequorum options and a stop policy for lost quorum.
+needs: nodes=3

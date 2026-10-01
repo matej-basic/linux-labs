@@ -2,3 +2,4 @@ title: PostgreSQL installation and first start
 category: Databases
 complexity: Beginner
 objective: Install PostgreSQL Server, initialise the cluster, start the service and verify local connectivity.
+needs: internet

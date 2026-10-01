@@ -4,3 +4,4 @@ complexity: Intermediate
 objective: Query the RPM database, then install and remove a package from a downloaded RPM file.
 course: aoos
 course_lab: 02
+needs: internet

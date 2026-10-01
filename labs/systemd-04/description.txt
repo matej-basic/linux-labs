@@ -4,3 +4,4 @@ complexity: Beginner
 objective: Change the default boot target from graphical to text mode and confirm it with a reboot.
 course: aoos
 course_lab: 01
+needs: reboot
