@@ -14,6 +14,6 @@ cd "$dir"
 journalctl -t labjournal > all.txt
 journalctl -t labjournal -p err > errors.txt
 journalctl -t labjournal -p warning > warnings.txt
-journalctl -t labjournal -n 3 -r > latest.txt
+journalctl -t labjournal -n 3 -q | tac > latest.txt
 journalctl -t labjournal -p err -o json > errors.json
 chown "$SOLVE_USER": all.txt errors.txt warnings.txt latest.txt errors.json

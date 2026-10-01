@@ -9,9 +9,10 @@
 2. See man journalctl for the options that select by identifier and by
    priority. A priority selects that level and everything more severe,
    so one level name is enough for errors.txt and for warnings.txt.
-3. Newest first needs an option that reverses the order, and limiting
-   the output to three entries needs an option that takes a number.
-   Combine the two for latest.txt.
+3. Limiting the output to the newest three entries needs an option
+   that takes a number. Newest first means the order is reversed; on
+   Rocky 8 the reverse option combined with that number picks the
+   wrong entries, so reverse the result in another way.
 4. For errors.json look at the output formats in the description of
    the -o option. The plain json format prints one entry per line,
    the pretty variant does not.
@@ -42,8 +43,13 @@
 4. [sudo] Save the 3 newest entries, newest first:
 
    ```bash
-   sudo journalctl -t labjournal -n 3 -r > latest.txt
+   sudo journalctl -t labjournal -n 3 -q | tac > latest.txt
    ```
+
+   On Rocky 9, `journalctl -t labjournal -n 3 -r` does the same. On
+   Rocky 8 (systemd 239) `-n 3 -r` returns entries that are not the
+   newest, so the output is reversed with tac instead; `-q` drops the
+   header line.
 
 5. [sudo] Save the err and worse entries as JSON, one object per
    line:

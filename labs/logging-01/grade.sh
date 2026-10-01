@@ -81,8 +81,8 @@ json_only() {
 			"{"*"}") ;;
 			*) return 1 ;;
 		esac
-		printf '%s\n' "$line" | grep -qF '"SYSLOG_IDENTIFIER":"labjournal"' || return 1
-		printf '%s\n' "$line" | grep -qE '"PRIORITY":"[0-3]"' || return 1
+		printf '%s\n' "$line" | grep -qE '"SYSLOG_IDENTIFIER" ?: ?"labjournal"' || return 1
+		printf '%s\n' "$line" | grep -qE '"PRIORITY" ?: ?"[0-3]"' || return 1
 	done < "$f"
 }
 

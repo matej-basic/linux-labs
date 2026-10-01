@@ -44,7 +44,7 @@ password_is() {
 
 chage_field_is() {
 	local user=$1 field=$2 want=$3
-	[ "$(LC_ALL=C chage -l "$user" 2>/dev/null | sed -n "s/^$field *: *//p")" = "$want" ]
+	[ "$(LC_ALL=C chage -l "$user" 2>/dev/null | sed -n "s/^${field}[[:space:]]*:[[:space:]]*//p")" = "$want" ]
 }
 
 # limit_set <item> <value>: soft and hard limit for @contractors
