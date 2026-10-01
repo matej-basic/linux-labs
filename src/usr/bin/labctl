@@ -12,10 +12,11 @@ if [[ -f "$SYSTEM_CONFIG" ]]; then
 fi
 
 usage() {
-  echo "Usage: labctl {start|grade|reset|list|solution|configure} <lab>"
+  echo "Usage: labctl {start|task|grade|reset|list|solution|configure} <lab>"
   echo ""
   echo "Commands:"
-  echo "  start <lab>              - Start a lab (requires root)"
+  echo "  start <lab>              - Start a lab and show its task (requires root)"
+  echo "  task <lab>               - Show the task of a lab again"
   echo "  grade <lab>              - Grade a lab"
   echo "  reset <lab>              - Reset a lab (requires root)"
   echo "  list                     - List all labs"
@@ -58,6 +59,88 @@ lab_description() {
   echo "$desc"
 }
 
+# Print the value of one "key: value" line from a lab's description.txt
+lab_field() {
+  local lab="$1" key="$2"
+  local desc_file="$LAB_ROOT/$lab/description.txt"
+  [ -f "$desc_file" ] || return 0
+  sed -n "s/^${key}:[[:space:]]*//p" "$desc_file" | head -n 1
+}
+
+# Print task.txt with the known placeholders filled in. Runs in a subshell
+# so that load-config.sh (needed only for node placeholders) does not leak
+# variables or functions into labctl.
+#
+# Placeholders: {{EL_MAJOR}} {{ARCH}} {{HOSTNAME}} {{LAB_USER}}
+#               {{NODE_COUNT}} {{NODE1_IP}} .. {{NODE9_IP}}
+render_task() (
+  local lab="$1"
+  local file="$LAB_ROOT/$lab/task.txt"
+  local text el_major arch host lab_user n ip unknown
+
+  text=$(cat "$file")
+
+  # shellcheck source=/dev/null
+  el_major=$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID%%.*}")
+  arch=$(uname -m)
+  host=$(uname -n)
+  # The user who runs the lab: the sudo caller, else the current non-root
+  # user, else student
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    lab_user="$SUDO_USER"
+  elif [ "$EUID" -ne 0 ]; then
+    lab_user=$(id -un)
+  else
+    lab_user="student"
+  fi
+
+  text=${text//"{{EL_MAJOR}}"/"$el_major"}
+  text=${text//"{{ARCH}}"/"$arch"}
+  text=${text//"{{HOSTNAME}}"/"$host"}
+  text=${text//"{{LAB_USER}}"/"$lab_user"}
+
+  case "$text" in
+    *"{{NODE"*)
+      # shellcheck source=/dev/null
+      source /opt/linux-labs/lib/load-config.sh >/dev/null 2>&1
+      text=${text//"{{NODE_COUNT}}"/"${NODE_COUNT:-0}"}
+      for n in 1 2 3 4 5 6 7 8 9; do
+        ip=""
+        if [ "$n" -le "${NODE_COUNT:-0}" ]; then
+          ip=$(get_node_ip "$n" 2>/dev/null)
+        fi
+        [ -z "$ip" ] && ip="(node $n not configured)"
+        text=${text//"{{NODE${n}_IP}}"/"$ip"}
+      done
+      ;;
+  esac
+
+  unknown=$(printf '%s\n' "$text" | grep -o '{{[A-Za-z0-9_]*}}' | sort -u | tr '\n' ' ')
+  if [ -n "$unknown" ]; then
+    echo "labctl: warning: unknown placeholders in $file: $unknown" >&2
+  fi
+
+  printf '%s\n' "$text"
+)
+
+# Print the task header and the task text of a converted lab
+print_task() {
+  local lab="$1"
+  local title category level
+  title=$(lab_field "$lab" title)
+  category=$(lab_field "$lab" category)
+  level=$(lab_field "$lab" complexity)
+
+  if [ -n "$title" ]; then
+    printf '%s: %s\n' "$lab" "$title"
+  else
+    printf '%s\n' "$lab"
+  fi
+  printf 'Category: %s    Level: %s\n' "${category:-unknown}" "${level:-unknown}"
+  printf '%s\n\n' "========================================================================"
+  render_task "$lab"
+}
+
 # Setup default configuration
 setup_default_config() {
   mkdir -p "$CONFIG_DIR"
@@ -74,7 +157,7 @@ SSH_USER="root"
 SSH_PORT="22"
 DOCKER_ENABLED=false
 EOF
-  echo "✓ Created default config at $CONFIG_FILE"
+  echo "Created default config at $CONFIG_FILE"
 }
 
 # Load configuration
@@ -121,10 +204,10 @@ configure_interactive() {
       NODE_IPS="$static_ips"
       # Update NODE_COUNT based on number of IPs provided
       NODE_COUNT=$(echo "$NODE_IPS" | wc -w)
-      echo "✓ Using $NODE_COUNT static IPs: $NODE_IPS"
+      echo "Using $NODE_COUNT static IPs: $NODE_IPS"
     else
       NODE_IPS=""
-      echo "✓ IPs will be auto-calculated from $LAB_NETWORK"
+      echo "IPs will be auto-calculated from $LAB_NETWORK"
     fi
   else
     NODES_ENABLED=false
@@ -158,7 +241,7 @@ DOCKER_ENABLED=false
 EOF
   
   echo ""
-  echo "✓ Configuration saved to $CONFIG_FILE"
+  echo "Configuration saved to $CONFIG_FILE"
 }
 
 # List current configuration
@@ -203,7 +286,7 @@ configure_set() {
     echo "${key}=\"${value}\"" >> "$CONFIG_FILE"
   fi
   
-  echo "✓ Set $key = $value"
+  echo "Set $key = $value"
 }
 
 # Validate configuration
@@ -214,26 +297,26 @@ configure_validate() {
   
   # Check network syntax
   if [[ ! "$LAB_NETWORK" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
-    echo "✗ Invalid network format: $LAB_NETWORK"
+    echo "Error: invalid network format: $LAB_NETWORK"
     return 1
   fi
-  echo "✓ Network format valid"
+  echo "Network format valid"
   
   # Check gateway IP
   if [[ ! "$LAB_GATEWAY" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    echo "✗ Invalid gateway IP: $LAB_GATEWAY"
+    echo "Error: invalid gateway IP: $LAB_GATEWAY"
     return 1
   fi
-  echo "✓ Gateway IP valid"
+  echo "Gateway IP valid"
   
   # Check DNS IP
   if [[ ! "$LAB_DNS" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
-    echo "✗ Invalid DNS IP: $LAB_DNS"
+    echo "Error: invalid DNS IP: $LAB_DNS"
     return 1
   fi
-  echo "✓ DNS IP valid"
+  echo "DNS IP valid"
   
-  echo "✓ All validations passed"
+  echo "All validations passed"
   return 0
 }
 
@@ -244,11 +327,35 @@ case "$1" in
       echo "Error: 'labctl start' requires root. Use: sudo labctl start $2" >&2
       exit 1
     fi
-    "$LAB_ROOT/$2/setup.sh"
-    mkdir -p "$(dirname "$STATE_FILE")"
-    echo "$2" > "$STATE_FILE"
-    # Reload profile to update prompt
-    [ -f /etc/profile.d/labctl.sh ] && source /etc/profile.d/labctl.sh
+    if [ -f "$LAB_ROOT/$2/task.txt" ]; then
+      # Framework 2.0 lab: setup prints nothing, labctl prints the task.
+      # A failed setup leaves the lab not started.
+      "$LAB_ROOT/$2/setup.sh"
+      rc=$?
+      if [ "$rc" -ne 0 ]; then
+        echo "Error: setup of lab $2 failed (exit $rc). The lab was not started." >&2
+        exit "$rc"
+      fi
+      mkdir -p "$(dirname "$STATE_FILE")"
+      echo "$2" > "$STATE_FILE"
+      print_task "$2"
+    else
+      # Legacy lab: setup.sh prints its own banner
+      "$LAB_ROOT/$2/setup.sh"
+      mkdir -p "$(dirname "$STATE_FILE")"
+      echo "$2" > "$STATE_FILE"
+    fi
+    # The [LAB:...] prompt picks up $STATE_FILE through PROMPT_COMMAND
+    # (/etc/profile.d/labctl.sh) at the next prompt of the student's shell.
+    exit 0
+    ;;
+  task)
+    require_lab "$2"
+    if [ ! -f "$LAB_ROOT/$2/task.txt" ]; then
+      echo "No task text for lab $2. Run 'sudo labctl start $2' to see its task." >&2
+      exit 1
+    fi
+    print_task "$2"
     ;;
   grade)
     require_lab "$2"
@@ -261,9 +368,14 @@ case "$1" in
       exit 1
     fi
     "$LAB_ROOT/$2/cleanup.sh"
+    rc=$?
     rm -f "$STATE_FILE"
-    # Reload profile to update prompt
-    [ -f /etc/profile.d/labctl.sh ] && source /etc/profile.d/labctl.sh
+    if [ -f "$LAB_ROOT/$2/task.txt" ] && [ "$rc" -ne 0 ]; then
+      # Framework 2.0 lab: report a failed cleanup
+      echo "Error: cleanup of lab $2 failed (exit $rc)." >&2
+      exit "$rc"
+    fi
+    exit 0
     ;;
   list)
     printf "%-16s  %s\n" "LAB" "DESCRIPTION"
@@ -302,7 +414,7 @@ case "$1" in
         ;;
       reset)
         rm -f "$CONFIG_FILE"
-        echo "✓ Configuration reset to defaults"
+        echo "Configuration reset to defaults"
         setup_default_config
         ;;
       *)

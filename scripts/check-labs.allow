@@ -1,0 +1,12 @@
+# Allowlist for the "task.txt states the end state, no solving commands"
+# criterion of scripts/check-labs.sh. Use it only for false positives: a
+# task.txt line that the checker flags but that does not show how to solve
+# a graded task (for example prose that happens to start with "cat").
+#
+# Format: one entry per line, "<lab>: <line>", where <line> is the task.txt
+# line exactly as written, without its leading spaces. The line directly
+# above each entry must be a comment "# <reason>". Example:
+#
+#   # Prose, not a command: the continuation line starts with "cat"
+#   files-09: cat and dog names are listed in /srv/pets.txt.
+

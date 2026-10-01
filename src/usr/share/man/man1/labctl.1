@@ -1,58 +1,99 @@
-.TH labctl 1 "January 2026" "linux-labs 1.0" "User Commands"
+.TH labctl 1 "October 2026" "linux-labs" "User Commands"
 .SH NAME
-labctl \- manage Linux labs (setup, grade, cleanup)
+labctl \- start, grade and reset hands-on Linux labs
 .SH SYNOPSIS
 .B labctl
 .I COMMAND
-.RI [ LAB_NAME ]
+.RI [ LAB ]
 .SH DESCRIPTION
 .B labctl
-is a helper tool to run hands-on Linux labs provided by the linux-labs package.
-It can prepare a lab environment, grade the final state, and clean up afterwards.
+runs the hands-on Linux labs provided by the linux-labs package.
+It prepares a lab, shows its task, grades the final state and resets the
+system afterwards.
+Labs are installed under
+.IR /opt/linux-labs/labs .
+Only one lab is active at a time; the active lab is recorded in
+.I /opt/linux-labs/.current_lab
+and shown as
+.B [LAB:<name>]
+in the shell prompt.
 .SH COMMANDS
 .TP
-.B setup
-Prepare the environment for the specified lab.
-Example: 
-.B labctl setup files-01
+.BI start " LAB"
+Prepare the system for the lab, mark it as the active lab and print its
+task. Requires root; the
+.B student
+user can run it through
+.BR sudo .
+If the lab setup fails, the lab is not started and labctl exits with the
+setup exit status.
 .TP
-.B grade
-Run the lab's grading script and print a concise summary of checks.
-Example:
-.B labctl grade files-01
+.BI task " LAB"
+Print the task of the lab again: the header line, the category and level
+line and the task text. It does not change the system and does not need
+root.
+.TP
+.BI grade " LAB"
+Check the current state of the system against the lab criteria. Each
+criterion is printed on one line with the result PASS or FAIL, followed by
+the overall result and the number of criteria met.
+.TP
+.BI reset " LAB"
+Undo the lab setup and the changes the solution makes, and clear the active
+lab. Requires root.
 .TP
 .B list
-List available labs in a two-column table showing the lab name and a brief one-line description. The description is parsed from the lab's
-.I setup.sh
-OBJECTIVE section, or falls back to the first header in
-.I solution.md
-when available.
+List the installed labs with their objective.
 .TP
-.B solution
-Display the solution for the specified lab by printing its
-.I solution.md
-file. Uses
+.BI solution " LAB"
+Show the reference solution of the lab. Uses
 .B less
-when available, otherwise prints to standard output.
-Example:
-.B labctl solution files-01
+when standard output is a terminal.
 .TP
-.B cleanup
-Remove lab-created files and restore the system to its pre-lab state.
-Example:
-.B labctl cleanup files-01
+.BI configure " ACTION"
+Configure the lab environment (network, nodes for multi-node labs).
+.I ACTION
+is one of
+.BR interactive ,
+.BR list ,
+.B set
+.IR "KEY VALUE" ,
+.B validate
+or
+.BR reset .
 .SH EXAMPLES
 .nf
-labctl setup users-01
-labctl grade users-01
-labctl cleanup users-01
+sudo labctl start files-04
+labctl task files-04
+labctl grade files-04
+labctl solution files-04
+sudo labctl reset files-04
 .fi
 .SH EXIT STATUS
-The grading command exits 0 on success (no failed checks) and 1 otherwise.
+.B labctl grade
+exits 0 when all criteria are met and 1 otherwise.
+.B labctl start
+and
+.B labctl reset
+exit 0 on success.
+.SH ENVIRONMENT
+.TP
+.B NO_COLOR
+When set to a non-empty value, the grading output is not coloured. Colour
+is used only when standard output is a terminal.
+.SH FILES
+.TP
+.I /opt/linux-labs/labs/
+Installed labs.
+.TP
+.I /opt/linux-labs/.current_lab
+Name of the active lab.
+.TP
+.I /etc/linux-labs/config
+System-wide configuration; otherwise
+.I ~/.config/linux-labs/config
+is used.
 .SH SEE ALSO
-.BR bash (1),
-.BR systemd (1),
-.BR firewall-cmd (1),
-.BR nmcli (1)
+.BR sudo (8)
 .SH AUTHORS
 linux-labs maintainers.

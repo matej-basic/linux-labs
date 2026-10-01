@@ -36,9 +36,16 @@ install -m 0644 etc/linux-labs/config.template %{buildroot}/etc/linux-labs/confi
 mkdir -p %{buildroot}/opt/linux-labs/lib
 install -m 0755 opt/linux-labs/lib/load-config.sh %{buildroot}/opt/linux-labs/lib/load-config.sh
 install -m 0755 opt/linux-labs/lib/colors.sh %{buildroot}/opt/linux-labs/lib/colors.sh
+install -m 0755 opt/linux-labs/lib/grading.sh %{buildroot}/opt/linux-labs/lib/grading.sh
 
 mkdir -p %{buildroot}/opt/linux-labs
 cp -pr opt/linux-labs/* %{buildroot}/opt/linux-labs/
+
+# Each lab ships setup.sh, grade.sh, cleanup.sh, description.txt, task.txt
+# and solution.md. solve.sh is the automatic solver used by
+# scripts/test-lab.sh and is never shipped (build-rpm-linux.sh already
+# leaves it out of the tarball; this is a second guard).
+find %{buildroot}/opt/linux-labs/labs -type f -name solve.sh -delete
 
 # Ensure all shell scripts in the labs tree are executable
 find %{buildroot}/opt/linux-labs -type f -name '*.sh' -exec chmod 0755 {} +

@@ -10,7 +10,22 @@ permissions:
   contents: read
 
 jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q shellcheck
+          shellcheck --version
+
+      - name: Check labs
+        run: bash scripts/check-labs.sh
+
   build:
+    needs: check
     runs-on: ubuntu-latest
     container: rockylinux/rockylinux:8
     steps:
@@ -46,6 +61,14 @@ jobs:
 
       - name: labctl list
         run: labctl list
+
+      - name: Check shipped files
+        run: |
+          test -f /opt/linux-labs/lib/grading.sh
+          if find /opt/linux-labs/labs -name solve.sh | grep -q .; then
+            echo "::error::solve.sh must not be shipped"
+            exit 1
+          fi
 
       - name: Check labctl mode is 755
         run: |

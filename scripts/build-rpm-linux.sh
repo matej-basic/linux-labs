@@ -109,6 +109,9 @@ cp "$SPEC_SOURCE" "$SPEC"
 echo "==> Syncing labs from $LABS_SOURCE to $LABS_DEST"
 cp -r "$LABS_SOURCE" "$LABS_DEST"
 
+# solve.sh (automatic solver for scripts/test-lab.sh) is not shipped
+find "$LABS_DEST" -type f -name solve.sh -delete
+
 echo "==> Syncing etc from $ETC_SOURCE to $ETC_DEST"
 cp -r "$ETC_SOURCE" "$ETC_DEST"
 
