@@ -47,11 +47,14 @@ link "$N2" "$N1"
 link "$N3" "$N2"
 link "$N1" "$N3"
 
-# Step 6: wait until all three replicas run both threads
+# Step 6: wait until all three replicas run both threads. Not through
+# sql(): with -N the vertical output has no field names.
+status() { printf '%s\n' 'SHOW REPLICA STATUS\G' | run_on_node "$1" "sudo mysql -u root"; }
 for t in $(seq 30); do
   n=0
   for ip in "$N1" "$N2" "$N3"; do
-    n=$((n + $(sql "$ip" "SHOW REPLICA STATUS\\G" | grep -Ec 'Replica_(IO|SQL)_Running: Yes')))
+    c=$(status "$ip" | grep -Ec 'Replica_(IO|SQL)_Running: Yes' || true)
+    n=$((n + c))
   done
   [ "$n" -eq 6 ] && break
   sleep 1

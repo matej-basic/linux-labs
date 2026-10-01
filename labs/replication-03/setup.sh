@@ -39,10 +39,18 @@ cat > "$tmp/node.sh" <<'REMOTE'
 cnf=/etc/my.cnf.d/mysql-server.cnf
 bak=/var/tmp/replication-03.mysql-server.cnf
 marker=/var/tmp/replication-03.installed
+# Whether mysqld was enabled and running before the first start of the
+# lab, so that cleanup.sh puts the service back as it found it
+seen=/var/tmp/replication-03.service
 
 if ! rpm -q mysql-server >/dev/null 2>&1; then
 	dnf -y install mysql-server </dev/null >/dev/null || exit 1
 	touch "$marker"
+elif [ ! -f "$marker" ] && [ ! -f "$seen" ]; then
+	{
+		systemctl is-enabled --quiet mysqld && echo enabled
+		systemctl is-active --quiet mysqld && echo active
+	} > "$seen"
 fi
 
 if [ -f "$bak" ]; then
@@ -76,7 +84,7 @@ REMOTE
 pids=""
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
-	run_on_node "$ip" "sudo bash -s" < "$tmp/node.sh" > /dev/null 2> "$tmp/err.$n" &
+	run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > /dev/null 2> "$tmp/err.$n" &
 	pids="$pids $!"
 done
 

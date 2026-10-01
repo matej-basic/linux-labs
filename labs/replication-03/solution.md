@@ -87,11 +87,14 @@
    ```
 
 6. [user] Check that every replica runs both threads. Each node
-   should print Source_Host, then Yes for the I/O and the SQL thread:
+   should print Source_Host, then Yes for the I/O and the SQL thread.
+   The sql helper is not used here, because with -N the vertical
+   output has no field names:
 
    ```bash
    for ip in "$N1" "$N2" "$N3"; do
-     sql "$ip" "SHOW REPLICA STATUS\\G" |
+     printf '%s\n' 'SHOW REPLICA STATUS\G' |
+       run_on_node "$ip" "sudo mysql -u root" |
        grep -E 'Source_Host|Replica_(IO|SQL)_Running:'
    done
    ```

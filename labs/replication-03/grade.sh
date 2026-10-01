@@ -22,13 +22,13 @@ done
 # without column names. The statement goes through stdin, so it may
 # contain any quotes.
 sql_on() {
-	printf '%s\n' "$2" | run_on_node "$1" "sudo mysql -u root -N -B"
+	printf '%s\n' "$2" | run_on_node "$1" "sudo -n mysql -u root -N -B"
 }
 
 mysqld_running() {
 	local ip
 	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
-		run_on_node "$ip" "sudo systemctl is-enabled mysqld && sudo systemctl is-active mysqld" || return 1
+		run_on_node "$ip" "sudo -n systemctl is-enabled mysqld && sudo -n systemctl is-active mysqld" || return 1
 	done
 }
 
@@ -55,10 +55,10 @@ server_ids_differ() {
 # last server-id line of the option files wins over earlier ones.
 configured_server_id() {
 	local v
-	v=$(run_on_node "$1" "sudo cat /var/lib/mysql/mysqld-auto.cnf 2>/dev/null" |
+	v=$(run_on_node "$1" "sudo -n cat /var/lib/mysql/mysqld-auto.cnf 2>/dev/null" |
 		grep -Eo '"server_id" *: *\{ *"Value" *: *"[0-9]+"' | grep -Eo '[0-9]+"$' | tr -d '"')
 	if [ -z "$v" ]; then
-		v=$(run_on_node "$1" "sudo cat /etc/my.cnf /etc/my.cnf.d/*.cnf 2>/dev/null" |
+		v=$(run_on_node "$1" "sudo -n cat /etc/my.cnf /etc/my.cnf.d/*.cnf 2>/dev/null" |
 			grep -Ei '^[[:space:]]*server[-_]id[[:space:]]*=' | tail -n 1 |
 			sed 's/^[^=]*=[[:space:]]*//; s/[[:space:]]*#.*//; s/[[:space:]]*$//')
 	fi

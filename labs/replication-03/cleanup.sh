@@ -21,6 +21,7 @@ cat > "$tmp/node.sh" <<'REMOTE'
 cnf=/etc/my.cnf.d/mysql-server.cnf
 bak=/var/tmp/replication-03.mysql-server.cnf
 marker=/var/tmp/replication-03.installed
+seen=/var/tmp/replication-03.service
 
 # Local statements are not binary-logged, so nothing travels to the
 # other nodes while they are being cleaned up
@@ -42,12 +43,23 @@ if [ -f "$marker" ]; then
 	dnf -y remove mysql-server </dev/null >/dev/null 2>&1
 	find /var/lib/mysql -mindepth 1 -delete 2>/dev/null
 	rm -f "$cnf.rpmsave" "$cnf" /var/log/mysql/mysqld.log /etc/my.cnf.d/replication.cnf
+	# The package could not remove its directories while they held files
+	rmdir /var/lib/mysql /var/log/mysql /etc/my.cnf.d 2>/dev/null
 	rm -f "$marker" "$bak"
 else
 	rm -f /etc/my.cnf.d/replication.cnf
 	[ -f "$bak" ] && cp -p "$bak" "$cnf"
 	rm -f "$bak"
-	systemctl try-restart mysqld </dev/null >/dev/null 2>&1
+	if systemctl try-restart mysqld </dev/null >/dev/null 2>&1; then
+		# Binary logs of the solution's log-bin name, unused after the restart
+		rm -f /var/lib/mysql/mysql-bin.[0-9]* /var/lib/mysql/mysql-bin.index
+	fi
+	# Back to the service state found by the first setup.sh run
+	if [ -f "$seen" ]; then
+		grep -qx enabled "$seen" || systemctl disable mysqld </dev/null >/dev/null 2>&1
+		grep -qx active "$seen" || systemctl stop mysqld </dev/null >/dev/null 2>&1
+	fi
+	rm -f "$seen"
 fi
 
 firewall-cmd --permanent --remove-service=mysql >/dev/null 2>&1
@@ -59,7 +71,7 @@ REMOTE
 rc=0
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
-	run_on_node "$ip" "sudo bash -s" < "$tmp/node.sh" > /dev/null 2>&1 || {
+	run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > /dev/null 2>&1 || {
 		echo "Cleanup of node $n ($ip) failed" >&2
 		rc=1
 	}
