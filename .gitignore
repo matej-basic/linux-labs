@@ -23,3 +23,6 @@ __pycache__/
 *.bak
 *.backup
 *.orig
+
+# Local credentials (never commit)
+.config/
