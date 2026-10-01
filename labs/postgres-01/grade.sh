@@ -10,7 +10,7 @@ cluster_initialised() {
 }
 
 postgres_listens() {
-	ss -H -tlnp 'sport = :5432' | grep -q '"postgres"'
+	ss -H -tlnp 'sport = :5432' | grep -Eq '"(postgres|postmaster)"'
 }
 
 postgres_user_query() {

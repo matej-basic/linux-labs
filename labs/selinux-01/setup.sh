@@ -23,3 +23,8 @@ fi
 
 setenforce 0
 sed -i -E 's/^SELINUX=.*/SELINUX=permissive/' "$CONF"
+
+# State file: lets the grader tell a started lab from a reset one
+mkdir -p /opt/linux-labs/state
+: > /opt/linux-labs/state/selinux-01
+chmod 644 /opt/linux-labs/state/selinux-01

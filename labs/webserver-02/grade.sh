@@ -28,7 +28,7 @@ hosts_maps_name() {
 # DocumentRoot (read from its configuration block) is the lab directory
 vhost_docroot() {
 	local entry file line
-	entry=$(httpd -S 2>&1 | grep -E "namevhost $NAME " | head -n 1)
+	entry=$(httpd -S 2>&1 | grep -E "[[:space:]]$NAME \(/" | head -n 1)
 	[ -n "$entry" ] || return 1
 	entry=${entry##*(}
 	entry=${entry%)*}

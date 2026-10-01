@@ -8,4 +8,5 @@ if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce 2>/dev/null)" != "Di
 		sed -i -E 's/^SELINUX=permissive/SELINUX=enforcing/' "$CONF"
 	fi
 fi
+rm -f /opt/linux-labs/state/selinux-01
 exit 0

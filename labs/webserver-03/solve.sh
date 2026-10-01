@@ -6,6 +6,8 @@
 # solve: path /etc/httpd/conf.d/lab3.conf
 # solve: path /etc/pki/tls/certs/lab3.crt
 # solve: path /etc/pki/tls/private/lab3.key
+# solve: package httpd
+# solve: package mod_ssl
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
@@ -45,5 +47,5 @@ cat > /etc/httpd/conf.d/lab3.conf <<'EOT'
 EOT
 
 # Step 6 [sudo]
-httpd -t
 systemctl enable --now httpd
+httpd -t

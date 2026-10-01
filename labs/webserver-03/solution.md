@@ -67,11 +67,11 @@
    EOT
    ```
 
-6. [sudo] Check the syntax, then start httpd and enable it at boot:
+6. [sudo] Start httpd, enable it at boot and check the syntax:
 
    ```bash
-   sudo httpd -t
    sudo systemctl enable --now httpd
+   sudo httpd -t
    ```
 
 ## Verification
@@ -83,6 +83,11 @@ labctl grade webserver-03
 ```
 
 ## Explanation
+
+Start httpd before running httpd -t: ssl.conf points at
+/etc/pki/tls/certs/localhost.crt, which the httpd-init service creates
+on the first start, so the syntax check fails on a fresh install until
+then.
 
 mod_ssl adds /etc/httpd/conf.d/ssl.conf, which makes httpd listen on
 port 443 with a default virtual host. The lab3.local virtual host is

@@ -3,6 +3,7 @@
 source /opt/linux-labs/lib/grading.sh
 
 CONF=/etc/selinux/config
+STATE_FILE=/opt/linux-labs/state/selinux-01
 
 runtime_enforcing() {
 	[ "$(getenforce 2>/dev/null)" = "Enforcing" ]
@@ -26,6 +27,7 @@ policy_targeted() {
 }
 
 grade_begin selinux-01
+grade_require_state selinux-01 "$STATE_FILE"
 
 criterion "SELinux is enabled" selinux_enabled
 criterion "SELinux is in enforcing mode now" runtime_enforcing
