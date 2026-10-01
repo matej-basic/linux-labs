@@ -1,0 +1,80 @@
+# Changelog
+
+All notable changes to linux-labs. The version matches `Version:` in rpm/linux-labs.spec and the git tag vX.Y.Z.
+
+## Unreleased (2.0.0)
+
+### Added
+- Lab framework 2.0. Every lab now has seven files: setup.sh, task.txt, grade.sh, cleanup.sh, description.txt, solution.md and a repo-only solve.sh that never ships in the RPM.
+- task.txt for each lab, which states the end state and never the solving commands. labctl start prints a standard header followed by the task.
+- labctl task, to show the task of a lab again after it was started.
+- lib/grading.sh, the shared grader library. Every grader prints the same PASS/FAIL criterion lines and a final result, replacing the per-lab pass/fail helpers.
+- scripts/check-labs.sh, run in CI, which enforces the lab contract: required files, task text rules (with scripts/check-labs.allow for reviewed false positives), shellcheck, the allowed repository root files and an up-to-date catalog.
+- scripts/test-lab.sh, which runs one lab at a time against a test host (start, solve, grade, reset), and scripts/solve-lib.sh for the solve.sh scripts.
+- Lab systemd-04. The collection is now 55 labs in 17 topics.
+- A needs: key in description.txt (internet, reboot, free-nic, nodes=N), cross-checked against the lab by check-labs.sh and shown in the task header.
+- A generated lab catalog, docs/catalog.md, built by scripts/gen-catalog.sh. CI fails when it is stale.
+- labctl list --course and --level filters.
+- Student documentation installed under /usr/share/doc/linux-labs.
+- LICENSE file in the repository root.
+- A new-lab project skill that builds labs from the idea list.
+- Hints: an optional `## Hints` section in solution.md, shown one at a time by labctl hint <lab> (with --all for teachers). All 55 labs have hints, and check-labs.sh enforces 2 to 4 hints with no solving commands.
+- labctl solution asks for confirmation in a terminal; --yes skips the question.
+- A new GitHub Pages site: front page with the install command and an example labctl session, the lab catalog, and the student guides rendered from docs/student. scripts/preview-pages.sh builds and serves it locally.
+- Release notes come from this file: scripts/release-notes.sh extracts the section of the tagged version, and the release fails when it is missing.
+
+### Changed
+- All 55 labs converted to framework 2.0 and reviewed one by one. Setup is silent, cleanup undoes both setup and the student's solution, and solution.md follows a common format.
+- labctl grade now re-runs itself through sudo for the student, so graders run as root and can read root-only state.
+- Config lookup in labctl follows SUDO_USER, so sudo labctl reads the config the student saved with labctl configure.
+- load-config.sh works under set -euo pipefail, and run_on_node uses BatchMode and a connect timeout, so a missing SSH key fails at once instead of hanging on a prompt.
+- Documentation rewritten into docs/ by audience: student, teacher and lab author. It replaces QUICKSTART, CONFIGURE_SYSTEM and STATIC_IPS_GUIDE, and was checked against the code for the default network, the node address formula and config precedence.
+- The framework spec moved from CLAUDE.md to docs/author/framework.md, which CLAUDE.md imports. LAB_IDEAS moved to docs/lab-ideas.md and lists only proposed ideas. README is a short entry point.
+- Repository root cleaned: install.sh and the RPM signing key moved to pages/.
+- CI runs shellcheck from the same docker image as local runs (SHELLCHECK=docker). The apt version on the runner reported SC2015 on chains that the current release accepts.
+- The labctl man page updated for the new commands.
+
+### Fixed
+- Graders that could never pass, and graders that passed without checking anything.
+- Solutions that did not satisfy their own task text.
+- Cleanups that destroyed data or left the VM in a changed state.
+- Network labs that modified the interface used for the SSH session.
+- Differences between Rocky Linux 8 and 9 that broke setup, grading or the solution.
+- labctl configure no longer reports success for a config write that failed.
+- The labctl configure wizard showed a wrong example network and node address; it now matches the default 172.25.250.0/24 and node 1 at .10.
+
+### Removed
+- test_static_ips.sh, a manual smoke test that only ran from a checkout at /root/linux-labs.
+- QUICKSTART.md, CONFIGURE_SYSTEM.md, STATIC_IPS_GUIDE.md and LAB_IDEAS.md from the repository root.
+- The mixed legacy lab format. Every lab uses framework 2.0.
+
+## 1.1.0 (2026-10-01)
+
+First public release.
+
+### Added
+- GitHub Actions pipeline that builds the RPM on every push and publishes a release on a version tag.
+- Signed RPM and a dnf repository on GitHub Pages, with the public key published next to it.
+- curl installer (install.sh) that sets up the repository and installs linux-labs.
+- Smoke tests of the built RPM on Rocky Linux 8 and 9.
+- Labs files-04, packages-04 and packages-05.
+- Multi-node labs: replication-01 to 03, lb-01 to 03 and a 3-node Pacemaker series, clustering-01 to 03, with the interactive labctl configure command and RH classroom defaults (network 172.25.250.0/24, gateway 172.25.250.254).
+
+### Changed
+- Default gateway aligned to 172.25.250.254 in labctl, the library and the docs.
+- files-02 uses the apache user instead of www-data.
+
+### Fixed
+- labctl installed as 0755 instead of setuid 4755. The kernel ignores setuid on scripts and sudo already grants root.
+- Sudoers rule marked config(noreplace) and validated with visudo during the build.
+- Duplicate entries in the spec file list.
+- Grading scripts incremented counters with post-increment, so a passing check also ran the failure branch.
+- Cleanup scripts of the clustering labs, and cleanup output that was too verbose.
+
+## 1.0 (2026-01-23)
+
+Initial release, an RPM built by hand on a local machine.
+
+### Added
+- The first lab set (firewall, logging, networking, packages, scheduling, SELinux, storage, systemd, users, webserver, MySQL, PostgreSQL and DNS), run with labctl start, grade, reset, list and solution.
+- A basic man page for labctl.

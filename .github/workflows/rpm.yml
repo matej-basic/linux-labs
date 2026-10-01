@@ -101,6 +101,10 @@ jobs:
             exit 1
           fi
 
+      # Fail before signing when CHANGELOG has no "## X.Y.Z (date)" section
+      - name: Check CHANGELOG has notes for the tag
+        run: bash scripts/release-notes.sh "${GITHUB_REF_NAME#v}" > /dev/null
+
       - uses: actions/download-artifact@v4
         with:
           name: rpm-unsigned
@@ -172,17 +176,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          bash scripts/release-notes.sh "${GITHUB_REF_NAME#v}" > release-notes.md
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             gh release upload "$GITHUB_REF_NAME" dist/*.noarch.rpm --clobber
+            gh release edit "$GITHUB_REF_NAME" --notes-file release-notes.md
           else
             gh release create "$GITHUB_REF_NAME" dist/*.noarch.rpm \
-              --title "$GITHUB_REF_NAME" --generate-notes --verify-tag
+              --title "$GITHUB_REF_NAME" --notes-file release-notes.md --verify-tag
           fi
 
-      - name: Install createrepo_c
+      # pandoc renders docs/student/*.md into the site's docs/ pages
+      - name: Install createrepo_c and pandoc
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q createrepo-c
+          sudo apt-get install -y -q createrepo-c pandoc
 
       - name: Check out gh-pages
         run: |
@@ -195,7 +202,7 @@ jobs:
             git -C site rm -rf --quiet .
           fi
 
-      - name: Update dnf repo and site files
+      - name: Update dnf repo and site pages
         run: bash scripts/update-pages.sh site dist/*.noarch.rpm
 
       - name: Push gh-pages
