@@ -10,7 +10,8 @@
 #
 # The shellcheck tool is taken from PATH, else run through docker
 # (koalaman/shellcheck:stable), else skipped with a note on stderr. Set
-# SHELLCHECK=none to skip it.
+# SHELLCHECK=none to skip it, or SHELLCHECK=docker to force the docker
+# image (CI does this so its findings match local runs).
 #
 # Exit status: 0 when every checked lab passes, 1 otherwise, 2 on usage
 # errors. Runs on bash 3.2 (macOS) and later.
@@ -78,6 +79,8 @@ done
 SC_MODE=none
 if [ "${SHELLCHECK:-}" = "none" ]; then
 	SC_MODE=none
+elif [ "${SHELLCHECK:-}" = "docker" ]; then
+	SC_MODE=docker
 elif command -v shellcheck >/dev/null 2>&1; then
 	SC_MODE=local
 elif command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then

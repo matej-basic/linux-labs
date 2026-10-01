@@ -15,13 +15,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install shellcheck
-        run: |
-          sudo apt-get update -q
-          sudo apt-get install -y -q shellcheck
-          shellcheck --version
+      # Same shellcheck as local runs (koalaman/shellcheck:stable via docker),
+      # so CI and a developer machine report the same findings
+      - name: Pull shellcheck image
+        run: docker pull -q koalaman/shellcheck:stable
 
       - name: Check labs
+        env:
+          SHELLCHECK: docker
         run: bash scripts/check-labs.sh
 
   build:
