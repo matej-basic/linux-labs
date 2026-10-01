@@ -21,7 +21,7 @@ STANDBY_IP=$(get_node_ip 2)
 rc=0
 
 # Node 2 first, so that nothing replicates from node 1 while it is reset
-run_on_node "$STANDBY_IP" "bash -s" >/dev/null <<'EOF_STANDBY' || rc=1
+run_on_node "$STANDBY_IP" "sudo -n bash -s" >/dev/null <<'EOF_STANDBY' || rc=1
 B=/var/lib/pgsql/lab-replication-02
 D=/var/lib/pgsql/data
 
@@ -38,12 +38,13 @@ if [ -f /var/lib/pgsql/.pgpass ]; then
 	sed -i '/:repl:replpassword$/d' /var/lib/pgsql/.pgpass
 	[ -s /var/lib/pgsql/.pgpass ] || rm -f /var/lib/pgsql/.pgpass
 fi
+[ -f "$B/was_enabled" ] || systemctl disable -q postgresql 2>/dev/null || true
 if [ -f "$B/was_active" ]; then systemctl start postgresql || true; fi
 rm -rf "$B"
 exit 0
 EOF_STANDBY
 
-run_on_node "$PRIMARY_IP" "bash -s" >/dev/null <<'EOF_PRIMARY' || rc=1
+run_on_node "$PRIMARY_IP" "sudo -n bash -s" >/dev/null <<'EOF_PRIMARY' || rc=1
 B=/var/lib/pgsql/lab-replication-02
 D=/var/lib/pgsql/data
 FILES="postgresql.conf postgresql.auto.conf pg_hba.conf"
@@ -70,6 +71,7 @@ if systemctl is-active --quiet firewalld; then
 	firewall-cmd -q --permanent --remove-port=5432/tcp || true
 	firewall-cmd -q --remove-port=5432/tcp || true
 fi
+[ -f "$B/was_enabled" ] || systemctl disable -q postgresql 2>/dev/null || true
 systemctl restart postgresql || true
 rm -rf "$B"
 exit 0

@@ -37,7 +37,7 @@ done
 # Node 1: install PostgreSQL, make sure a cluster exists, save the original
 # configuration once, then return to it (also after an earlier attempt),
 # remove lab leftovers and restart.
-run_on_node "$PRIMARY_IP" "bash -s" >/dev/null <<'EOF_PRIMARY' || {
+if ! out=$(run_on_node "$PRIMARY_IP" "sudo -n bash -s" 2>&1 <<'EOF_PRIMARY'
 set -e
 B=/var/lib/pgsql/lab-replication-02
 D=/var/lib/pgsql/data
@@ -52,6 +52,7 @@ if [ -d "$B" ]; then
 	done
 else
 	mkdir -p "$B"
+	if systemctl is-enabled --quiet postgresql; then echo 1 >"$B/was_enabled"; fi
 	for f in $FILES; do
 		if [ -f "$D/$f" ]; then cp -p "$D/$f" "$B/$f"; fi
 	done
@@ -75,13 +76,15 @@ cd /tmp
 sudo -u postgres psql -X -q -c 'DROP ROLE IF EXISTS repl'
 sudo -u postgres psql -X -Atq -c "SELECT format('DROP TABLE %I', tablename) FROM pg_tables WHERE schemaname = 'public' AND tablename ~ '^(repl_test_.*|replication_test)$'" | sudo -u postgres psql -X -q
 EOF_PRIMARY
+); then
+	printf '%s\n' "$out" >&2
 	echo "Error: preparing PostgreSQL on node 1 ($PRIMARY_IP) failed." >&2
 	exit 1
-}
+fi
 
 # Node 2: install PostgreSQL, keep the original data directory aside once,
 # then leave an empty data directory behind.
-run_on_node "$STANDBY_IP" "bash -s" >/dev/null <<'EOF_STANDBY' || {
+if ! out=$(run_on_node "$STANDBY_IP" "sudo -n bash -s" 2>&1 <<'EOF_STANDBY'
 set -e
 B=/var/lib/pgsql/lab-replication-02
 D=/var/lib/pgsql/data
@@ -91,6 +94,7 @@ rpm -q postgresql-server >/dev/null 2>&1 || dnf -y -q install postgresql-server
 if [ ! -d "$B" ]; then
 	mkdir -p "$B"
 	if systemctl is-active --quiet postgresql; then echo 1 >"$B/was_active"; fi
+	if systemctl is-enabled --quiet postgresql; then echo 1 >"$B/was_enabled"; fi
 	systemctl stop postgresql
 	if [ -d "$D" ]; then mv "$D" "$B/data.orig"; fi
 else
@@ -103,9 +107,11 @@ if [ -f /var/lib/pgsql/.pgpass ]; then
 	sed -i '/:repl:replpassword$/d' /var/lib/pgsql/.pgpass
 fi
 EOF_STANDBY
+); then
+	printf '%s\n' "$out" >&2
 	echo "Error: preparing PostgreSQL on node 2 ($STANDBY_IP) failed." >&2
 	exit 1
-}
+fi
 
 mkdir -p "$STATE_DIR"
 printf 'primary=%s\nstandby=%s\n' "$PRIMARY_IP" "$STANDBY_IP" >"$STATE_FILE"

@@ -51,7 +51,7 @@ STEPS
 run_on_node "$N2" "N1=$N1 N2=$N2 bash -s" <<'STEPS'
 set -euo pipefail
 sudo systemctl stop postgresql
-test -z "$(ls -A /var/lib/pgsql/data)"
+test -z "$(sudo ls -A /var/lib/pgsql/data)"
 
 PGPASS=/var/lib/pgsql/.pgpass
 echo "$N1:5432:*:repl:replpassword" | \

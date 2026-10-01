@@ -90,7 +90,7 @@ with sudo rights.
 
    ```bash
    sudo systemctl stop postgresql
-   ls -A /var/lib/pgsql/data
+   sudo ls -A /var/lib/pgsql/data
    ```
 
 9. [sudo] Store the replication password for the postgres user:

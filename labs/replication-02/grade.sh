@@ -26,7 +26,7 @@ done
 
 # psql_on <ip> <sql>: run SQL as postgres on a node, print bare values
 psql_on() {
-	run_on_node "$1" "cd /tmp && sudo -u postgres psql -X -Atq -c $(printf '%q' "$2")" 2>/dev/null
+	run_on_node "$1" "cd /tmp && sudo -n -u postgres psql -X -Atq -c $(printf '%q' "$2")" 2>/dev/null
 }
 
 service_active() {
@@ -49,7 +49,7 @@ segments_archived() {
 	[[ "$cmd" == *"$ARCHIVE_DIR"* ]] || return 1
 	psql_on "$PRIMARY_IP" "SELECT pg_create_restore_point('lab-grade'); SELECT pg_switch_wal();" >/dev/null || return 1
 	for _ in $(seq 1 20); do
-		n=$(run_on_node "$PRIMARY_IP" "ls -A $ARCHIVE_DIR 2>/dev/null | wc -l" 2>/dev/null)
+		n=$(run_on_node "$PRIMARY_IP" "sudo -n ls -A $ARCHIVE_DIR 2>/dev/null | wc -l" 2>/dev/null)
 		[ "${n:-0}" -ge 1 ] && return 0
 		sleep 1
 	done

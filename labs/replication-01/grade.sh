@@ -48,9 +48,12 @@ repl_account() {
 	[ "$(sql "$NODE1_IP" "SELECT COUNT(*) FROM mysql.user WHERE User = 'repl' AND Repl_slave_priv = 'Y';")" -ge 1 ]
 }
 
-# replica_field <name>: a field of SHOW REPLICA STATUS on node 2
+# replica_field <name>: a field of SHOW REPLICA STATUS on node 2. Not
+# through sql(): with -N the vertical output has no field names.
 replica_field() {
-	sql "$NODE2_IP" 'SHOW REPLICA STATUS\G' | sed -n "s/^ *$1: //p" | head -n 1
+	printf '%s\n' 'SHOW REPLICA STATUS\G' |
+		run_on_node "$NODE2_IP" "sudo -n mysql -B" 2>/dev/null |
+		sed -n "s/^ *$1: //p" | head -n 1
 }
 
 replicates_from_node1() {
