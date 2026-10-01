@@ -15,8 +15,15 @@ die() {
 	exit 1
 }
 
+# client_min_messages=warning hides NOTICEs such as "does not exist, skipping"
 pgsu() {
-	(cd /tmp && runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 "$@")
+	(cd /tmp && PGOPTIONS='-c client_min_messages=warning' runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 "$@")
+}
+
+# Run a command silently (stdout and stderr); show its output only on failure
+quiet() {
+	local out
+	out=$("$@" 2>&1) || { echo "$out" >&2; return 1; }
 }
 
 mkdir -p "$STATE_DIR"
@@ -42,10 +49,10 @@ fi
 
 # Install and initialise the server if needed
 if ! rpm -q postgresql-server &>/dev/null; then
-	dnf -y -q install postgresql-server > /dev/null || die "cannot install postgresql-server"
+	quiet dnf -y -q install postgresql-server || die "cannot install postgresql-server"
 fi
 if [ ! -f "$DATA/PG_VERSION" ]; then
-	postgresql-setup --initdb > /dev/null || die "cannot initialise the database cluster"
+	quiet postgresql-setup --initdb || die "cannot initialise the database cluster"
 fi
 
 # Keep the original pg_hba.conf and return to it on a repeated start

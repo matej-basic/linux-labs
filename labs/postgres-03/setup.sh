@@ -32,19 +32,26 @@ STATE
 	chmod 644 "$STATE_FILE"
 }
 
+# client_min_messages=warning hides NOTICEs such as "does not exist, skipping"
 pg() {
 	local d=$1 q=$2
-	(cd /tmp && runuser -u postgres -- psql -X -At -v ON_ERROR_STOP=1 -d "$d" -c "$q")
+	(cd /tmp && PGOPTIONS='-c client_min_messages=warning' runuser -u postgres -- psql -X -At -v ON_ERROR_STOP=1 -d "$d" -c "$q")
+}
+
+# Run a command silently (stdout and stderr); show its output only on failure
+quiet() {
+	local out
+	out=$("$@" 2>&1) || { echo "$out" >&2; return 1; }
 }
 
 # Package, cluster and service
 if ! rpm -q postgresql-server > /dev/null 2>&1; then
-	dnf -y -q install postgresql-server > /dev/null
+	quiet dnf -y -q install postgresql-server
 	pkg=1
 	save_state
 fi
 if [ ! -f "$DATA_DIR/PG_VERSION" ]; then
-	postgresql-setup --initdb > /dev/null
+	quiet postgresql-setup --initdb
 	init=1
 	save_state
 fi
