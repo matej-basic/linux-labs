@@ -26,3 +26,6 @@ __pycache__/
 
 # Local credentials (never commit)
 .config/
+
+# Local Claude Code permissions
+.claude/settings.local.json

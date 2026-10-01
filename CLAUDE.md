@@ -40,7 +40,7 @@ Every lab script hardcodes the installed paths (`/opt/linux-labs/...`), so labs 
 - sudo resets the environment. `labctl start`, `reset` and `grade` (which re-executes itself through `sudo -n`) see only the config file and the defaults, not exported variables, even though `load_lab_config` gives environment variables precedence.
 - `labctl configure` writes `~/.config/linux-labs/config` of the sudo caller unless `/etc/linux-labs/config` already exists; it never creates the system file. The interactive wizard rewrites `SSH_KEY_PATH`, `SSH_USER` and `SSH_PORT` to their defaults, and `configure set` refuses an empty value.
 - The clustering labs use `pcs` and `crm_node`, never `crm` (crmsh is not installed). The High Availability repo id is `ha` on EL8 and `highavailability` on EL9.
-- `known-issues.md` is specified but `check-labs.sh` still rejects it as an unexpected file, and the RPM build does not leave it out yet. Do not add one before that is implemented.
+- `labs/<id>/known-issues.md` is optional and repo only: `check-labs.sh` validates it, the catalog counts its open and workaround entries, and the RPM build and spec leave it out. Entries come from runtime tests, never from static review.
 
 ## Test environment and test discipline
 
@@ -51,6 +51,34 @@ Details are in `docs/author/testing.md`. The essentials:
 - Build and test one new lab before starting the next (`.claude/skills/new-lab/`).
 - `SHELLCHECK=docker scripts/check-labs.sh --strict` must exit 0 before anything is committed; CI uses the same docker image.
 - A bug in a lab is fixed, never recorded as a known issue. Runtime results go into release notes, not into git.
+
+### Lab VMs: snapshots and resets
+
+workstation, servera, serverb and serverc (`/Datacenter/vm/Kubernetes/`) are
+this project's test environment. `scripts/lab-vms.sh` is the only way to
+snapshot, revert or reset them. It has the four VMs hardcoded; docker-host and
+rpm-builder in the same folder are never touched, and no other vCenter VM may
+be touched by any means. Credentials come only from `.config/vcenter_creds`
+(gitignored, parsed literally, never sourced or printed).
+
+Take a snapshot before a risky test run (network, storage, firewall, reboot
+labs):
+
+    scripts/lab-vms.sh snapshot pre-net-02          # warm, no memory, VMs keep running
+    scripts/lab-vms.sh snapshot clean-base --cold   # guest shutdown, snapshot, power on, wait for SSH
+
+When a lab leaves a VM unreachable or broken, revert all four to the snapshot:
+
+    scripts/lab-vms.sh revert pre-net-02 --yes
+
+Revert refuses unless all four VMs have that exact name, so the fleet never
+ends up at two different points in time. It powers on VMs that are off and
+waits up to 5 minutes per VM for SSH. A guest that is merely wedged after a lab
+gets a hard reset of that one VM: `scripts/lab-vms.sh power-cycle serverb --yes`.
+`status` lists power state, IPs and snapshots. `delete-snapshot <name> --yes`
+removes a snapshot from all four, but only snapshots this script made (their
+description starts with "linux-labs "); the user's own snapshots such as
+`Start` are refused. Names match `^[A-Za-z0-9._-]{1,64}$`.
 
 ## Building and releasing
 

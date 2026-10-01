@@ -21,6 +21,7 @@ It runs on macOS bash 3.2 and on Linux. For each converted lab it checks:
 - the `solution.md` headings, step markers, `Verification` line and text rules
 - the optional `## Hints` section: before `## Solution`, 2 to 4 numbered hints, no solving commands (the same heuristic as `task.txt`)
 - that `grade.sh` uses `grading.sh` and has no legacy helpers, and that `setup.sh` prints no banner
+- the optional `known-issues.md`: heading, entry shape (date, releases, status, text), continuation lines, text rules and no solving commands (criterion "known-issues.md follows the format", described in [framework.md](framework.md))
 - the `solve.sh` directives and its `solve-lib.sh` line
 - `bash -n` and shellcheck on all four scripts
 
@@ -98,6 +99,13 @@ labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LA
 
 SSH key access to servera, serverb and serverc has been failing, so the multi-node labs (`lb-*`, `replication-*`, `clustering-*`) cannot be runtime-tested yet. Check SSH to the nodes before promising a multi-node test; if it fails, stop at the static check and say so.
 
+### Snapshots of the lab VMs
+
+Before a test run that can break a VM (network, storage, firewall, reboot labs), snapshot the four lab VMs: `scripts/lab-vms.sh snapshot <name>`.
+If a lab leaves a VM unreachable, `scripts/lab-vms.sh revert <name> --yes` puts all four back; a single wedged guest takes `scripts/lab-vms.sh power-cycle <vm> --yes`.
+`scripts/lab-vms.sh status` shows power state and the existing snapshots.
+The script needs `.config/vcenter_creds` and govc, and only ever touches workstation, servera, serverb and serverc.
+
 ## Known issues
 
 A bug in the lab is fixed, never recorded. If `setup.sh` misses a leftover, a criterion is wrong on Rocky 9 or `cleanup.sh` fails on a half-done lab, change the lab and run both tests again.
@@ -110,6 +118,8 @@ A known issue is only what the lab cannot fix itself:
 - a deliberate limitation, for example `fence_virsh` in clustering-02, which cannot reach a real hypervisor in the classroom
 
 Each one becomes an entry in `labs/<id>/known-issues.md`, in the format described in [framework.md](framework.md) ("known-issues.md"). Use status `workaround` when the lab already works around the problem, `open` when a student can still hit it and `fixed` when the cause is gone; keep fixed entries as history.
+
+`scripts/check-labs.sh` validates the file, the catalog shows the count of `open` and `workaround` entries with a link to it, and the RPM never contains it.
 
 Entries are written by the runtime test agents and by hand, after a runtime test has shown the problem. A static review does not write entries. Issues reported by the agents that converted the labs to 2.0 are not pre-filled: each runtime test confirms or drops them.
 
