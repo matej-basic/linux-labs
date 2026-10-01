@@ -2,7 +2,14 @@
 
 LAB_ROOT="/opt/linux-labs/labs"
 STATE_FILE="/opt/linux-labs/.current_lab"
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/linux-labs"
+# The invoking user's home. Under sudo this is SUDO_USER's home, not /root,
+# so "sudo labctl start" reads the same config that "labctl configure" saved.
+_lab_user_home="${HOME:-/root}"
+if [[ "${EUID:-$(id -u)}" -eq 0 && -n "${SUDO_USER:-}" && "$SUDO_USER" != root ]]; then
+    _lab_user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    _lab_user_home="${_lab_user_home:-${HOME:-/root}}"
+fi
+CONFIG_DIR="${XDG_CONFIG_HOME:-$_lab_user_home/.config}/linux-labs"
 CONFIG_FILE="$CONFIG_DIR/config"
 SYSTEM_CONFIG="/etc/linux-labs/config"
 
@@ -10,6 +17,25 @@ SYSTEM_CONFIG="/etc/linux-labs/config"
 if [[ -f "$SYSTEM_CONFIG" ]]; then
     CONFIG_FILE="$SYSTEM_CONFIG"
 fi
+
+# Stop early when the config file cannot be written (for example the system
+# config under /etc without sudo), instead of reporting a change that failed
+require_writable_config() {
+  local dir
+  dir="$(dirname "$CONFIG_FILE")"
+  if { [[ -e "$CONFIG_FILE" ]] && [[ ! -w "$CONFIG_FILE" ]]; } \
+     || { [[ ! -e "$CONFIG_FILE" ]] && [[ -d "$dir" ]] && [[ ! -w "$dir" ]]; }; then
+    echo "Error: cannot write $CONFIG_FILE. Use: sudo labctl configure ..." >&2
+    exit 1
+  fi
+}
+
+# A config written under sudo belongs to the user who ran sudo, not root
+fix_config_owner() {
+  if [[ "$CONFIG_FILE" != "$SYSTEM_CONFIG" && "$EUID" -eq 0 && -n "${SUDO_USER:-}" && "$SUDO_USER" != root ]]; then
+    chown -R "$SUDO_USER": "$CONFIG_DIR" 2>/dev/null || true
+  fi
+}
 
 usage() {
   echo "Usage: labctl {start|task|grade|reset|list|solution|configure} <lab>"
@@ -143,7 +169,8 @@ print_task() {
 
 # Setup default configuration
 setup_default_config() {
-  mkdir -p "$CONFIG_DIR"
+  require_writable_config
+  [[ "$CONFIG_FILE" == "$SYSTEM_CONFIG" ]] || mkdir -p "$CONFIG_DIR"
   cat > "$CONFIG_FILE" << 'EOF'
 # Linux Labs Configuration
 LAB_NETWORK="172.25.250.0/24"
@@ -157,6 +184,7 @@ SSH_USER="root"
 SSH_PORT="22"
 DOCKER_ENABLED=false
 EOF
+  fix_config_owner
   echo "Created default config at $CONFIG_FILE"
 }
 
@@ -225,7 +253,8 @@ configure_interactive() {
   LAB_DNS="${lab_dns:-$LAB_DNS}"
   
   # Save configuration
-  mkdir -p "$CONFIG_DIR"
+  require_writable_config
+  [[ "$CONFIG_FILE" == "$SYSTEM_CONFIG" ]] || mkdir -p "$CONFIG_DIR"
   cat > "$CONFIG_FILE" << EOF
 # Linux Labs Configuration
 LAB_NETWORK="$LAB_NETWORK"
@@ -241,6 +270,7 @@ DOCKER_ENABLED=false
 EOF
   
   echo ""
+  fix_config_owner
   echo "Configuration saved to $CONFIG_FILE"
 }
 
@@ -277,7 +307,8 @@ configure_set() {
   fi
   
   load_config
-  mkdir -p "$CONFIG_DIR"
+  require_writable_config
+  [[ "$CONFIG_FILE" == "$SYSTEM_CONFIG" ]] || mkdir -p "$CONFIG_DIR"
   
   # Update configuration file
   if grep -q "^${key}=" "$CONFIG_FILE" 2>/dev/null; then
@@ -286,6 +317,7 @@ configure_set() {
     echo "${key}=\"${value}\"" >> "$CONFIG_FILE"
   fi
   
+  fix_config_owner
   echo "Set $key = $value"
 }
 
@@ -359,6 +391,16 @@ case "$1" in
     ;;
   grade)
     require_lab "$2"
+    if [ "$EUID" -ne 0 ]; then
+      # Graders always run as root, so they can read root-only state
+      # (firewalld permanent config, /var/named, logs). The sudoers rule
+      # lets the student run labctl without a password.
+      if sudo -n -l /usr/bin/labctl >/dev/null 2>&1; then
+        exec sudo -n /usr/bin/labctl grade "$2"
+      fi
+      echo "Error: grading needs root. Use: sudo labctl grade $2" >&2
+      exit 1
+    fi
     "$LAB_ROOT/$2/grade.sh"
     ;;
   reset)

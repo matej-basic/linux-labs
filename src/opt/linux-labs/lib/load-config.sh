@@ -4,7 +4,14 @@
 # Source this in lab scripts with: source /opt/linux-labs/lib/load-config.sh
 
 # Configuration file locations
-CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/linux-labs"
+# The invoking user's home. Under sudo this is SUDO_USER's home, not /root,
+# so "sudo labctl start" reads the same config that "labctl configure" saved.
+_lab_user_home="${HOME:-/root}"
+if [[ "${EUID:-$(id -u)}" -eq 0 && -n "${SUDO_USER:-}" && "$SUDO_USER" != root ]]; then
+    _lab_user_home="$(getent passwd "$SUDO_USER" | cut -d: -f6)"
+    _lab_user_home="${_lab_user_home:-${HOME:-/root}}"
+fi
+CONFIG_DIR="${XDG_CONFIG_HOME:-$_lab_user_home/.config}/linux-labs"
 CONFIG_FILE="$CONFIG_DIR/config"
 SYSTEM_CONFIG="/etc/linux-labs/config"
 
@@ -16,19 +23,20 @@ fi
 # Load configuration with defaults
 load_lab_config() {
     # Save any pre-existing environment variables (they have highest priority)
-    local env_lab_network="$LAB_NETWORK"
-    local env_lab_gateway="$LAB_GATEWAY"
-    local env_lab_dns="$LAB_DNS"
-    local env_nodes_enabled="$NODES_ENABLED"
-    local env_node_count="$NODE_COUNT"
-    local env_node_ips="$NODE_IPS"
-    local env_ssh_key_path="$SSH_KEY_PATH"
-    local env_ssh_user="$SSH_USER"
-    local env_ssh_port="$SSH_PORT"
-    local env_docker_enabled="$DOCKER_ENABLED"
+    local env_lab_network="${LAB_NETWORK:-}"
+    local env_lab_gateway="${LAB_GATEWAY:-}"
+    local env_lab_dns="${LAB_DNS:-}"
+    local env_nodes_enabled="${NODES_ENABLED:-}"
+    local env_node_count="${NODE_COUNT:-}"
+    local env_node_ips="${NODE_IPS:-}"
+    local env_ssh_key_path="${SSH_KEY_PATH:-}"
+    local env_ssh_user="${SSH_USER:-}"
+    local env_ssh_port="${SSH_PORT:-}"
+    local env_docker_enabled="${DOCKER_ENABLED:-}"
     
     # Load from config file if it exists
     if [[ -f "$CONFIG_FILE" ]]; then
+        # shellcheck disable=SC1090  # path chosen at runtime (system or user config)
         source "$CONFIG_FILE" 2>/dev/null || true
     fi
     
@@ -40,7 +48,7 @@ load_lab_config() {
     NODES_ENABLED="${env_nodes_enabled:-${NODES_ENABLED:-false}}"
     NODE_COUNT="${env_node_count:-${NODE_COUNT:-1}}"
     NODE_IPS="${env_node_ips:-${NODE_IPS:-}}"
-    SSH_KEY_PATH="${env_ssh_key_path:-${SSH_KEY_PATH:-$HOME/.ssh/id_rsa}}"
+    SSH_KEY_PATH="${env_ssh_key_path:-${SSH_KEY_PATH:-${HOME:-/root}/.ssh/id_rsa}}"
     SSH_USER="${env_ssh_user:-${SSH_USER:-root}}"
     SSH_PORT="${env_ssh_port:-${SSH_PORT:-22}}"
     DOCKER_ENABLED="${env_docker_enabled:-${DOCKER_ENABLED:-false}}"
@@ -69,7 +77,8 @@ get_node_ip() {
     fi
     
     # Otherwise calculate from LAB_NETWORK
-    local base_ip=$(echo "$LAB_NETWORK" | cut -d'/' -f1 | sed 's/\.[0-9]*$//')
+    local base_ip
+    base_ip=$(echo "$LAB_NETWORK" | cut -d'/' -f1 | sed 's/\.[0-9]*$//')
     local node_offset=$((node_num + 9))
     echo "${base_ip}.${node_offset}"
 }
@@ -84,7 +93,7 @@ get_all_node_ips() {
     
     # Otherwise calculate from LAB_NETWORK
     local ips=""
-    for ((i=1; i<=NODE_COUNT; i++)); do
+    for ((i = 1; i <= NODE_COUNT; i++)); do
         ips="$ips $(get_node_ip $i)"
     done
     echo "$ips" | xargs
@@ -93,7 +102,7 @@ get_all_node_ips() {
 # Test connectivity to a remote node (requires SSH)
 test_node_connectivity() {
     local node_ip="$1"
-    timeout 5 ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no \
+    timeout 5 ssh -o BatchMode=yes -o ConnectTimeout=2 -o StrictHostKeyChecking=no \
         -i "$SSH_KEY_PATH" \
         -p "$SSH_PORT" \
         "$SSH_USER@$node_ip" "echo OK" 2>/dev/null
@@ -103,9 +112,11 @@ test_node_connectivity() {
 run_on_node() {
     local node_ip="$1"
     shift
-    local cmd="$@"
-    
-    ssh -o StrictHostKeyChecking=no \
+    local cmd="$*"
+
+    # BatchMode: never wait on a password prompt; ConnectTimeout: fail fast
+    # on an unreachable node instead of waiting for the TCP timeout.
+    ssh -o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=no \
         -i "$SSH_KEY_PATH" \
         -p "$SSH_PORT" \
         "$SSH_USER@$node_ip" "$cmd"
@@ -121,7 +132,7 @@ wait_for_node() {
         if test_node_connectivity "$node_ip" >/dev/null 2>&1; then
             return 0
         fi
-        ((attempt++))
+        attempt=$((attempt + 1))
         sleep 1
     done
     

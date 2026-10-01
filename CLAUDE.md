@@ -28,7 +28,7 @@ A converted lab directory has exactly these seven files and nothing else:
 | File | Shipped | Called by | Purpose |
 |---|---|---|---|
 | `setup.sh` | yes | `labctl start` (as root) | prepares the system, prints nothing |
-| `grade.sh` | yes | `labctl grade` (as student or root) | checks the final state with `lib/grading.sh` |
+| `grade.sh` | yes | `labctl grade` (always as root; labctl re-runs itself through sudo for the student) | checks the final state with `lib/grading.sh` |
 | `cleanup.sh` | yes | `labctl reset` (as root) | undoes setup and solution |
 | `description.txt` | yes | `labctl list`, task header | metadata |
 | `task.txt` | yes | `labctl start`, `labctl task` | the task text shown to the student |
@@ -90,7 +90,7 @@ Format rules (all enforced by `check-labs.sh`):
 
 - Every other non-blank line is body text indented by at least two spaces. A heading is followed directly by its first body line, and exactly one blank line separates sections. No blank lines at the start or end, never two blank lines in a row, and the file ends with a newline.
 - `TASKS` items are numbered `  1. `, `  2. `, ... from 1 without gaps, at a two-space indent. Continuation lines and sub-lists are indented to the item text (five spaces); command examples and drawings are indented by seven spaces with a blank line before and after.
-- `GRADING` contains the line `  labctl grade <id>` (no `sudo`: graders work as the student).
+- `GRADING` contains the line `  labctl grade <id>` (no `sudo`: `labctl grade` elevates itself through the sudoers rule).
 - Lines are at most 72 columns, measured on the raw file before placeholders are filled in. Lines that contain a URL (`http://` or `https://`) are exempt.
 - Plain printable ASCII only: no tabs, no trailing spaces, no emoji, no box drawing (use `tree --charset=ascii` style `|--` and `` `-- ``), no arrows such as `->` or `=>` outside commands (use words).
 - Tone: neutral and imperative ("Create", "Configure"), one fact per sentence, no exclamation marks, no capitals for emphasis ("not as root", never "NOT as root"), no hints that give away the solution. Name the things the grader checks; do not describe how the grader works.
@@ -147,7 +147,7 @@ Any other `{{...}}` fails `check-labs.sh`; at runtime labctl prints it unchanged
 - On failure it prints a clear message to stderr and exits non-zero. labctl then reports the failure, does not write `.current_lab` and does not print the task.
 - Idempotent: running it twice, or after a partial solution, gives the same starting state. Start by removing what a previous run or the solution left behind.
 - Use `set -eu` (not `pipefail` with pipelines that end early, such as `getent passwd | awk '... exit'`).
-- Per-lab state (owner name, start transaction id, generated values) goes in the file `/opt/linux-labs/state/<lab>` (or a directory of that name), mode `0644` so the grader can read it as the student. `cleanup.sh` removes it.
+- Per-lab state (owner name, start transaction id, generated values) goes in the file `/opt/linux-labs/state/<lab>` (or a directory of that name), mode `0644`. `cleanup.sh` removes it.
 - The lab user is `${SUDO_USER:-student}`, falling back to the first regular user if that account does not exist (see `files-04`). Record it in the state file if the grader needs it.
 
 ### cleanup.sh
@@ -196,7 +196,7 @@ Rules:
 - Criterion text is the desired state, as a short statement: `Directory /srv/archive exists`, `httpd is enabled and running`, `Port 8080/tcp is open in the firewall`. Not a question, not "Checking ...", not a hint. Keep it at most 64 characters; longer text wraps at word boundaries with a two-space continuation indent, which works but looks worse.
 - No other output: no hints, no counts in the text ("3 of 12 missing"), no examples of what is wrong, no debug lines. `solution.md` covers help. Dynamic values that define the target (the owner name, a node IP) may appear in the text.
 - Checks that need more than one command go into a shell function defined in `grade.sh` and passed to `criterion`. `criterion` and `criterion_result` always return 0, so the grader always runs to the end; never use `((count++))`-style counters (the library uses `$((n + 1))`).
-- If the lab has a state file, call `grade_require_state` right after `grade_begin`. Grading must work as the student and as root and give the same result.
+- If the lab has a state file, call `grade_require_state` right after `grade_begin`. `labctl grade` always runs `grade.sh` as root (a student call re-executes through `sudo -n`), so graders may read root-only files and configuration. Do not add a sudo re-exec inside `grade.sh`.
 - Multi-node graders still source `load-config.sh` for `get_node_ip` and `run_on_node`, but use `grading.sh` for all output. Typical preconditions: `[ "$NODES_ENABLED" = true ] || grade_abort "Multi-node labs are enabled in the configuration"`.
 
 Example (`labs/files-04/grade.sh`, shortened):
@@ -242,7 +242,7 @@ Legacy single-node graders source `colors.sh`, redefine `pass`/`fail` with count
 
 The clustering labs are a 3-node Pacemaker/Corosync series (basic cluster, STONITH fencing, quorum and split-brain protection). Use `pcs` and `crm_node` in scripts, not `crm`: crmsh is not installed on the student VMs. Pacemaker, pcs and fence agents come from the `ha` repo, which is disabled by default (`dnf install --enablerepo=ha ...`). Nodes have no root SSH to each other, so solutions copy files between nodes through the workstation. `fence_virsh` in clustering-02 cannot reach a real hypervisor in this environment; the solution sets `migration-threshold=INFINITY` so failing fence devices don't block the resource.
 
-Config precedence in `load_lab_config`: environment variables, then the config file, then defaults. The file is `/etc/linux-labs/config` if it exists, otherwise `~/.config/linux-labs/config`. Node IPs come from `NODE_IPS` (space-separated static list) if set; otherwise node N is `<network base>.<N+9>`. Defaults (network `172.25.250.0/24`, gateway `.254`, the RH classroom bastion) are duplicated in `labctl`, `load-config.sh`, `config.template` and the docs (README, QUICKSTART, CONFIGURE_SYSTEM); change them everywhere together.
+Config precedence in `load_lab_config`: environment variables, then the config file, then defaults. The file is `/etc/linux-labs/config` if it exists, otherwise `~/.config/linux-labs/config` of the invoking user: under sudo that is `SUDO_USER`'s home, so `sudo labctl start` and the root-run grader read the same file that `labctl configure` saved (labctl and `load-config.sh` share this lookup; keep them in sync). Writing the system config needs `sudo labctl configure`; without root labctl refuses instead of failing silently. `load-config.sh` is safe under `set -euo pipefail`, and `run_on_node`/`test_node_connectivity` use `BatchMode=yes` and a connect timeout, so a missing key fails fast instead of waiting on a password prompt. Node IPs come from `NODE_IPS` (space-separated static list) if set; otherwise node N is `<network base>.<N+9>`. Defaults (network `172.25.250.0/24`, gateway `.254`, the RH classroom bastion) are duplicated in `labctl`, `load-config.sh`, `config.template` and the docs (README, QUICKSTART, CONFIGURE_SYSTEM); change them everywhere together.
 
 ## solution.md
 
