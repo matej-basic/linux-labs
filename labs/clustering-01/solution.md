@@ -42,8 +42,8 @@ the lab configuration.
      '. /etc/os-release; echo ${VERSION_ID%%.*}')
    if [ "$EL" = 8 ]; then HA_REPO=ha; else HA_REPO=highavailability; fi
    for ip in $ALL; do
-     run_on_node "$ip" \
-       "sudo dnf -y install --enablerepo=$HA_REPO pacemaker pcs httpd"
+     run_on_node "$ip" "sudo -n dnf -y install \
+       --enablerepo=$HA_REPO pacemaker pcs httpd"
    done
    ```
 
@@ -53,10 +53,11 @@ the lab configuration.
    ```bash
    for ip in $ALL; do
      run_on_node "$ip" "
-       sudo firewall-cmd --permanent --add-service=high-availability &&
-       sudo firewall-cmd --reload &&
-       echo 'hacluster:LabPass-2024' | sudo chpasswd &&
-       sudo systemctl enable --now pcsd"
+       sudo -n firewall-cmd --permanent \
+         --add-service=high-availability &&
+       sudo -n firewall-cmd --reload &&
+       echo 'hacluster:LabPass-2024' | sudo -n chpasswd &&
+       sudo -n systemctl enable --now pcsd"
    done
    ```
 
@@ -66,17 +67,17 @@ the lab configuration.
    ```bash
    NODES="$H1 addr=$N1 $H2 addr=$N2 $H3 addr=$N3"
    run_on_node "$N1" \
-     "sudo pcs host auth $NODES -u hacluster -p LabPass-2024"
+     "sudo -n pcs host auth $NODES -u hacluster -p LabPass-2024"
    run_on_node "$N1" \
-     "sudo pcs cluster setup ha_cluster $NODES --start --enable"
+     "sudo -n pcs cluster setup ha_cluster $NODES --start --enable"
    ```
 
 5. [user] Wait until the cluster has quorum, then disable STONITH,
    because the nodes have no fence devices:
 
    ```bash
-   run_on_node "$N1" "sudo crm_node -q"
-   run_on_node "$N1" "sudo pcs property set stonith-enabled=false"
+   run_on_node "$N1" "sudo -n crm_node -q"
+   run_on_node "$N1" "sudo -n pcs property set stonith-enabled=false"
    ```
 
    The first command prints 1 when the cluster has quorum. Repeat it
@@ -89,15 +90,15 @@ the lab configuration.
    for ip in $ALL; do
      run_on_node "$ip" "
        echo \"HA Cluster - \$(uname -n)\" |
-         sudo tee /var/www/html/index.html >/dev/null
-       sudo systemctl disable httpd"
+         sudo -n tee /var/www/html/index.html >/dev/null
+       sudo -n systemctl disable httpd"
    done
    ```
 
 7. [user] Create the Apache resource:
 
    ```bash
-   run_on_node "$N1" "sudo pcs resource create apache_web \
+   run_on_node "$N1" "sudo -n pcs resource create apache_web \
      ocf:heartbeat:apache configfile=/etc/httpd/conf/httpd.conf \
      op monitor interval=1min"
    ```
@@ -105,7 +106,7 @@ the lab configuration.
 ## Verification
 
 ```bash
-run_on_node "$N1" "sudo pcs status"
+run_on_node "$N1" "sudo -n pcs status"
 labctl grade clustering-01
 ```
 

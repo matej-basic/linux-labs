@@ -18,7 +18,7 @@ NODE3_IP=$(get_node_ip 3)
 
 # service_up <ip> <unit>: the unit is enabled at boot and running
 service_up() {
-	run_on_node "$1" "sudo systemctl is-enabled --quiet $2 && sudo systemctl is-active --quiet $2"
+	run_on_node "$1" "sudo -n systemctl is-enabled --quiet $2 && sudo -n systemctl is-active --quiet $2"
 }
 
 # is_member <ip>: the node, by host name, is a member in node 1's view
@@ -26,28 +26,28 @@ is_member() {
 	local h
 	h=$(run_on_node "$1" "uname -n") || return 1
 	h="${h%%.*}"
-	run_on_node "$NODE1_IP" "sudo crm_node -l" |
+	run_on_node "$NODE1_IP" "sudo -n crm_node -l" |
 		awk -v h="$h" '{ n = $2; sub(/\..*/, "", n) } n == h && $3 == "member" { f = 1 } END { exit !f }'
 }
 
 # quorum_field <pattern> <value>: corosync-quorumtool shows the value
 quorum_field() {
-	run_on_node "$NODE1_IP" "sudo corosync-quorumtool -s" |
+	run_on_node "$NODE1_IP" "sudo -n corosync-quorumtool -s" |
 		awk -v p="$1" -v v="$2" '$0 ~ p { if ($NF == v) f = 1 } END { exit !f }'
 }
 
 cluster_name_is() {
-	run_on_node "$NODE1_IP" "sudo corosync-cmapctl -g totem.cluster_name" |
+	run_on_node "$NODE1_IP" "sudo -n corosync-cmapctl -g totem.cluster_name" |
 		awk -v n="$1" '{ if ($NF == n) f = 1 } END { exit !f }'
 }
 
 stonith_disabled() {
-	[ "$(run_on_node "$NODE1_IP" "sudo crm_attribute -t crm_config -n stonith-enabled -G -q")" = false ]
+	[ "$(run_on_node "$NODE1_IP" "sudo -n crm_attribute -t crm_config -n stonith-enabled -G -q")" = false ]
 }
 
 # httpd_ready <ip>: httpd installed, not enabled at boot
 httpd_ready() {
-	run_on_node "$1" "rpm -q httpd >/dev/null && ! sudo systemctl is-enabled --quiet httpd"
+	run_on_node "$1" "rpm -q httpd >/dev/null && ! sudo -n systemctl is-enabled --quiet httpd"
 }
 
 # page_ok <ip>: the page names the cluster and the host
@@ -57,12 +57,12 @@ page_ok() {
 }
 
 resource_defined() {
-	run_on_node "$NODE1_IP" "sudo crm_resource -r apache_web -q" |
+	run_on_node "$NODE1_IP" "sudo -n crm_resource -r apache_web -q" |
 		grep 'class="ocf"' | grep 'provider="heartbeat"' | grep -q 'type="apache"'
 }
 
 resource_started() {
-	run_on_node "$NODE1_IP" "sudo crm_mon -1 -r" | grep -Eq 'apache_web.*Started'
+	run_on_node "$NODE1_IP" "sudo -n crm_mon -1 -r" | grep -Eq 'apache_web.*Started'
 }
 
 httpd_on_one_node() {
