@@ -68,8 +68,8 @@ PRACTICE (not graded)
     method.
 
 NOTES
-  - The grader stops httpd on Node 2 for a moment and starts it
-    again if it was running.
+  - The grader reloads nginx on Node 1, then stops httpd on Node 2
+    for a moment and starts it again if it was running.
   - Reference: man nginx and the ngx_http_upstream_module and
     ngx_http_proxy_module documentation, man httpd.
 

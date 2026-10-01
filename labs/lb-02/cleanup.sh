@@ -1,47 +1,98 @@
 #!/bin/bash
-# lb-02 cleanup: undo setup and the solution on Nodes 1 to 3.
+# lb-02 cleanup: puts every node back into the state that the first
+# setup.sh run recorded. nginx and httpd are removed where setup.sh found
+# them missing; where they were already installed, their config files,
+# the web pages, boot state and running state are restored. The firewall
+# rules and the SELinux booleans of the solution go back to their
+# recorded values.
+# No "set -u": load-config.sh reads variables that may be unset.
+
 source /opt/linux-labs/lib/load-config.sh
-set -u
+load_lab_config
 
-# Nothing to undo when multi-node labs are not configured.
-[ "$NODES_ENABLED" = true ] || exit 0
+# Nothing was started without multi-node support
+[ "$NODES_ENABLED" = "true" ] || exit 0
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null || exit 0
 
-# Runs on every node: removes nginx and httpd with their lab configuration,
-# the firewall openings and the SELinux booleans the solution created.
-reset_script() {
-	cat <<'REMOTE'
-S=
-[ "$(id -u)" -eq 0 ] || S="sudo -n"
-for u in nginx httpd; do
-	$S systemctl disable --now "$u" >/dev/null 2>&1
-done
-for p in nginx httpd; do
-	rpm -q "$p" >/dev/null 2>&1 && $S dnf -y remove "$p" >/dev/null 2>&1
-done
-$S rm -f /etc/nginx/conf.d/lb.conf /etc/nginx/nginx.conf.rpmsave \
-	/etc/httpd/conf/httpd.conf.rpmsave /var/log/nginx/lb_access.log \
-	/var/log/nginx/lb_error.log /var/www/html/index.html /var/www/html/health
-if $S systemctl is-active firewalld >/dev/null 2>&1; then
-	$S firewall-cmd --permanent --remove-port=8080/tcp >/dev/null 2>&1
-	$S firewall-cmd --permanent --remove-service=http >/dev/null 2>&1
-	$S firewall-cmd --reload >/dev/null 2>&1
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+cat > "$tmp/node.sh" <<'REMOTE'
+pre=/var/tmp/lb-02.pre
+bak=/var/tmp/lb-02.bak
+
+# setup.sh never ran on this node: nothing to undo
+[ -f "$pre" ] || exit 0
+
+had() {
+	grep -qx "$1" "$pre"
+}
+
+# rmunowned <dir>: remove a directory that no installed package owns
+rmunowned() {
+	[ -d "$1" ] || return 0
+	rpm -qf "$1" >/dev/null 2>&1 || rm -rf "$1"
+}
+
+systemctl disable --now nginx httpd </dev/null >/dev/null 2>&1
+rm -f /var/www/html/index.html /var/www/html/health /etc/nginx/conf.d/lb.conf \
+	/etc/nginx/nginx.conf.rpmsave /etc/httpd/conf/httpd.conf.rpmsave \
+	/var/log/nginx/lb_access.log /var/log/nginx/lb_error.log
+
+if ! had nginx-installed; then
+	rpm -q nginx >/dev/null 2>&1 && dnf -y remove nginx </dev/null >/dev/null 2>&1
+	rm -f /etc/nginx/nginx.conf.rpmsave
+	rmunowned /etc/nginx
+	rmunowned /var/log/nginx
+	rmunowned /var/lib/nginx
+	rmunowned /usr/share/nginx
 fi
-for b in httpd_can_network_connect httpd_can_network_relay; do
-	if getsebool "$b" 2>/dev/null | grep -q ' on$'; then
-		$S setsebool -P "$b" 0
+if ! had httpd-installed; then
+	rpm -q httpd >/dev/null 2>&1 && dnf -y remove httpd </dev/null >/dev/null 2>&1
+	rm -f /etc/httpd/conf/httpd.conf.rpmsave
+	rmunowned /etc/httpd
+	rmunowned /var/log/httpd
+	rmunowned /var/www
+fi
+
+for f in /etc/httpd/conf/httpd.conf /var/www/html/index.html /var/www/html/health /etc/nginx/nginx.conf; do
+	b="$bak/$(basename "$f")"
+	if [ -f "$b" ] && [ -d "$(dirname "$f")" ]; then
+		cp -a "$b" "$f" && restorecon "$f" 2>/dev/null
 	fi
 done
+
+for p in httpd nginx; do
+	had "$p-installed" || continue
+	had "$p-enabled" && systemctl enable "$p" </dev/null >/dev/null 2>&1
+	had "$p-active" && systemctl start "$p" </dev/null >/dev/null 2>&1
+done
+
+fw() {
+	firewall-cmd --permanent "$@" </dev/null >/dev/null 2>&1
+}
+if had fw-http; then fw --add-service=http; else fw --remove-service=http; fi
+if had fw-8080; then fw --add-port=8080/tcp; else fw --remove-port=8080/tcp; fi
+firewall-cmd --reload </dev/null >/dev/null 2>&1
+
+for b in httpd_can_network_connect httpd_can_network_relay; do
+	want=off
+	had "$b-on" && want=on
+	if ! getsebool "$b" 2>/dev/null | grep -q -- "--> $want"; then
+		setsebool -P "$b" "$want" </dev/null
+	fi
+done
+
+rm -rf "$pre" "$bak"
 exit 0
 REMOTE
-}
 
 rc=0
 for n in 1 2 3; do
-	[ "$n" -le "$NODE_COUNT" ] || break
 	ip=$(get_node_ip "$n")
-	if ! reset_script | run_on_node "$ip" "bash -s" >/dev/null 2>&1; then
-		echo "lb-02: could not clean up Node $n ($ip)." >&2
+	run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > /dev/null 2>&1 || {
+		echo "Cleanup of node $n ($ip) failed" >&2
 		rc=1
-	fi
+	}
 done
 exit "$rc"

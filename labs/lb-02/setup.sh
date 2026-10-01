@@ -1,58 +1,98 @@
 #!/bin/bash
-# lb-02 setup: put Nodes 1 to 3 into a clean starting state.
+# lb-02 setup: puts the three nodes into the clean starting state (nginx
+# and httpd stopped and disabled, stock httpd.conf and nginx.conf, no
+# index or health page, no proxy config, no lab firewall rules, the httpd
+# network booleans off). Packages that were already installed before the
+# lab stay installed; the first run records the state of every node so
+# that cleanup.sh can put it back. Prints nothing on success.
+# No "set -u": load-config.sh reads variables that may be unset.
+set -e
+
 source /opt/linux-labs/lib/load-config.sh
-set -eu
+load_lab_config
 
-if [ "$NODES_ENABLED" != true ]; then
-	echo "lb-02 needs multi-node labs: run 'sudo labctl configure interactive'." >&2
+if [ "$NODES_ENABLED" != "true" ]; then
+	echo "lb-02 needs multi-node labs: run 'sudo labctl configure interactive' and enable them" >&2
 	exit 1
 fi
-if [ "$NODE_COUNT" -lt 3 ]; then
-	echo "lb-02 needs at least 3 nodes (NODE_COUNT is $NODE_COUNT)." >&2
+if [ "$NODE_COUNT" -lt 3 ] 2>/dev/null; then
+	echo "lb-02 needs 3 nodes, NODE_COUNT is $NODE_COUNT: run 'sudo labctl configure set NODE_COUNT 3'" >&2
 	exit 1
 fi
-
-# Runs on every node: removes nginx and httpd with their lab configuration,
-# the firewall openings and the SELinux booleans a previous run left behind.
-reset_script() {
-	cat <<'REMOTE'
-S=
-[ "$(id -u)" -eq 0 ] || S="sudo -n"
-for u in nginx httpd; do
-	$S systemctl disable --now "$u" >/dev/null 2>&1
-done
-for p in nginx httpd; do
-	rpm -q "$p" >/dev/null 2>&1 && $S dnf -y remove "$p" >/dev/null 2>&1
-done
-$S rm -f /etc/nginx/conf.d/lb.conf /etc/nginx/nginx.conf.rpmsave \
-	/etc/httpd/conf/httpd.conf.rpmsave /var/log/nginx/lb_access.log \
-	/var/log/nginx/lb_error.log /var/www/html/index.html /var/www/html/health
-if $S systemctl is-active firewalld >/dev/null 2>&1; then
-	$S firewall-cmd --permanent --remove-port=8080/tcp >/dev/null 2>&1
-	$S firewall-cmd --permanent --remove-service=http >/dev/null 2>&1
-	$S firewall-cmd --reload >/dev/null 2>&1
-fi
-for b in httpd_can_network_connect httpd_can_network_relay; do
-	if getsebool "$b" 2>/dev/null | grep -q ' on$'; then
-		$S setsebool -P "$b" 0
-	fi
-done
-exit 0
-REMOTE
-}
 
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
-	if ! test_node_connectivity "$ip" >/dev/null 2>&1; then
-		echo "lb-02: Node $n ($ip) is not reachable over SSH." >&2
+	if ! test_node_connectivity "$ip" >/dev/null; then
+		echo "Cannot reach node $n ($ip) over SSH as $SSH_USER" >&2
 		exit 1
 	fi
 done
 
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# Remote reset, run as root on every node through "bash -s", so every
+# command that could read stdin gets /dev/null instead of the script.
+cat > "$tmp/node.sh" <<'REMOTE'
+pre=/var/tmp/lb-02.pre
+bak=/var/tmp/lb-02.bak
+files="/etc/httpd/conf/httpd.conf /var/www/html/index.html /var/www/html/health /etc/nginx/nginx.conf"
+bools="httpd_can_network_connect httpd_can_network_relay"
+
+# First run only: what the node looked like before the lab
+if [ ! -f "$pre" ]; then
+	rm -rf "$bak"
+	mkdir -p "$bak" || exit 1
+	{
+		for p in httpd nginx; do
+			rpm -q "$p" >/dev/null 2>&1 && echo "$p-installed"
+			systemctl is-enabled --quiet "$p" 2>/dev/null && echo "$p-enabled"
+			systemctl is-active --quiet "$p" 2>/dev/null && echo "$p-active"
+		done
+		firewall-cmd --permanent --query-service=http </dev/null >/dev/null 2>&1 && echo fw-http
+		firewall-cmd --permanent --query-port=8080/tcp </dev/null >/dev/null 2>&1 && echo fw-8080
+		for b in $bools; do
+			getsebool "$b" 2>/dev/null | grep -q -- "--> on" && echo "$b-on"
+		done
+	} > "$pre.tmp"
+	for f in $files; do
+		[ -f "$f" ] && cp -a "$f" "$bak/$(basename "$f")"
+	done
+	mv "$pre.tmp" "$pre" || exit 1
+fi
+
+systemctl disable --now nginx httpd </dev/null >/dev/null 2>&1
+for p in nginx httpd; do
+	if rpm -q "$p" >/dev/null 2>&1 && ! grep -qx "$p-installed" "$pre"; then
+		dnf -y remove "$p" </dev/null >/dev/null 2>&1 || exit 1
+	fi
+done
+rm -f /var/www/html/index.html /var/www/html/health /etc/nginx/conf.d/lb.conf \
+	/etc/nginx/nginx.conf.rpmsave /etc/httpd/conf/httpd.conf.rpmsave \
+	/var/log/nginx/lb_access.log /var/log/nginx/lb_error.log
+for f in /etc/httpd/conf/httpd.conf /etc/nginx/nginx.conf; do
+	b="$bak/$(basename "$f")"
+	if [ -f "$b" ] && [ -d "$(dirname "$f")" ]; then
+		cp -a "$b" "$f" && restorecon "$f" 2>/dev/null
+	fi
+done
+
+firewall-cmd --permanent --remove-service=http </dev/null >/dev/null 2>&1
+firewall-cmd --permanent --remove-port=8080/tcp </dev/null >/dev/null 2>&1
+firewall-cmd --reload </dev/null >/dev/null 2>&1
+for b in $bools; do
+	if getsebool "$b" 2>/dev/null | grep -q -- "--> on"; then
+		setsebool -P "$b" off </dev/null || exit 1
+	fi
+done
+exit 0
+REMOTE
+
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
-	if ! reset_script | run_on_node "$ip" "bash -s" >/dev/null 2>&1; then
-		echo "lb-02: could not prepare Node $n ($ip)." >&2
+	if ! run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > "$tmp/out" 2>&1; then
+		echo "Preparing node $n ($ip) failed:" >&2
+		cat "$tmp/out" >&2
 		exit 1
 	fi
 done

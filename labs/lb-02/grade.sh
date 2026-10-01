@@ -77,8 +77,12 @@ selinux_proxy() {
 	rn "$N1" 'curl -sf --max-time 10 -o /dev/null http://127.0.0.1/'
 }
 
+# A backend that failed in the last fail_timeout (for example during the
+# failover check of an earlier grading run) is skipped by nginx until the
+# timeout ends, so reload nginx first: new workers start with fresh state.
 proxy_balances() {
 	local out i
+	rn "$N1" "$SU systemctl reload nginx" >/dev/null 2>&1 && sleep 1
 	out=$(rn "$N1" 'for i in 1 2 3 4 5 6 7 8; do curl -s --max-time 10 http://127.0.0.1/; done')
 	i=$(echo "$out" | grep -c 'Backend Server - Node 2')
 	[ "$i" -ge 1 ] || return 1

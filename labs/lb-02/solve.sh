@@ -16,7 +16,7 @@ N3=$(get_node_ip 3)
 # Steps 1 to 4 [sudo]: backends
 for n in 2 3; do
 	ip=$(get_node_ip "$n")
-	run_on_node "$ip" "NODE=$n bash -s" <<'REMOTE'
+	run_on_node "$ip" "sudo -n env NODE=$n bash -s" <<'REMOTE'
 set -e
 dnf -y install httpd >/dev/null
 sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
@@ -29,7 +29,7 @@ REMOTE
 done
 
 # Steps 5 to 8 [sudo]: proxy
-run_on_node "$N1" "NODE2_IP=$N2 NODE3_IP=$N3 bash -s" <<'REMOTE'
+run_on_node "$N1" "sudo -n env NODE2_IP=$N2 NODE3_IP=$N3 bash -s" <<'REMOTE'
 set -e
 dnf -y install nginx >/dev/null
 sed -i '/^    server {/,/^    }/ s/^/#/' /etc/nginx/nginx.conf
