@@ -19,7 +19,7 @@ NODE3_IP=$(get_node_ip 3)
 VIP=$(head -n 1 /opt/linux-labs/state/lb-03)
 
 SUDO=""
-[ "${SSH_USER:-root}" = root ] || SUDO="sudo "
+[ "${SSH_USER:-root}" = root ] || SUDO="sudo -n "
 
 # node_script <ip> <assignments>: run the script on standard input on the
 # node, after the variable assignments given as the second argument

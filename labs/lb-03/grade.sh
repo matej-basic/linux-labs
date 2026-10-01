@@ -19,7 +19,7 @@ N3=$(get_node_ip 3)
 
 # Remote commands run as SSH_USER, with sudo unless that is root
 SUDO=""
-[ "${SSH_USER:-root}" = root ] || SUDO="sudo "
+[ "${SSH_USER:-root}" = root ] || SUDO="sudo -n "
 
 # on_node <ip> <command>: run a command on a node, true if it succeeds
 on_node() {
