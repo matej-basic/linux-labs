@@ -20,12 +20,13 @@
 The names servera, serverb and serverc below are the Pacemaker node
 names of the classroom layout. Use the names the cluster reports.
 
-1. [sudo] On each of the three nodes, install the fence agents. The
-   ha repository is disabled by default (on a stock Rocky 9 system its
-   id is highavailability):
+1. [sudo] On each of the three nodes, install the package with the
+   fence_virsh agent. Depending on the release it comes from AppStream
+   or from the ha repository, which is disabled by default (on a stock
+   Rocky 9 system its id is highavailability):
 
    ```bash
-   sudo dnf -y install --enablerepo=ha fence-agents-all
+   sudo dnf -y install --enablerepo=ha fence-agents-virsh
    ```
 
 2. [sudo] On node 1, list the node names known to Pacemaker. Node N
@@ -100,4 +101,6 @@ being moved away from a node for good.
 
 A typical mistake is a missing fence_virsh binary on one node: the
 agent has to exist on every node, because any node may have to run the
-fence device.
+fence device. The package fence-agents-all does not pull in
+fence-agents-virsh on Rocky 8, so fence_virsh can be missing even where
+fence-agents-all is installed.

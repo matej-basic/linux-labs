@@ -23,12 +23,12 @@ n1() {
 
 # Succeeds if the CIB on node 1 matches the XPath expression
 cib_has() {
-	n1 "sudo cibadmin -Q --xpath \"$1\""
+	n1 "sudo -n cibadmin -Q --xpath \"$1\""
 }
 
 # Print the crm_mon XML status of the cluster
 cluster_xml() {
-	n1 "sudo crm_mon -1 --output-as=xml --include=all 2>/dev/null || sudo crm_mon -1 --output-as=xml 2>/dev/null || sudo crm_mon -1 -X 2>/dev/null"
+	n1 "sudo -n crm_mon -1 --output-as=xml --include=all 2>/dev/null || sudo -n crm_mon -1 --output-as=xml 2>/dev/null || sudo -n crm_mon -1 -X 2>/dev/null"
 }
 
 agent_installed() {
@@ -42,7 +42,7 @@ device_uses_agent() {
 # device_restricted <device> <node ip>: the host list is the node's name
 device_restricted() {
 	local name
-	name=$(run_on_node "$2" "sudo crm_node -n") || return 1
+	name=$(run_on_node "$2" "sudo -n crm_node -n") || return 1
 	name=$(printf '%s' "$name" | tr -d '[:space:]')
 	[ -n "$name" ] || return 1
 	cib_has "//primitive[@id='$1']//nvpair[@name='pcmk_host_list' and @value='$name']"
@@ -50,7 +50,7 @@ device_restricted() {
 
 fencing_enabled() {
 	local v
-	v=$(n1 "sudo cibadmin -Q >/dev/null 2>&1 && { sudo crm_attribute --type crm_config --name stonith-enabled --query --quiet 2>/dev/null || echo default; }") || return 1
+	v=$(n1 "sudo -n cibadmin -Q >/dev/null 2>&1 && { sudo -n crm_attribute --type crm_config --name stonith-enabled --query --quiet 2>/dev/null || echo default; }") || return 1
 	v=$(printf '%s' "$v" | tr -d '[:space:]')
 	case "$v" in
 		"") return 1 ;;
@@ -60,7 +60,7 @@ fencing_enabled() {
 }
 
 has_quorum() {
-	n1 "sudo corosync-quorumtool -s"
+	n1 "sudo -n corosync-quorumtool -s"
 }
 
 all_nodes_online() {

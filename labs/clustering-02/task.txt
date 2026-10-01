@@ -22,12 +22,18 @@ TOPOLOGY
      (fences node 1)   (fences node 2)   (fences node 3)
 
 PREREQUISITES
-  - Lab clustering-01 is completed: Pacemaker and Corosync run on all
-    three nodes, the cluster has quorum, the resource apache_web is
-    started and fencing is disabled.
+  - The lab starts from the end state of clustering-01: the cluster
+    ha_cluster runs on all three nodes, it has quorum, the resource
+    apache_web is started and fencing is disabled.
+  - If node 1 already runs such a cluster, for example right after
+    clustering-01, labctl start uses it, and labctl reset removes only
+    the fencing parts again. Otherwise labctl start builds the cluster
+    itself, which takes a few minutes, and labctl reset removes it
+    again and returns the nodes to their state before the lab.
   - Root privileges (sudo) on the three nodes. The nodes are reached
     with the SSH settings of the lab configuration.
-  - The fence agent packages are in the ha repository, which is
+  - Depending on the release, the fence agent package comes from
+    AppStream or from the High Availability repository, which is
     disabled by default.
 
 TASKS
