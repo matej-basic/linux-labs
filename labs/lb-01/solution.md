@@ -28,9 +28,9 @@
    node 1:
 
    ```bash
-   run_on_node "$N1" "sudo dnf -y install haproxy httpd"
-   run_on_node "$N2" "sudo dnf -y install httpd"
-   run_on_node "$N3" "sudo dnf -y install httpd"
+   run_on_node "$N1" "sudo -n dnf -y install haproxy httpd"
+   run_on_node "$N2" "sudo -n dnf -y install httpd"
+   run_on_node "$N3" "sudo -n dnf -y install httpd"
    ```
 
 3. [user] On each node, move Apache to port 8080, give it a page that
@@ -42,9 +42,10 @@
    i=0
    for ip in "$N1" "$N2" "$N3"; do
      i=$((i + 1))
-     run_on_node "$ip" "sudo sed -i 's/^Listen 80/Listen 8080/' $CONF"
-     run_on_node "$ip" "echo 'Backend on node $i' | sudo tee $PAGE"
-     run_on_node "$ip" "sudo systemctl enable --now httpd"
+     run_on_node "$ip" \
+       "sudo -n sed -i 's/^Listen 80/Listen 8080/' $CONF"
+     run_on_node "$ip" "echo 'Backend on node $i' | sudo -n tee $PAGE"
+     run_on_node "$ip" "sudo -n systemctl enable --now httpd"
    done
    ```
 
@@ -52,7 +53,7 @@
    and 3:
 
    ```bash
-   FW="sudo firewall-cmd"
+   FW="sudo -n firewall-cmd"
    run_on_node "$N1" "$FW --permanent --add-service=http"
    for ip in "$N2" "$N3"; do
      run_on_node "$ip" "$FW --permanent --add-port=8080/tcp"
@@ -66,7 +67,7 @@
    SELinux:
 
    ```bash
-   run_on_node "$N1" "sudo setsebool -P haproxy_connect_any on"
+   run_on_node "$N1" "sudo -n setsebool -P haproxy_connect_any on"
    ```
 
 6. [user] Write the HAProxy configuration to a local file and copy it
@@ -103,16 +104,16 @@
        server node2 $N2:8080 check
        server node3 $N3:8080 check
    EOF
-   run_on_node "$N1" "sudo tee /etc/haproxy/haproxy.cfg >/dev/null" \
+   run_on_node "$N1" "sudo -n tee /etc/haproxy/haproxy.cfg >/dev/null" \
      < /tmp/haproxy.cfg
-   run_on_node "$N1" "sudo haproxy -c -f /etc/haproxy/haproxy.cfg"
+   run_on_node "$N1" "sudo -n haproxy -c -f /etc/haproxy/haproxy.cfg"
    rm -f /tmp/haproxy.cfg
    ```
 
 7. [user] Start and enable HAProxy:
 
    ```bash
-   run_on_node "$N1" "sudo systemctl enable --now haproxy"
+   run_on_node "$N1" "sudo -n systemctl enable --now haproxy"
    ```
 
 ## Verification

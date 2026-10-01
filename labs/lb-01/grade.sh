@@ -20,12 +20,12 @@ done
 
 # service_ok <ip> <unit>: unit is enabled and active
 service_ok() {
-	run_on_node "$1" "sudo systemctl is-enabled $2 && sudo systemctl is-active $2"
+	run_on_node "$1" "sudo -n systemctl is-enabled $2 && sudo -n systemctl is-active $2"
 }
 
 # listens <ip> <port> <process>: the process owns a listening TCP socket
 listens() {
-	run_on_node "$1" "sudo ss -tlnp 'sport = :$2'" | grep -q "\"$3\""
+	run_on_node "$1" "sudo -n ss -tlnp 'sport = :$2'" | grep -q "\"$3\""
 }
 
 # backend_body <ip>: the page of a backend, fetched from node 1 as HAProxy
@@ -51,7 +51,7 @@ pages_differ() {
 
 # haproxy.cfg without comment lines
 cfg_active() {
-	run_on_node "$NODE1_IP" "sudo cat $CFG" | grep -v '^[[:space:]]*#'
+	run_on_node "$NODE1_IP" "sudo -n cat $CFG" | grep -v '^[[:space:]]*#'
 }
 
 cfg_roundrobin() {
@@ -99,7 +99,7 @@ lb_even() {
 # of the default zone, as a service or as a port
 fw_permanent() {
 	local out
-	out=$(run_on_node "$1" "sudo firewall-cmd --permanent --list-all") || return 1
+	out=$(run_on_node "$1" "sudo -n firewall-cmd --permanent --list-all") || return 1
 	if [ -n "$2" ] && printf '%s\n' "$out" | grep -Eq "^[[:space:]]*services:.*[[:space:]]$2([[:space:]]|\$)"; then
 		return 0
 	fi
