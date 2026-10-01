@@ -1,31 +1,82 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# logging-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+RSYSLOG_CONF=/etc/rsyslog.d/myapp.conf
+FAC_LOG=/var/log/myapp.log
+PROG_LOG=/var/log/myapp-program.log
+LR_CONF=/etc/logrotate.d/myapp
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+# Active lines of the logrotate configuration, without comments
+lr_lines() {
+	grep -Ev '^[[:space:]]*#' "$LR_CONF"
+}
 
-[ -f /etc/rsyslog.d/myapp.conf ] && pass "Rsyslog config exists" || { fail "Missing /etc/rsyslog.d/myapp.conf"; rc=1; }
-grep -Eq "^\s*local0\.\*\s+/var/log/myapp\.log" /etc/rsyslog.d/myapp.conf 2>/dev/null && pass "Rsyslog local0 facility filter present" || { fail "local0 facility filter not found"; rc=1; }
-grep -Eq ":programname,\s*isequal,\s*\"?myapp\"?.*/var/log/myapp-program\.log" /etc/rsyslog.d/myapp.conf 2>/dev/null && pass "Rsyslog programname filter present" || { fail "programname filter not found"; rc=1; }
-[ -f /var/log/myapp.log ] && pass "Log file exists" || { fail "Missing /var/log/myapp.log"; rc=1; }
-[ -f /var/log/myapp-program.log ] && pass "Programname log file exists" || { fail "Missing /var/log/myapp-program.log"; rc=1; }
-[ -f /etc/logrotate.d/myapp ] && pass "Logrotate config exists" || { fail "Missing /etc/logrotate.d/myapp"; rc=1; }
-grep -q "daily" /etc/logrotate.d/myapp 2>/dev/null && pass "Logrotate daily" || { fail "daily not set"; rc=1; }
-grep -q "rotate 7" /etc/logrotate.d/myapp 2>/dev/null && pass "Logrotate rotate 7" || { fail "rotate 7 not set"; rc=1; }
-grep -q "compress" /etc/logrotate.d/myapp 2>/dev/null && pass "Logrotate compress" || { fail "compress not set"; rc=1; }
-logrotate -d /etc/logrotate.d/myapp &>/dev/null && pass "Logrotate syntax ok" || { fail "Logrotate syntax invalid"; rc=1; }
+# Does the logrotate configuration contain this directive (extended regex)?
+lr_has() {
+	lr_lines | grep -Eq "$1"
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+conf_names_both_logs() {
+	grep -Fq "$FAC_LOG" "$RSYSLOG_CONF" && grep -Fq "$PROG_LOG" "$RSYSLOG_CONF"
+}
 
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
+lr_covers_both() {
+	local flat
+	flat=$(lr_lines | tr '\n' ' ')
+	grep -Eq "${FAC_LOG}[^{}]*\{" <<<"$flat" && grep -Eq "${PROG_LOG}[^{}]*\{" <<<"$flat"
+}
+
+lr_postrotate_signals_rsyslog() {
+	lr_lines | sed -n '/^[[:space:]]*postrotate/,/^[[:space:]]*endscript/p' |
+		grep -Eq 'rsyslog'
+}
+
+lr_syntax_ok() {
+	local state rc
+	state=$(mktemp) || return 1
+	logrotate -d -s "$state" "$LR_CONF"
+	rc=$?
+	rm -f "$state"
+	return $rc
+}
+
+mode_is_644() {
+	[ "$(stat -c %a "$1" 2>/dev/null)" = 644 ]
+}
+
+grep_log() {
+	grep -Fq "$2" "$1" 2>/dev/null
+}
+
+# Send one message per rule and wait up to 10 seconds for both to arrive
+token="logging02-$$-$(date +%s)"
+if systemctl is-active --quiet rsyslog; then
+	logger -p local0.info -t myapp-facility "$token-facility"
+	logger -p user.notice -t myapp "$token-program"
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		grep -Fq "$token-facility" "$FAC_LOG" 2>/dev/null &&
+			grep -Fq "$token-program" "$PROG_LOG" 2>/dev/null && break
+		sleep 1
+	done
 fi
+
+grade_begin logging-02
+
+criterion "rsyslog is active" systemctl is-active --quiet rsyslog
+criterion "$RSYSLOG_CONF names both log files" conf_names_both_logs
+criterion "local0 messages are written to $FAC_LOG" grep_log "$FAC_LOG" "$token-facility"
+criterion "Messages from program myapp go to $PROG_LOG" grep_log "$PROG_LOG" "$token-program"
+criterion "File $FAC_LOG has mode 644" mode_is_644 "$FAC_LOG"
+criterion "File $PROG_LOG has mode 644" mode_is_644 "$PROG_LOG"
+criterion "$LR_CONF covers both log files" lr_covers_both
+criterion "Logs rotate daily" lr_has '^[[:space:]]*daily[[:space:]]*$'
+criterion "7 rotated logs are kept" lr_has '^[[:space:]]*rotate[[:space:]]+7[[:space:]]*$'
+criterion "Rotated logs are compressed" lr_has '^[[:space:]]*compress[[:space:]]*$'
+criterion "Empty log files are not rotated" lr_has '^[[:space:]]*notifempty[[:space:]]*$'
+criterion "Missing log files are not an error" lr_has '^[[:space:]]*missingok[[:space:]]*$'
+criterion "New logs are created as 644 root root" lr_has '^[[:space:]]*create[[:space:]]+0?644[[:space:]]+root[[:space:]]+(root|0)[[:space:]]*$'
+criterion "rsyslog is signalled after rotation" lr_postrotate_signals_rsyslog
+criterion "logrotate accepts $LR_CONF" lr_syntax_ok
+
+grade_end

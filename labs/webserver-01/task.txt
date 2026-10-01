@@ -1,0 +1,29 @@
+OBJECTIVE
+  Install and start Apache HTTP Server, verify it is running and
+  accessible on port 80.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with internet access to the package
+    repositories.
+  - Root access through sudo.
+
+TASKS
+  1. Install the Apache HTTP Server package, httpd.
+  2. Run the httpd service now, and make it start at every boot.
+  3. Make Apache listen on TCP port 80, and make sure it answers
+     HTTP requests to http://localhost.
+
+EXPECTED RESULT
+  The httpd package is installed, the httpd service is enabled and
+  running, and a request to http://localhost on port 80 gets an
+  HTTP response from Apache. The default test page is enough: no web
+  content is required.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - The firewall is not part of this lab and is not graded.
+  - Reference: man systemctl and man httpd.
+
+GRADING
+  labctl grade webserver-01

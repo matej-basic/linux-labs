@@ -1,3 +1,4 @@
+title: Custom systemd service
 category: Systemd
 complexity: Intermediate
-objective: Create custom systemd service units with specific dependencies and execution parameters.
+objective: Create a custom systemd service unit for a looping script, then enable and start it.

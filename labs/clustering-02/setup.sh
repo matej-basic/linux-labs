@@ -1,81 +1,54 @@
 #!/bin/bash
-# clustering-02 - STONITH Fencing and Failover Testing
-# Configures STONITH for reliable failover and cluster protection
+# clustering-02 setup: put the clustering-01 cluster into the state
+# "no fence agent, no fence devices, fencing disabled".
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
+set -eu
 
-set -e
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE=$STATE_DIR/clustering-02
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+if [ "$NODES_ENABLED" != "true" ]; then
+	echo "Error: multi-node labs are not enabled. Run: sudo labctl configure interactive" >&2
+	exit 1
+fi
+if [ "$NODE_COUNT" -lt 3 ]; then
+	echo "Error: this lab needs 3 nodes, NODE_COUNT is $NODE_COUNT. Run: sudo labctl configure set NODE_COUNT 3" >&2
+	exit 1
 fi
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
+NODE1_IP=$(get_node_ip 1)
+NODE2_IP=$(get_node_ip 2)
+NODE3_IP=$(get_node_ip 3)
+
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	if ! test_node_connectivity "$ip" >/dev/null 2>&1; then
+		echo "Error: cannot reach node $ip over SSH. Check the lab configuration." >&2
+		exit 1
+	fi
+done
+
+if ! run_on_node "$NODE1_IP" "sudo cibadmin -Q --xpath \"//primitive[@id='apache_web']\"" >/dev/null 2>&1; then
+	echo "Error: no running Pacemaker cluster with the resource apache_web on $NODE1_IP. Complete clustering-01 first." >&2
+	exit 1
 fi
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    echo "ERROR: This lab requires at least 3 nodes"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 3"
-    exit 1
+# Remove fence devices a previous run or the solution left behind
+for id in stonith-node1 stonith-node2 stonith-node3; do
+	run_on_node "$NODE1_IP" "sudo pcs stonith delete $id" >/dev/null 2>&1 || true
+done
+if ! run_on_node "$NODE1_IP" "sudo pcs property set stonith-enabled=false" >/dev/null 2>&1; then
+	echo "Error: cannot set stonith-enabled=false on $NODE1_IP." >&2
+	exit 1
 fi
 
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║       STONITH Fencing and Failover Lab (clustering-02)         ║
-╚════════════════════════════════════════════════════════════════╝
+# Remove the fence agents (unless another package needs them)
+REMOVE_FENCE="for p in fence-agents-all fence-agents-virsh; do if rpm -q \$p >/dev/null 2>&1 && ! rpm -q --whatrequires \$p >/dev/null 2>&1; then sudo dnf -y remove \$p; fi; done"
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	run_on_node "$ip" "$REMOVE_FENCE" >/dev/null 2>&1 || true
+done
 
-OBJECTIVE:
-Configure STONITH (Shoot The Other Node In The Head) for failover:
-1. Set up STONITH fence devices for all nodes
-2. Configure fence agent (ssh-based for testing)
-3. Test automatic node fencing
-4. Test resource failover when node fails
-5. Verify cluster recovery after node restart
-6. Monitor failover operations
-
-TOPOLOGY:
-   Node 1                Node 2                Node 3
-   (Primary)            (Standby)             (Standby)
-    Apache               (Monitor)             (Monitor)
-      ↓                    ↓                     ↓
-   ┌──────────────────────────────────────────────┐
-   │      Pacemaker/Corosync HA Cluster          │
-   │  (STONITH: SSH fence for node protection)   │
-   └──────────────────────────────────────────────┘
-
-REQUIREMENTS:
-✓ Multi-node lab enabled (3+ nodes)
-✓ SSH access between all nodes (for fence agent)
-✓ Cluster from clustering-01 already running
-✓ Pacemaker and Corosync on all 3 nodes
-✓ Fence agent installed and configured
-
-TASKS TO COMPLETE:
-1. Install fence agent (fence_virsh for KVM or fence_ssh)
-2. Configure STONITH device for each node
-3. Add STONITH resource to Pacemaker
-4. Enable STONITH in cluster properties
-5. Test fence device functionality
-6. Simulate node failure and verify automatic failover
-7. Monitor resource migration during failover
-8. Verify clean cluster recovery
-
-VERIFICATION:
-The grading script will:
-- Check STONITH devices are configured
-- Verify fence agent is available
-- Test fence device operations
-- Check STONITH is enabled in cluster
-- Verify cluster shows all nodes as online
-- Test failover behavior
-- Check resource follows node failures
-
-Begin working on the lab now. Use 'labctl solution clustering-02' if you need help.
-EOF
+mkdir -p "$STATE_DIR"
+printf '%s\n%s\n%s\n' "$NODE1_IP" "$NODE2_IP" "$NODE3_IP" >"$STATE_FILE"
+chmod 0644 "$STATE_FILE"
+exit 0

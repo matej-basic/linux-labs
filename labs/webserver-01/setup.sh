@@ -1,35 +1,18 @@
 #!/bin/bash
+# webserver-01 setup: start without Apache. Removes httpd if it is
+# installed and checks that nothing else holds port 80. Prints nothing
+# on success.
+set -eu
 
-# Reset lab state
-systemctl stop httpd > /dev/null 2>&1
-yum remove -y httpd > /dev/null 2>&1
+systemctl disable --now httpd >/dev/null 2>&1 || true
+if rpm -q httpd >/dev/null 2>&1; then
+	dnf -y remove httpd >/dev/null 2>&1 || {
+		echo "Error: could not remove the httpd package." >&2
+		exit 1
+	}
+fi
 
-# Print task description
-cat <<'EOF'
-
-====================================================
-LAB: Web Servers - Apache Installation (webserver-01)
-====================================================
-
-OBJECTIVE:
-Install and start Apache HTTP Server, verify it is
-running and accessible on port 80.
-
-REQUIREMENTS:
-- Install Apache HTTP Server package (httpd)
-- Start the httpd service
-- Enable httpd to start on boot
-- Verify Apache is listening on port 80
-
-NOTES:
-- You may use any valid Linux commands
-- The grading script checks only the final state
-- Command history is NOT evaluated
-
-When ready, run:
-  sudo labctl grade webserver-01
-
-====================================================
-
-EOF
-
+if [ -n "$(ss -H -tln 'sport = :80' 2>/dev/null)" ]; then
+	echo "Error: another service already listens on TCP port 80." >&2
+	exit 1
+fi

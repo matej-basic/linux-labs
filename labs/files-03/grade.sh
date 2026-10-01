@@ -1,86 +1,79 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# files-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+ROOT=/srv/secure
+ARCHIVE=/tmp/backup.tar.gz
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+# $1 path, $2 expected owner:group, $3 expected mode
+owner_mode() {
+	[ "$(stat -c '%U:%G %a' "$1" 2>/dev/null)" = "$2 $3" ]
+}
 
-# Check developers group
-if getent group developers >/dev/null && [ "$(getent group developers | cut -d: -f3)" = "3000" ]; then
-    pass "group developers GID 3000"
-else
-    fail "group developers GID 3000 missing"
-    rc=1
-fi
+# $1 path, $2 expected ACL entry line
+has_acl() {
+	getfacl -cp "$1" 2>/dev/null | grep -qx "$2"
+}
 
-# Check /srv/secure
-if [ -d /srv/secure ]; then
-    [ "$(stat -c '%U:%G %a' /srv/secure 2>/dev/null)" = "root:root 755" ] && pass "/srv/secure 755 root:root" || { fail "/srv/secure perms wrong"; rc=1; }
-else
-    fail "/srv/secure missing"
-    rc=1
-fi
+# $1 member name, $2 mode string, $3 owner (name form), $4 owner (numeric)
+archive_entry() {
+	tar -tvzf "$ARCHIVE" 2>/dev/null | awk -v n="$1" -v m="$2" -v o1="$3" -v o2="$4" '
+		{ p = $NF; sub(/\/$/, "", p)
+		  if (p == n && $1 == m && ($2 == o1 || $2 == o2)) found = 1 }
+		END { exit !found }'
+}
 
-# Check /srv/secure/bin and deploy.sh
-if [ -d /srv/secure/bin ]; then
-    pass "/srv/secure/bin exists"
-    if [ -f /srv/secure/bin/deploy.sh ]; then
-        perms=$(stat -c '%a' /srv/secure/bin/deploy.sh 2>/dev/null)
-        [ "$perms" = "4755" ] && pass "deploy.sh has setuid 4755" || { fail "deploy.sh perms wrong: $perms"; rc=1; }
-        [ -x /srv/secure/bin/deploy.sh ] && pass "deploy.sh executable" || { fail "deploy.sh not executable"; rc=1; }
-    else
-        fail "deploy.sh missing"
-        rc=1
-    fi
-else
-    fail "/srv/secure/bin missing"
-    rc=1
-fi
+group_gid() {
+	[ "$(getent group developers | cut -d: -f3)" = "3000" ]
+}
 
-# Check /srv/secure/shared with setgid
-if [ -d /srv/secure/shared ]; then
-    perms=$(stat -c '%a' /srv/secure/shared 2>/dev/null)
-    [ "$perms" = "2770" ] && pass "/srv/secure/shared setgid 2770" || { fail "/srv/secure/shared perms wrong: $perms"; rc=1; }
-    [ "$(stat -c '%G' /srv/secure/shared 2>/dev/null)" = "developers" ] && pass "/srv/secure/shared group developers" || { fail "/srv/secure/shared group wrong"; rc=1; }
-else
-    fail "/srv/secure/shared missing"
-    rc=1
-fi
+alice_uid() {
+	[ "$(getent passwd alice | cut -d: -f3)" = "1001" ]
+}
 
-# Check /srv/secure/tmp with sticky bit
-if [ -d /srv/secure/tmp ]; then
-    perms=$(stat -c '%a' /srv/secure/tmp 2>/dev/null)
-    [ "$perms" = "1777" ] && pass "/srv/secure/tmp sticky 1777" || { fail "/srv/secure/tmp perms wrong: $perms"; rc=1; }
-else
-    fail "/srv/secure/tmp missing"
-    rc=1
-fi
+deploy_ok() {
+	[ -f "$ROOT/bin/deploy.sh" ] && [ ! -L "$ROOT/bin/deploy.sh" ] &&
+		owner_mode "$ROOT/bin/deploy.sh" root:root 4755
+}
 
-# Check backup archive
-if [ -f /tmp/backup.tar.gz ]; then
-    pass "/tmp/backup.tar.gz exists"
-    # Verify archive contains /srv/secure
-    if tar -tzf /tmp/backup.tar.gz 2>/dev/null | grep -q "srv/secure"; then
-        pass "backup archive contains /srv/secure"
-    else
-        fail "backup archive doesn't contain /srv/secure"
-        rc=1
-    fi
-else
-    fail "/tmp/backup.tar.gz missing"
-    rc=1
-fi
+archive_valid() {
+	[ -f "$ARCHIVE" ] && gzip -t "$ARCHIVE" && tar -tzf "$ARCHIVE"
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+archive_has_tree() {
+	local list
+	list=$(tar -tzf "$ARCHIVE" 2>/dev/null | sed 's#/$##') || return 1
+	local p
+	for p in srv/secure srv/secure/bin srv/secure/bin/deploy.sh \
+		srv/secure/shared srv/secure/tmp; do
+		printf '%s\n' "$list" | grep -qx "$p" || return 1
+	done
+}
 
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+archive_modes() {
+	archive_entry srv/secure drwxr-xr-x root/root 0/0 &&
+		archive_entry srv/secure/bin/deploy.sh -rwsr-xr-x root/root 0/0 &&
+		archive_entry srv/secure/shared drwxrws--- root/developers 0/3000 &&
+		archive_entry srv/secure/tmp drwxrwxrwt root/root 0/0
+}
+
+grade_begin files-03
+
+criterion "Group developers exists with GID 3000" group_gid
+criterion "User alice exists with UID 1001" alice_uid
+criterion "$ROOT is a directory owned by root:root, mode 755" \
+	owner_mode "$ROOT" root:root 755
+criterion "$ROOT/bin/deploy.sh is owned by root, mode 4755" deploy_ok
+criterion "$ROOT/shared is root:developers, mode 2770" \
+	owner_mode "$ROOT/shared" root:developers 2770
+criterion "$ROOT/shared gives group developers rwx by ACL" \
+	has_acl "$ROOT/shared" group:developers:rwx
+criterion "$ROOT/tmp is owned by root, mode 1777" \
+	owner_mode "$ROOT/tmp" root:root 1777
+criterion "$ROOT/tmp gives user alice rwx by ACL" \
+	has_acl "$ROOT/tmp" user:alice:rwx
+criterion "$ARCHIVE is a gzip-compressed tar archive" archive_valid
+criterion "The archive contains the whole $ROOT tree" archive_has_tree
+criterion "The archive records the owners and modes of the tree" \
+	archive_modes
+grade_end

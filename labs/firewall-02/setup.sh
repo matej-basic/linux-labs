@@ -1,57 +1,70 @@
 #!/bin/bash
+# firewall-02 setup: firewalld running, no lab rich rule, the first free
+# Ethernet interface out of the trusted zone. The interface name goes to
+# the state file. Prints nothing on success.
+set -eu
 
-# Print that we are setting up the lab
-echo "Setting up firewall-02 lab..."
+LAB=firewall-02
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/$LAB"
+RULE='rule family="ipv4" source address="192.168.1.0/24" port port="443" protocol="tcp" accept'
 
-# Reset lab state - remove any test rules if they exist
-firewall-cmd --remove-rich-rule='rule family="ipv4" source address="192.168.1.0/24" port protocol="tcp" port="443" accept' --zone=public --permanent >/dev/null 2>&1
-firewall-cmd --permanent --zone=trusted --remove-interface=eth0 >/dev/null 2>&1
-firewall-cmd --permanent --zone=trusted --remove-interface=eth1 >/dev/null 2>&1
-firewall-cmd --permanent --zone=trusted --remove-interface=ens0 >/dev/null 2>&1
-firewall-cmd --permanent --zone=trusted --remove-interface=ens1 >/dev/null 2>&1
-firewall-cmd --reload >/dev/null 2>&1
+# First Ethernet interface that is not the default-route interface, not
+# enslaved and not virtual.
+default_if=$(ip route show default 2>/dev/null |
+	awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
+iface=
+for p in /sys/class/net/*; do
+	n=${p##*/}
+	[ "$n" = lo ] && continue
+	[ "$n" = "${default_if:-}" ] && continue
+	[ -e "$p/device" ] || continue
+	[ -d "$p/wireless" ] && continue
+	[ -e "$p/master" ] && continue
+	[ "$(cat "$p/type" 2>/dev/null)" = 1 ] || continue
+	iface=$n
+	break
+done
+if [ -z "$iface" ]; then
+	echo "Error: $LAB needs a free Ethernet interface (not the one with the default route) and found none." >&2
+	exit 1
+fi
 
-# Print task description
-cat <<'EOF'
+# firewalld must be installed and running
+if ! command -v firewall-cmd >/dev/null 2>&1; then
+	dnf -y install firewalld >/dev/null 2>&1 || {
+		echo "Error: could not install firewalld." >&2
+		exit 1
+	}
+fi
+systemctl enable --now firewalld >/dev/null 2>&1 || {
+	echo "Error: could not start firewalld." >&2
+	exit 1
+}
+for _ in $(seq 1 20); do
+	firewall-cmd --state >/dev/null 2>&1 && break
+	sleep 1
+done
+firewall-cmd --state >/dev/null 2>&1 || {
+	echo "Error: firewalld is not responding." >&2
+	exit 1
+}
 
-====================================================
-LAB: Rich Rules and Zones (firewall-02)
-====================================================
+# Reset: remove the lab rule and take the interface out of trusted
+firewall-cmd --permanent --zone=public --remove-rich-rule="$RULE" >/dev/null 2>&1 || true
+firewall-cmd --permanent --zone=trusted --remove-interface="$iface" >/dev/null 2>&1 || true
+nmcli -g NAME connection show 2>/dev/null | while IFS= read -r name; do
+	[ "$(nmcli -g connection.interface-name connection show "$name" 2>/dev/null)" = "$iface" ] || continue
+	[ "$(nmcli -g connection.zone connection show "$name" 2>/dev/null)" = trusted ] || continue
+	nmcli connection modify "$name" connection.zone "" >/dev/null 2>&1 || true
+done
+firewall-cmd --reload >/dev/null 2>&1 || true
+firewall-cmd --zone=public --remove-rich-rule="$RULE" >/dev/null 2>&1 || true
+if [ "$(firewall-cmd --get-zone-of-interface="$iface" 2>/dev/null)" = trusted ]; then
+	firewall-cmd --zone="$(firewall-cmd --get-default-zone)" --change-interface="$iface" >/dev/null 2>&1 || true
+fi
 
-OBJECTIVE:
-Master firewalld rich rules and zone management
-for more granular access control.
-
-REQUIREMENTS:
-1. Create a rich rule that allows port 443 (HTTPS)
-   from a specific source network (192.168.1.0/24)
-
-2. Set the "trusted" zone for a specific interface
-   (Use eth0, eth1, ens0, or ens1 - whichever is available)
-
-3. Verify the rich rule was added
-
-4. Verify the zone assignment for the interface
-
-5. Reload the firewall to apply permanent changes
-
-NOTES:
-- Use --permanent flag to make rules survive reboot
-- Rich rules provide advanced filtering capabilities
-- Zones define trust levels and rules for network interfaces
-- The trusted zone allows all traffic by default
-- The public zone is the default restrictive zone
-
-USEFUL COMMANDS:
-- List all rich rules: firewall-cmd --list-rich-rules --zone=public
-- List active zones: firewall-cmd --get-active-zones
-- Check zone info: firewall-cmd --list-all --zone=public
-- Reload rules: firewall-cmd --reload
-
-When ready, run:
-  sudo labctl grade firewall-02
-
-====================================================
-
-EOF
-
+# Record the interface for the grader (readable by unprivileged users)
+mkdir -p "$STATE_DIR"
+echo "$iface" > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

@@ -1,44 +1,21 @@
 #!/bin/bash
+# users-01 setup: remove the users, group and directories the lab
+# creates, so every start begins from the same state. Prints nothing.
+set -eu
 
-# Reset lab state
-userdel -r alice >/dev/null 2>&1
-userdel -r svcapp >/dev/null 2>&1
-groupdel project >/dev/null 2>&1
+for u in alice svcapp; do
+	if getent passwd "$u" >/dev/null; then
+		userdel -r "$u" >/dev/null 2>&1 || userdel -f "$u" >/dev/null 2>&1 || true
+	fi
+done
+if getent group project >/dev/null; then
+	groupdel project >/dev/null 2>&1 || true
+fi
 rm -rf /home/alice /srv/project /srv/svcapp
 
-# Print task description
-cat <<'EOF'
-
-====================================================
-LAB: Users and Groups (users-01)
-====================================================
-
-OBJECTIVE:
-Create the required users, groups, and shared directories so the
-system matches the expected final state.
-
-TASKS:
-- Create a group: project
-- Create a user: alice
-  - Primary group: project
-  - Supplementary group: wheel
-  - Home: /home/alice (owned alice:project)
-  - Shell: /bin/bash
-- Create a system user: svcapp
-  - Primary group: project
-  - Home: /srv/svcapp (owned svcapp:project, mode 750)
-  - Shell: /usr/sbin/nologin
-- Create a shared directory: /srv/project
-  - Owner/group: root:project
-  - Permissions: 2775 (setgid for group inheritance)
-
-NOTES:
-- Run commands as root.
-- Passwords are not graded; focus on identity, groups, ownership, and permissions.
-
-When ready, run:
-  sudo labctl grade users-01
-
-====================================================
-
-EOF
+# Refuse to start if the old accounts could not be removed
+if getent passwd alice >/dev/null || getent passwd svcapp >/dev/null \
+	|| getent group project >/dev/null; then
+	echo "users-01: could not remove the existing alice, svcapp or project" >&2
+	exit 1
+fi

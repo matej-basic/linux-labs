@@ -1,4 +1,4 @@
+title: Apache name-based virtual host
 category: Web Servers
 complexity: Intermediate
-objective: Configure Apache virtual hosts and serve content from /var/www/lab2/html for domain lab2.local.
-
+objective: Configure an Apache virtual host that serves /var/www/lab2/html for the name lab2.local.

@@ -1,30 +1,40 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# logging-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+JDIR=/var/log/journal
+UNIT=/etc/systemd/system/labtest-fail.service
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); return 0; }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); return 1; }
+journal_dir_ok() {
+	[ -d "$JDIR" ] || return 1
+	[ "$(stat -c %U "$JDIR")" = root ] || return 1
+	local mode
+	mode=$(stat -c %A "$JDIR")
+	# no write bit for group or others (setgid from journald is fine)
+	[ "${mode:5:1}" != w ] && [ "${mode:8:1}" != w ]
+}
 
-[ -d /var/log/journal ] && pass "Persistent journal directory exists" || { fail "/var/log/journal not found"; rc=1; }
-journalctl --disk-usage &>/dev/null && pass "Can query journal disk usage" || { fail "Cannot access journal"; rc=1; }
-[ "$(journalctl --list-boots 2>/dev/null | wc -l)" -gt 0 ] && pass "Can list boot sessions" || { fail "Cannot list boots"; rc=1; }
-journalctl -b -n 1 &>/dev/null && pass "Can query current boot" || { fail "Cannot query current boot"; rc=1; }
-systemd-analyze time &>/dev/null && pass "systemd-analyze works" || { fail "systemd-analyze failed"; rc=1; }
-[ -f /etc/systemd/system/labtest-fail.service ] && pass "Test service unit file exists" || { fail "Service file not found"; rc=1; }
-journalctl -u labtest-fail.service &>/dev/null && pass "Can query service in journal" || { fail "Cannot query service journal"; rc=1; }
-systemctl is-active --quiet systemd-journald && pass "systemd-journald is active" || { fail "systemd-journald not running"; rc=1; }
-dmesg &>/dev/null && pass "Can access kernel messages" || { fail "Cannot access dmesg"; rc=1; }
+journal_file_written() {
+	compgen -G "$JDIR/*/system.journal" >/dev/null
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+unit_has() {
+	grep -Eq "$1" "$UNIT"
+}
 
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
+grade_begin logging-03
+
+criterion "Directory /var/log/journal is owned by root, not writable" journal_dir_ok
+criterion "journald writes a journal file below /var/log/journal" journal_file_written
+criterion "Unit file labtest-fail.service exists" test -f "$UNIT"
+criterion "Unit description is Lab Test Fail Service" \
+	unit_has '^Description=Lab Test Fail Service[[:space:]]*$'
+criterion "Unit type is simple" unit_has '^Type=simple[[:space:]]*$'
+criterion "Unit runs /bin/false" \
+	unit_has '^ExecStart=[[:space:]]*/(usr/)?bin/false[[:space:]]*$'
+criterion "Unit is wanted by multi-user.target" \
+	unit_has '^WantedBy=multi-user\.target[[:space:]]*$'
+criterion "labtest-fail.service is in the failed state" \
+	systemctl is-failed --quiet labtest-fail.service
+criterion "systemd-journald is active" systemctl is-active --quiet systemd-journald
+grade_end

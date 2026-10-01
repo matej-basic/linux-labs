@@ -1,3 +1,4 @@
+title: Systemd timers
 category: Scheduling
 complexity: Intermediate
-objective: Create systemd timer units with service files for scheduled task execution.
+objective: Create a systemd timer and service pair that runs a script every 10 minutes.

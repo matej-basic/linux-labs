@@ -1,111 +1,81 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# webserver-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+HOST=lab3.local
+ROOT=/var/www/lab3/html
+CRT=/etc/pki/tls/certs/lab3.crt
+KEY=/etc/pki/tls/private/lab3.key
+CONF=/etc/httpd/conf.d/lab3.conf
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+hosts_entry() {
+	getent hosts "$HOST" | awk '{ print $1 }' | grep -qx '127\.0\.0\.1'
+}
 
-# Check if httpd package is installed and running
-if rpm -q httpd > /dev/null 2>&1; then
-	pass "httpd package installed"
-else
-	fail "httpd package not installed"
-fi
+index_content() {
+	[ -f "$ROOT/index.html" ] && grep -q 'Lab 3 HTTPS' "$ROOT/index.html"
+}
 
-if systemctl is-active --quiet httpd; then
-	pass "httpd service is running"
-else
-	fail "httpd service is not running"
-fi
+cert_self_signed_cn() {
+	local subj iss
+	[ -f "$CRT" ] || return 1
+	subj=$(openssl x509 -in "$CRT" -noout -subject -nameopt RFC2253) || return 1
+	iss=$(openssl x509 -in "$CRT" -noout -issuer -nameopt RFC2253) || return 1
+	subj=${subj#subject=}
+	[ "$subj" = "${iss#issuer=}" ] || return 1
+	[[ ",$subj," == *",CN=$HOST,"* ]]
+}
 
-# Check if mod_ssl is installed
-if rpm -q mod_ssl > /dev/null 2>&1; then
-	pass "mod_ssl installed"
-else
-	fail "mod_ssl not installed"
-fi
+key_matches_cert() {
+	local a b
+	[ -f "$KEY" ] && [ -f "$CRT" ] || return 1
+	a=$(openssl x509 -in "$CRT" -noout -pubkey 2>/dev/null) || return 1
+	b=$(openssl pkey -in "$KEY" -pubout 2>/dev/null) || return 1
+	[ -n "$a" ] && [ "$a" = "$b" ]
+}
 
-# Check if directory exists
-if [ -d /var/www/lab3/html ]; then
-	pass "/var/www/lab3/html directory exists"
-else
-	fail "/var/www/lab3/html directory missing"
-fi
+config_valid() {
+	[ -f "$CONF" ] && httpd -t
+}
 
-# Check if index.html exists
-if [ -f /var/www/lab3/html/index.html ]; then
-	pass "index.html exists"
-else
-	fail "index.html missing"
-fi
+listens_443() {
+	ss -H -tln | awk '{ print $4 }' | grep -Eq ':443$'
+}
 
-# Check if index.html contains required content
-if grep -q "Lab 3 HTTPS" /var/www/lab3/html/index.html > /dev/null 2>&1; then
-	pass "index.html contains 'Lab 3 HTTPS'"
-else
-	fail "index.html missing required content"
-fi
+http_redirects() {
+	local out
+	out=$(curl -s -o /dev/null --max-time 10 --resolve "$HOST:80:127.0.0.1" \
+		-w '%{http_code} %{redirect_url}' "http://$HOST/") || return 1
+	[ "$out" = "301 https://$HOST/" ]
+}
 
-# Check if lab3.local is in /etc/hosts
-if grep -q "lab3.local" /etc/hosts > /dev/null 2>&1; then
-	pass "lab3.local in /etc/hosts"
-else
-	fail "lab3.local not in /etc/hosts"
-fi
+https_serves_page() {
+	curl -sk --max-time 10 --resolve "$HOST:443:127.0.0.1" \
+		"https://$HOST/" | grep -q 'Lab 3 HTTPS'
+}
 
-# Check if SSL certificate exists
-if [ -f /etc/pki/tls/certs/lab3.crt ]; then
-	pass "SSL certificate exists"
-else
-	fail "SSL certificate missing"
-fi
+https_uses_cert() {
+	local served file
+	[ -f "$CRT" ] || return 1
+	served=$(openssl s_client -connect 127.0.0.1:443 -servername "$HOST" \
+		</dev/null 2>/dev/null | openssl x509 -noout -fingerprint -sha256) || return 1
+	file=$(openssl x509 -in "$CRT" -noout -fingerprint -sha256) || return 1
+	[ -n "$served" ] && [ "$served" = "$file" ]
+}
 
-# Check if SSL private key exists
-if [ -f /etc/pki/tls/private/lab3.key ]; then
-	pass "SSL private key exists"
-else
-	fail "SSL private key missing"
-fi
-
-# Check if virtual host config exists
-if [ -f /etc/httpd/conf.d/lab3.conf ]; then
-	pass "Virtual host config exists"
-else
-	fail "Virtual host config missing"
-fi
-
-# Check if config contains HTTPS redirect
-if grep -q "Redirect permanent" /etc/httpd/conf.d/lab3.conf > /dev/null 2>&1; then
-	pass "HTTP to HTTPS redirect configured"
-else
-	fail "HTTPS redirect not configured"
-fi
-
-# Check if Apache config is valid
-if httpd -t 2>&1 | grep -q "Syntax OK"; then
-	pass "Apache config is valid"
-else
-	fail "Apache config has errors"
-fi
-
-# Check if Apache is listening on port 443
-if ss -tlnp > /dev/null 2>&1 | grep -q ':443 '; then
-	pass "Apache listening on port 443"
-else
-	fail "Apache not listening on port 443"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+grade_begin webserver-03
+criterion "Package httpd is installed" rpm -q httpd
+criterion "Package mod_ssl is installed" rpm -q mod_ssl
+criterion "httpd is running" systemctl is-active --quiet httpd
+criterion "$HOST resolves to 127.0.0.1" hosts_entry
+criterion "Document root $ROOT exists" test -d "$ROOT"
+criterion "index.html contains 'Lab 3 HTTPS'" index_content
+criterion "Certificate $CRT is self-signed for $HOST" cert_self_signed_cn
+criterion "Private key $KEY matches the certificate" key_matches_cert
+criterion "Virtual host file $CONF exists" test -f "$CONF"
+criterion "Apache configuration is valid" config_valid
+criterion "httpd listens on port 443" listens_443
+criterion "http://$HOST/ redirects permanently to HTTPS" http_redirects
+criterion "https://$HOST/ serves the page" https_serves_page
+criterion "https://$HOST/ presents the lab certificate" https_uses_cert
+grade_end

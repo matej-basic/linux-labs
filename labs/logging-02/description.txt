@@ -1,3 +1,4 @@
+title: Custom rsyslog rules and logrotate
 category: Logging
 complexity: Intermediate
-objective: Configure rsyslog for custom log facilities and setup logrotate for log management and compression.
+objective: Configure rsyslog to write custom facility and program logs and rotate them with logrotate.

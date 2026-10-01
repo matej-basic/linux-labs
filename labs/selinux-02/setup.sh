@@ -1,59 +1,59 @@
 #!/bin/bash
+# selinux-02 setup: creates /webapp with default (unlabelled) SELinux
+# contexts and puts SELinux in enforcing mode. Prints nothing on success.
+set -eu
 
-# Reset lab state
+STATE_FILE=/opt/linux-labs/state/selinux-02
+MARKER='selinux-02 web application'
+
+if ! command -v getenforce >/dev/null 2>&1 || [ "$(getenforce)" = Disabled ]; then
+	echo "selinux-02: SELinux is disabled on this system, the lab cannot start." >&2
+	exit 1
+fi
+
+# semanage is needed by the solution and by cleanup
+if ! command -v semanage >/dev/null 2>&1; then
+	dnf -y -q install policycoreutils-python-utils >/dev/null 2>&1 || {
+		echo "selinux-02: cannot install policycoreutils-python-utils (semanage)." >&2
+		exit 1
+	}
+fi
+
+# Remember whether httpd was already installed, so cleanup does not
+# remove a package the lab did not install. Keep the first answer when
+# setup runs twice.
+if [ -r "$STATE_FILE" ]; then
+	preinstalled=$(sed -n 's/^httpd_preinstalled=//p' "$STATE_FILE")
+else
+	preinstalled=no
+	rpm -q httpd >/dev/null 2>&1 && preinstalled=yes
+fi
+
+# Remove leftovers of an earlier run or of the solution
+rm -f /etc/httpd/conf.d/myapp.conf
+while read -r path; do
+	[ -n "$path" ] && semanage fcontext -d "$path" >/dev/null 2>&1 || true
+done < <(semanage fcontext -l -C 2>/dev/null | awk '$1 ~ /^\/webapp/ { print $1 }')
+if rpm -q httpd >/dev/null 2>&1 && systemctl is-active --quiet httpd; then
+	systemctl restart httpd >/dev/null 2>&1 || true
+fi
+
+# Content with default labels (default_t): httpd is denied access
 rm -rf /webapp
+mkdir -p /webapp/www /webapp/config /webapp/data
+cat > /webapp/www/index.html <<HTML
+<!DOCTYPE html>
+<html><body><h1>MyApp</h1><p>$MARKER</p></body></html>
+HTML
+echo "db_host=localhost" > /webapp/config/db.conf
+echo "application started" > /webapp/data/app.log
+chmod -R a+rX /webapp
+restorecon -R /webapp
 
-# Ensure selinux is in enforcing mode
-sudo setenforce 1 2>/dev/null || true
-sudo sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config 2>/dev/null || true
+# SELinux enforcing, now and after a reboot
+setenforce 1
+sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config
 
-# Print task description
-cat <<'EOF'
-
-====================================================
-LAB: SELinux File Contexts and Denials (selinux-02)
-====================================================
-
-OBJECTIVE:
-Identify and fix SELinux denials by restoring file contexts
-and setting custom contexts for application directories.
-
-TASKS:
-
-1. Create application directories under /webapp:
-    - /webapp/www (for web files)
-    - /webapp/config (for configuration files)
-    - /webapp/data (for data files)
-
-2. Create sample files:
-   Create a simple HTML page at /webapp/www/index.html
-   Create config file: /webapp/config/db.conf
-   Create log file: /webapp/data/app.log
-
-3. Install and configure Apache:
-   - Install Apache web server
-   - Create a virtual host pointing to /webapp/www
-   - Ensure httpd is enabled and running
-
-4. Verify default contexts (use: ls -Z)
-
-5. Fix /webapp/www for Apache access:
-
-6. Check for and resolve SELinux denials:
-
-7. Restore to system defaults:
-
-NOTES:
-- Context format: user:role:type:level
-- system_u: system user context
-- unconfined_u: unconfined user context
-- httpd_sys_rw_content_t: Apache read/write content
-- Use -Z flag with ls, id, ps to see contexts
-- ausearch requires audit daemon (auditd)
-
-When ready, run:
-  sudo labctl grade selinux-02
-
-====================================================
-
-EOF
+mkdir -p "$(dirname "$STATE_FILE")"
+echo "httpd_preinstalled=$preinstalled" > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

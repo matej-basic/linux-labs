@@ -1,41 +1,57 @@
-# Files 02 Solution
+# files-02: Web directory permissions and ownership
 
-Create structure, ownership, and modes:
+## Solution
+
+1. [sudo] Create the directories:
+
+   ```bash
+   sudo mkdir -p /tmp/webfiles/app /tmp/webfiles/config \
+     /tmp/webfiles/data
+   ```
+
+2. [sudo] Create the empty files:
+
+   ```bash
+   sudo touch /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php
+   sudo touch /tmp/webfiles/config/db.conf
+   sudo touch /tmp/webfiles/data/app.log /tmp/webfiles/data/error.log
+   ```
+
+3. [sudo] Set owner and mode on the directories:
+
+   ```bash
+   sudo chown root:root /tmp/webfiles /tmp/webfiles/config
+   sudo chown apache:apache /tmp/webfiles/app /tmp/webfiles/data
+   sudo chmod 755 /tmp/webfiles /tmp/webfiles/app /tmp/webfiles/data
+   sudo chmod 700 /tmp/webfiles/config
+   ```
+
+4. [sudo] Set owner and mode on the files:
+
+   ```bash
+   sudo chown apache:apache /tmp/webfiles/app/index.php \
+     /tmp/webfiles/app/upload.php /tmp/webfiles/data/app.log
+   sudo chown root:root /tmp/webfiles/config/db.conf \
+     /tmp/webfiles/data/error.log
+   sudo chmod 644 /tmp/webfiles/app/index.php \
+     /tmp/webfiles/app/upload.php /tmp/webfiles/data/error.log
+   sudo chmod 640 /tmp/webfiles/data/app.log
+   sudo chmod 600 /tmp/webfiles/config/db.conf
+   ```
+
+## Verification
 
 ```bash
-# Directories
-sudo mkdir -p /tmp/webfiles/app /tmp/webfiles/config /tmp/webfiles/data
-
-# Ownership and directory perms
-sudo chown root:root /tmp/webfiles
-sudo chmod 755 /tmp/webfiles
-
-sudo chown apache:apache /tmp/webfiles/app /tmp/webfiles/data
-sudo chmod 755 /tmp/webfiles/app /tmp/webfiles/data
-
-sudo chown root:root /tmp/webfiles/config
-sudo chmod 700 /tmp/webfiles/config
-
-# Files
-sudo tee /tmp/webfiles/app/index.php >/dev/null <<<''
-sudo tee /tmp/webfiles/app/upload.php >/dev/null <<<''
-sudo tee /tmp/webfiles/config/db.conf >/dev/null <<<''
-sudo tee /tmp/webfiles/data/app.log >/dev/null <<<''
-sudo tee /tmp/webfiles/data/error.log >/dev/null <<<''
-
-# File ownership and perms
-sudo chown apache:apache /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php /tmp/webfiles/data/app.log
-sudo chmod 644 /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php
-sudo chmod 640 /tmp/webfiles/data/app.log
-
-sudo chown root:root /tmp/webfiles/config/db.conf /tmp/webfiles/data/error.log
-sudo chmod 600 /tmp/webfiles/config/db.conf
-sudo chmod 644 /tmp/webfiles/data/error.log
+sudo ls -lR /tmp/webfiles
+labctl grade files-02
 ```
 
-Verify:
-```bash
-sudo stat -c '%U:%G %a %n' /tmp/webfiles /tmp/webfiles/app /tmp/webfiles/config /tmp/webfiles/data
-sudo stat -c '%U:%G %a %n' /tmp/webfiles/app/index.php /tmp/webfiles/app/upload.php /tmp/webfiles/config/db.conf /tmp/webfiles/data/app.log /tmp/webfiles/data/error.log
-sudo labctl grade files-02
-```
+## Explanation
+
+Files created with sudo belong to root, so the root-owned entries
+already match and only the apache entries need chown. Directories
+created by mkdir get mode 755 from the default umask 022, files from
+touch get 644, and the tighter or looser modes need an explicit chmod.
+
+The config directory is mode 700, so even a listing of it needs sudo.
+The grader runs as root, so it can look inside it.

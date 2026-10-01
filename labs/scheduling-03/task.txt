@@ -1,0 +1,59 @@
+OBJECTIVE
+  Configure an anacron job, a persistent systemd timer and a root cron
+  job that uses environment variables.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with the cronie-anacron package, which the lab
+    installs when it is missing (internet access is required).
+  - Work as {{LAB_USER}} and use sudo where root is needed.
+
+TASKS
+  Part 1: anacron
+
+  1. Create the executable script /usr/local/bin/anacron-task.sh. Each
+     time it runs it appends a line with the current date and time to
+     /var/log/anacron-task.log.
+  2. Add a job to /etc/anacrontab with period 1 (daily), delay 5
+     minutes and job identifier anacron_lab. The job runs
+     /usr/local/bin/anacron-task.sh.
+
+  Part 2: systemd timer
+
+  3. Create the executable script /usr/local/bin/persistent-task.sh.
+     Each time it runs it appends a line with the current date and
+     time to /var/log/persistent-task.log.
+  4. Create the unit /etc/systemd/system/persistent-timer.service. It
+     has type oneshot and runs /usr/local/bin/persistent-task.sh.
+  5. Create the unit /etc/systemd/system/persistent-timer.timer. It
+     starts the service 30 seconds after boot and then 1 hour after
+     each previous run. It catches up on runs missed while the system
+     was off, and it is installed in timers.target.
+  6. The timer is enabled and running.
+
+  Part 3: cron with environment variables
+
+  7. Create the executable script /usr/local/bin/env-task.sh. Each
+     time it runs it appends a line with the current date and time to
+     the file named by the environment variable LOGFILE.
+  8. In the crontab of root, define the variables SHELL with the value
+     /bin/bash, LOGFILE with the value /var/log/env-task.log and PATH
+     with the standard system path below. They come before the job:
+
+       /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+  9. In the same crontab, add a job that runs
+     /usr/local/bin/env-task.sh at minute 0 of every sixth hour (0:00,
+     6:00, 12:00 and 18:00) on every day.
+
+EXPECTED RESULT
+  The three scripts write timestamped lines to their log files when
+  run. The anacron job and the persistent timer are configured, and
+  root's crontab sets the three variables for the job.
+
+NOTES
+  - Only the final state is graded. The grader runs each script once
+    and checks that its log file grows.
+  - Reference: man anacrontab, man systemd.timer, man 5 crontab.
+
+GRADING
+  labctl grade scheduling-03

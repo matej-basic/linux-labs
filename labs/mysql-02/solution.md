@@ -1,55 +1,54 @@
-# MySQL 02 Solution
+# mysql-02: MySQL database and user management
 
-Create a MySQL database and user with appropriate privileges.
+## Solution
 
-## Commands to reach the expected state:
+1. [user] Create the database, the user and its privileges. The root
+   password is labpassword:
 
-```bash
-# Create the database
-sudo mysql -u root -plabpassword -e "CREATE DATABASE labdb;"
+   ```bash
+   mysql -u root -plabpassword -e "CREATE DATABASE labdb"
+   mysql -u root -plabpassword -e \
+     "CREATE USER 'labuser'@'localhost' IDENTIFIED BY 'userpass123'"
+   mysql -u root -plabpassword -e \
+     "GRANT SELECT, INSERT, UPDATE, DELETE ON labdb.*
+      TO 'labuser'@'localhost'"
+   ```
 
-# Create the user
-sudo mysql -u root -plabpassword -e "CREATE USER 'labuser'@'localhost' IDENTIFIED BY 'userpass123';"
+2. [user] Create the table users in labdb:
 
-# Grant privileges on the database to the user
-sudo mysql -u root -plabpassword -e "GRANT SELECT, INSERT, UPDATE, DELETE ON labdb.* TO 'labuser'@'localhost';"
+   ```bash
+   mysql -u root -plabpassword labdb -e "CREATE TABLE users (
+     id INT AUTO_INCREMENT PRIMARY KEY,
+     name VARCHAR(100) NOT NULL,
+     email VARCHAR(100) NOT NULL)"
+   ```
 
-# Flush privileges to apply changes
-sudo mysql -u root -plabpassword -e "FLUSH PRIVILEGES;"
+3. [user] Insert two sample records:
 
-# Create the users table in labdb
-sudo mysql -u root -plabpassword labdb -e "
-CREATE TABLE users (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL
-);
-"
+   ```bash
+   mysql -u root -plabpassword labdb -e "INSERT INTO users (name, email)
+     VALUES ('John Doe', 'john@example.com'),
+            ('Jane Smith', 'jane@example.com')"
+   ```
 
-# Insert sample records
-sudo mysql -u root -plabpassword labdb -e "
-INSERT INTO users (name, email) VALUES 
-('John Doe', 'john@example.com'),
-('Jane Smith', 'jane@example.com');
-"
-```
-
-## Verify:
+## Verification
 
 ```bash
-# Check if database exists
-mysql -u root -plabpassword -e "SHOW DATABASES;" | grep labdb
-
-# Check if user exists
-mysql -u root -plabpassword -e "SELECT User, Host FROM mysql.user WHERE User='labuser';"
-
-# Check user privileges
-mysql -u root -plabpassword -e "SHOW GRANTS FOR 'labuser'@'localhost';"
-
-# Connect as labuser and verify access
-mysql -u labuser -puserpass123 labdb -e "SELECT * FROM users;"
-
-# Run the grading script
-sudo labctl grade mysql-02
+mysql -u root -plabpassword -e "SHOW GRANTS FOR 'labuser'@'localhost'"
+mysql -u labuser -puserpass123 labdb -e "SELECT * FROM users"
+labctl grade mysql-02
 ```
 
+## Explanation
+
+CREATE USER defines the account and its password, GRANT gives it
+rights. Naming labdb.* limits the four privileges to the tables of
+that one database, so labuser has no other privileges, no
+administrative ones and no GRANT OPTION. GRANT takes effect at once,
+so FLUSH PRIVILEGES is not needed.
+
+The account is 'labuser'@'localhost'. A user created for another host
+name, for example '%', is a different account and fails the grader.
+The grader reads the table through the root account, so it also
+counts rows that labuser could not read, and then logs in as labuser
+to prove that the grant works.

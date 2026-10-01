@@ -1,0 +1,34 @@
+OBJECTIVE
+  Create a custom systemd service unit for a script that runs
+  indefinitely, enable it at boot and start it.
+
+PREREQUISITES
+  - Works on Rocky Linux 8 and 9. Root privileges (sudo) are needed.
+
+TASKS
+  1. Create the script /opt/custom-app.sh. It must be executable, run
+     indefinitely and append a line to /var/log/custom-app.log every
+     few seconds.
+  2. Create the service unit /etc/systemd/system/custom-app.service
+     with Type=simple that runs /opt/custom-app.sh in the foreground.
+     The unit must be installable into the multi-user.target.
+  3. Make systemd aware of the new unit file, enable the service so
+     it starts at boot and start it now.
+  4. The service must be running and /var/log/custom-app.log must
+     contain output written by the script.
+
+EXPECTED RESULT
+  custom-app.service is enabled and active, its main process is the
+  script, and the log file receives new lines.
+
+PRACTICE (not graded)
+  - Check the service status, its journal entries and the log file.
+  - Change the unit file, then make systemd reread it and restart the
+    service.
+
+NOTES
+  - Reference: man systemd.service, man systemd.unit and
+    man systemctl.
+
+GRADING
+  labctl grade systemd-02

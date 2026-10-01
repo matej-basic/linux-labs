@@ -1,215 +1,141 @@
-# Load Balancing 02 Solution - Nginx Reverse Proxy with Health Checks
+# lb-02: Nginx reverse proxy with health checks
 
-## Overview
-This solution configures Nginx as a reverse proxy on Node 1 to distribute traffic to Apache backends on Nodes 2 and 3, with comprehensive health checking and proper proxy headers.
+## Solution
 
-## Step 1: Install Nginx on Node 1
+The commands run on the nodes, over SSH from the workstation. The
+addresses below are the defaults (Node 1 is 172.25.250.10, Node 2 is
+172.25.250.11, Node 3 is 172.25.250.12); use the ones `labctl task`
+shows if yours differ.
 
-```bash
-# On Node 1
-sudo dnf install -y nginx
-```
+### Nodes 2 and 3 (backends)
 
-## Step 2: Install Apache on Nodes 2 and 3
+1. [sudo] On Node 2 and Node 3, install httpd, move it to port 8080
+   and open the port in the firewall:
 
-```bash
-# On Nodes 2 and 3
-sudo dnf install -y httpd
+   ```bash
+   sudo dnf -y install httpd
+   sudo sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
+   sudo firewall-cmd --permanent --add-port=8080/tcp
+   sudo firewall-cmd --reload
+   ```
 
-# Configure Apache to listen on port 8080
-sudo sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
+2. [sudo] On Node 2, create the front page and the health page:
 
-# Start and enable Apache
-sudo systemctl start httpd
-sudo systemctl enable httpd
-```
+   ```bash
+   echo "Backend Server - Node 2" | sudo tee /var/www/html/index.html
+   echo "OK" | sudo tee /var/www/html/health
+   ```
 
-## Step 3: Create Content and Health Endpoints on Backends
+3. [sudo] On Node 3, create the same two pages with its own name:
 
-```bash
-# On Node 2
-echo "Backend Server - Node 2" | sudo tee /var/www/html/index.html
-echo "OK" | sudo tee /var/www/html/health
+   ```bash
+   echo "Backend Server - Node 3" | sudo tee /var/www/html/index.html
+   echo "OK" | sudo tee /var/www/html/health
+   ```
 
-# On Node 3
-echo "Backend Server - Node 3" | sudo tee /var/www/html/index.html
-echo "OK" | sudo tee /var/www/html/health
-```
+4. [sudo] On Node 2 and Node 3, start httpd and enable it at boot:
 
-## Step 4: Configure Firewall on Nodes 2 and 3
+   ```bash
+   sudo systemctl enable --now httpd
+   ```
 
-```bash
-# On Nodes 2 and 3
-sudo firewall-cmd --permanent --add-port=8080/tcp
-sudo firewall-cmd --reload
-```
+### Node 1 (proxy)
 
-## Step 5: Configure Nginx on Node 1
+5. [sudo] Install nginx and disable the stock server block in
+   nginx.conf, which would otherwise take over port 80:
 
-Get node IPs:
-```bash
-source /opt/linux-labs/lib/load-config.sh
-load_lab_config
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
-```
+   ```bash
+   sudo dnf -y install nginx
+   sudo sed -i '/^    server {/,/^    }/ s/^/#/' /etc/nginx/nginx.conf
+   ```
 
-Create Nginx configuration:
-```bash
-sudo tee /etc/nginx/conf.d/lb.conf > /dev/null <<EOF
-upstream backend_servers {
-    # Least connections load balancing
-    least_conn;
-    
-    # Backend servers with health check parameters
-    server 10.0.0.155:8080 max_fails=3 fail_timeout=30s;
-    server 10.0.0.156:8080 max_fails=3 fail_timeout=30s;
-    
-    # Enable keepalive connections
-    keepalive 32;
-}
+6. [sudo] Write the proxy configuration. The first two lines set the
+   backend addresses:
 
-server {
-    listen 80;
-    server_name _;
-    
-    # Access and error logs
-    access_log /var/log/nginx/lb_access.log;
-    error_log /var/log/nginx/lb_error.log;
-    
-    location / {
-        # Proxy to backend servers
-        proxy_pass http://backend_servers;
-        
-        # Proxy headers for backend visibility
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto \$scheme;
-        
-        # Connection settings
-        proxy_http_version 1.1;
-        proxy_set_header Connection "";
-        
-        # Timeouts
-        proxy_connect_timeout 5s;
-        proxy_send_timeout 10s;
-        proxy_read_timeout 10s;
-    }
-    
-    location /health {
-        # Health check endpoint
-        proxy_pass http://backend_servers/health;
-        proxy_set_header Host \$host;
-        access_log off;
-    }
-}
-EOF
-```
+   ```bash
+   NODE2_IP=172.25.250.11
+   NODE3_IP=172.25.250.12
+   sudo tee /etc/nginx/conf.d/lb.conf >/dev/null <<CONF
+   upstream backend_servers {
+       least_conn;
+       server $NODE2_IP:8080 max_fails=3 fail_timeout=30s;
+       server $NODE3_IP:8080 max_fails=3 fail_timeout=30s;
+       keepalive 32;
+   }
 
-## Step 6: Test Nginx Configuration
+   server {
+       listen 80 default_server;
+       server_name _;
+       access_log /var/log/nginx/lb_access.log;
+       error_log /var/log/nginx/lb_error.log;
 
-```bash
-# On Node 1
-sudo nginx -t
-```
+       location / {
+           proxy_pass http://backend_servers;
+           proxy_http_version 1.1;
+           proxy_set_header Connection "";
+           proxy_set_header Host \$host;
+           proxy_set_header X-Real-IP \$remote_addr;
+           proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+           proxy_connect_timeout 5s;
+       }
+   }
+   CONF
+   sudo nginx -t
+   ```
 
-## Step 7: Configure SELinux (if enabled)
+7. [sudo] Allow nginx to connect to the backends under SELinux and
+   open port 80:
 
-```bash
-# On Node 1 - Allow Nginx to make network connections
-sudo setsebool -P httpd_can_network_connect 1
-```
+   ```bash
+   sudo setsebool -P httpd_can_network_connect 1
+   sudo firewall-cmd --permanent --add-service=http
+   sudo firewall-cmd --reload
+   ```
 
-## Step 8: Configure Firewall on Node 1
+8. [sudo] Start nginx and enable it at boot:
+
+   ```bash
+   sudo systemctl enable --now nginx
+   ```
+
+### Test
+
+9. [user] On Node 1, send requests through the proxy. The answers
+   alternate between the two backends:
+
+   ```bash
+   for i in 1 2 3 4; do curl -s http://127.0.0.1/; done
+   ```
+
+10. [sudo] Stop httpd on Node 2, repeat the requests from step 9 (all
+    answers come from Node 3), then start httpd again:
+
+    ```bash
+    sudo systemctl stop httpd
+    sudo systemctl start httpd
+    ```
+
+## Verification
 
 ```bash
-# On Node 1
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --reload
+labctl grade lb-02
 ```
 
-## Step 9: Start Nginx
+## Explanation
 
-```bash
-# On Node 1
-sudo systemctl start nginx
-sudo systemctl enable nginx
-```
+httpd listens on 8080 because nginx owns port 80 on Node 1 and the
+backends are separate hosts that the firewall must let through. nginx
+marks a backend as failed after max_fails errors within fail_timeout
+and skips it for that long, so a stopped httpd costs at most one
+retried request: the connection is refused and nginx tries the next
+server of the upstream group (proxy_next_upstream defaults to error
+and timeout).
 
-## Step 10: Test the Reverse Proxy
-
-```bash
-# Test basic connectivity
-curl http://127.0.0.1
-
-# Test health endpoint
-curlhttp://127.0.0.1/health
-
-# Make multiple requests to see load balancing
-for i in {1..10}; do curl http://127.0.0.1; done
-
-# Check which backend is being used
-curl -I http://127.0.0.1
-```
-
-## Step 11: Test Health Check and Failover
-
-```bash
-# Stop Apache on Node 2
-ssh node2 "sudo systemctl stop httpd"
-
-# Requests should still work (going to Node 3 only)
-curl http://127.0.0.1
-
-# Check Nginx error log to see failed health checks
-sudo tail -f /var/log/nginx/lb_error.log
-
-# Restart Apache on Node 2
-ssh node2 "sudo systemctl start httpd"
-
-# Traffic should resume to both backends
-```
-
-## Verify
-
-```bash
-sudo labctl grade lb-02
-```
-
-## Troubleshooting
-
-Check Nginx status:
-```bash
-sudo systemctl status nginx
-```
-
-View Nginx error logs:
-```bash
-sudo tail -f /var/log/nginx/lb_error.log
-```
-
-Check upstream status:
-```bash
-sudo tail -f /var/log/nginx/lb_access.log
-```
-
-Test backend directly:
-```bash
-curl http://<backend-ip>:8080
-curl http://<backend-ip>:8080/health
-```
-
-Verify Nginx configuration:
-```bash
-sudo nginx -T
-```
-
-## Advanced: Monitor Backend Health
-
-You can check which backends are active by looking at the Nginx error log. Failed backends will generate entries like:
-```
-upstream timed out (110: Connection timed out) while connecting to upstream
-```
-
-Successful failover means Nginx automatically routes traffic to healthy backends only.
+The stock nginx.conf on Rocky 8 and 9 contains its own server block
+for port 80. With it in place the new server block either loses the
+port (Rocky 8, where the stock block is the default server) or the
+configuration test reports a duplicate default server, so the stock
+block is commented out. Without setsebool the proxy gets "Permission
+denied" when connecting to the backends, because httpd_t may not open
+outgoing connections by default. keepalive in the upstream only works
+with proxy_http_version 1.1 and an empty Connection header.

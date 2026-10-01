@@ -1,42 +1,48 @@
-# PostgreSQL 01 Solution
+# postgres-01: PostgreSQL installation and first start
 
-Install PostgreSQL Server and verify basic connectivity.
+## Solution
 
-## Commands to reach the expected state:
+1. [sudo] Install the server package. The default module stream
+   (version 10 on Rocky 8) or the default version (13 on Rocky 9)
+   is used:
+
+   ```bash
+   sudo dnf install -y postgresql-server
+   ```
+
+2. [sudo] Initialise the cluster in /var/lib/pgsql/data:
+
+   ```bash
+   sudo postgresql-setup --initdb
+   ```
+
+3. [sudo] Start the service and enable it at boot:
+
+   ```bash
+   sudo systemctl enable --now postgresql
+   ```
+
+4. [sudo] Check the listening port and connect as the postgres user:
+
+   ```bash
+   sudo ss -tlnp | grep 5432
+   cd /tmp && sudo -u postgres psql -d postgres -c 'SELECT version();'
+   ```
+
+## Verification
 
 ```bash
-# Install PostgreSQL Server and contrib
-sudo dnf install -y postgresql-server postgresql-contrib
-
-# Initialize the database cluster
-sudo postgresql-setup initdb
-
-# Start the PostgreSQL service
-sudo systemctl start postgresql
-
-# Enable PostgreSQL to start on boot
-sudo systemctl enable postgresql
+labctl grade postgres-01
 ```
 
-## Verify:
+## Explanation
 
-```bash
-# Check if PostgreSQL is installed
-rpm -q postgresql-server
-
-# Check if PostgreSQL is running
-sudo systemctl status postgresql
-
-# Check if port 5432 is listening
-sudo ss -tlnp | grep 5432
-
-# Connect to PostgreSQL as postgres user
-cd /tmp && sudo -u postgres psql -c "SELECT version();"
-
-# Connect to specific database
-cd /tmp && sudo -u postgres psql -d postgres -c "SELECT current_database();"
-
-# Run the grading script
-sudo labctl grade postgres-01
-```
-
+The package installs the binaries and the unit file but creates no
+database. postgresql-setup --initdb runs initdb for the data directory
+that the unit expects, and the service fails to start until that has
+been done. The default configuration listens on localhost only, which
+is enough for port 5432 to be served and for the local socket
+connection. The postgres user has peer authentication on the socket, so
+the query must run as that operating system user; running psql from /tmp
+avoids the "could not change directory" warning when the current
+directory is not readable by postgres.

@@ -1,70 +1,86 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# mysql-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+# Run SQL as the database root user and print rows without headers
+rootsql() {
+	mysql -u root -plabpassword -N -B -e "$1" 2>/dev/null
+}
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+server_running() {
+	systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb
+}
 
-# Check if MySQL is running
-if systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb; then
-	pass "MySQL service is running"
-else
-	fail "MySQL service is not running"
-fi
+database_exists() {
+	[ "$(rootsql "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='labdb'")" = 1 ]
+}
 
-# Check if database labdb exists
-if mysql -u root -plabpassword -e "USE labdb;" > /dev/null 2>&1; then
-	pass "Database labdb exists"
-else
-	fail "Database labdb does not exist"
-fi
+user_exists() {
+	[ "$(rootsql "SELECT COUNT(*) FROM mysql.user WHERE User='labuser' AND Host='localhost'")" = 1 ]
+}
 
-# Check if user labuser exists
-if mysql -u root -plabpassword -e "SELECT User FROM mysql.user WHERE User='labuser' AND Host='localhost';" > /dev/null 2>&1 | grep -q labuser; then
-	pass "User labuser exists"
-else
-	fail "User labuser does not exist"
-fi
+user_can_login() {
+	mysql -u labuser -puserpass123 labdb -e 'SELECT 1' &>/dev/null
+}
 
-# Check if user can connect with correct password
-if mysql -u labuser -puserpass123 labdb -e "SELECT 1" > /dev/null 2>&1; then
-	pass "User labuser can connect with correct password"
-else
-	fail "User labuser cannot connect or password is incorrect"
-fi
+table_has_columns() {
+	[ "$(rootsql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='labdb' AND table_name='users' AND column_name IN ('id','name','email')")" = 3 ]
+}
 
-# Check if users table exists in labdb
-if mysql -u labuser -puserpass123 labdb -e "DESC users;" > /dev/null 2>&1; then
-	pass "users table exists in labdb"
-else
-	fail "users table does not exist"
-fi
+table_has_rows() {
+	local n
+	n=$(rootsql "SELECT COUNT(*) FROM labdb.users") || return 1
+	[ "$n" -ge 2 ] 2>/dev/null
+}
 
-# Check if table has at least 2 records
-if mysql -u labuser -puserpass123 labdb -e "SELECT * FROM users;" > /dev/null 2>&1 | tail -n +2 | wc -l | grep -qE '^[2-9]|^[0-9]{2,}'; then
-	pass "At least 2 sample records in users table"
-else
-	fail "Insufficient sample records in users table"
-fi
+user_can_read_table() {
+	mysql -u labuser -puserpass123 labdb -e 'SELECT * FROM users' &>/dev/null
+}
 
-# Check if user has SELECT privilege
-if mysql -u root -plabpassword -e "SHOW GRANTS FOR 'labuser'@'localhost';" > /dev/null 2>&1 | grep -q "SELECT"; then
-	pass "User has SELECT privilege"
-else
-	fail "User does not have SELECT privilege"
-fi
+# All grants of labuser@localhost, backticks removed
+grants() {
+	rootsql "SHOW GRANTS FOR 'labuser'@'localhost'" | tr -d '`'
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+# Privileges granted on labdb.*, one per line, sorted
+labdb_privs() {
+	grants | sed -n 's/^GRANT \(.*\) ON labdb\.\* TO .*/\1/p' |
+		tr ',' '\n' | tr -d ' ' | sort -u
+}
 
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
+has_four_privileges() {
+	local p privs
+	privs=$(labdb_privs)
+	for p in SELECT INSERT UPDATE DELETE; do
+		printf '%s\n' "$privs" | grep -qx "$p" || return 1
+	done
+}
 
+# Nothing beyond the four privileges on labdb, nothing on other objects
+only_those_privileges() {
+	local g line obj
+	g=$(grants) || return 1
+	[ -n "$g" ] || return 1
+	[ "$(labdb_privs | paste -sd, -)" = "DELETE,INSERT,SELECT,UPDATE" ] || return 1
+	case "$g" in *"WITH GRANT OPTION"*) return 1 ;; esac
+	while IFS= read -r line; do
+		obj=$(printf '%s\n' "$line" | sed -n 's/^GRANT .* ON \(.*\) TO .*/\1/p')
+		case "$obj" in
+		labdb.*) ;;
+		'*.*') [ "${line#GRANT USAGE ON }" != "$line" ] || return 1 ;;
+		*) return 1 ;;
+		esac
+	done <<<"$g"
+}
+
+grade_begin mysql-02
+criterion "The database server is running" server_running
+criterion "Database labdb exists" database_exists
+criterion "User labuser@localhost exists" user_exists
+criterion "labuser can log in to labdb with password userpass123" user_can_login
+criterion "Table labdb.users has the columns id, name and email" table_has_columns
+criterion "Table labdb.users holds at least 2 rows" table_has_rows
+criterion "labuser can read the table users" user_can_read_table
+criterion "labuser has SELECT, INSERT, UPDATE, DELETE on labdb.*" has_four_privileges
+criterion "labuser has no other privileges and no grant option" only_those_privileges
+grade_end

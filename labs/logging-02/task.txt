@@ -1,0 +1,57 @@
+OBJECTIVE
+  Configure rsyslog to capture the logs of a custom application in
+  two files, and configure logrotate to rotate and compress them.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with the rsyslog and logrotate packages
+    installed. rsyslog is running when the lab starts.
+  - Root access through sudo for the configuration changes.
+
+TASKS
+  1. Create the rsyslog configuration /etc/rsyslog.d/myapp.conf with
+     two rules:
+
+       - Messages with the facility local0 are written to
+         /var/log/myapp.log.
+       - Messages from the program name myapp (the syslog tag) are
+         written to /var/log/myapp-program.log.
+
+  2. Make sure rsyslog is running and uses the new configuration.
+  3. Make sure /var/log/myapp.log and /var/log/myapp-program.log
+     exist and have mode 644.
+  4. Create the logrotate configuration /etc/logrotate.d/myapp. It
+     covers both /var/log/myapp.log and /var/log/myapp-program.log
+     and sets:
+
+       - rotation every day
+       - 7 rotated logs are kept
+       - rotated logs are compressed
+       - empty log files are not rotated
+       - a missing log file is not an error
+       - new log files are created with mode 644, owner root and
+         group root
+       - after rotation, rsyslog is told to reopen its log files
+
+  5. The logrotate configuration must be accepted by logrotate
+     without errors.
+
+EXPECTED RESULT
+  A message with the facility local0 appears in /var/log/myapp.log.
+  A message sent with the tag myapp appears in
+  /var/log/myapp-program.log. Both files rotate daily, with 7
+  compressed generations kept.
+
+PRACTICE (not graded)
+  - Send test messages with the facility local0 and with the tag
+    myapp, and check that they land in the right files.
+  - Force a rotation and check the rotated file and the new empty
+    log file. Check that rsyslog keeps writing to the new file.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded.
+  - The grader sends its own test messages and waits a few seconds
+    for them to appear in the log files.
+  - Reference: man rsyslog.conf, man logrotate and man logger.
+
+GRADING
+  labctl grade logging-02

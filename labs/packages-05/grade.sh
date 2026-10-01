@@ -1,12 +1,6 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
-
-passcount=0
-failcount=0
-
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+# packages-05 grader
+source /opt/linux-labs/lib/grading.sh
 
 # Start joe in a pseudo-terminal and let it run for two seconds.
 # Exit status 124 means timeout had to stop it, so it was running.
@@ -29,19 +23,15 @@ joe_runs() {
 	[ "$st" -eq 124 ]
 }
 
-[ -f /usr/bin/joe ] && [ -x /usr/bin/joe ] && pass "/usr/bin/joe exists and is executable" || { fail "/usr/bin/joe not found or not executable"; rc=1; }
-[ -e /usr/bin/joe ] && ! rpm -qf /usr/bin/joe &>/dev/null && pass "/usr/bin/joe does not come from an RPM package" || { fail "/usr/bin/joe is missing or belongs to an RPM package"; rc=1; }
-[ -f /etc/joe/joerc ] && pass "/etc/joe/joerc exists (configuration files in /etc)" || { fail "/etc/joe/joerc not found"; rc=1; }
-[ ! -e /usr/local/bin/joe ] && pass "joe was not installed under /usr/local" || { fail "/usr/local/bin/joe exists (default prefix was used)"; rc=1; }
-joe_runs && pass "joe starts and runs" || { fail "joe did not start correctly"; rc=1; }
+# /usr/bin/joe exists and no RPM package owns it
+joe_not_from_rpm() {
+	[ -e /usr/bin/joe ] && ! rpm -qf /usr/bin/joe &>/dev/null
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
+grade_begin packages-05
+criterion "/usr/bin/joe is an executable file" test -f /usr/bin/joe -a -x /usr/bin/joe
+criterion "/usr/bin/joe does not belong to an RPM package" joe_not_from_rpm
+criterion "/etc/joe/joerc exists" test -f /etc/joe/joerc
+criterion "/usr/local/bin/joe does not exist" test ! -e /usr/local/bin/joe
+criterion "joe starts and keeps running" joe_runs
+grade_end

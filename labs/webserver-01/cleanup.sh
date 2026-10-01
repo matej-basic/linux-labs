@@ -1,11 +1,8 @@
 #!/bin/bash
-
-# Print information about cleanup
-echo "Cleaning up Web Servers - Apache Installation (webserver-01) lab environment..."
-
-systemctl stop httpd > /dev/null 2>&1
-systemctl disable httpd > /dev/null 2>&1
-dnf remove -y httpd > /dev/null 2>&1
-
-# End of cleanup message
-echo "Cleanup completed."
+# webserver-01 cleanup: stop and remove Apache, delete the state file.
+systemctl disable --now httpd >/dev/null 2>&1 || true
+if rpm -q httpd >/dev/null 2>&1; then
+	dnf -y remove httpd >/dev/null 2>&1 || true
+fi
+rm -f /opt/linux-labs/state/webserver-01
+exit 0

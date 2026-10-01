@@ -1,129 +1,124 @@
 #!/bin/bash
-# replication-03 - MySQL Multi-Master Replication Grading Script
+# replication-03 grader
+source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/grading.sh
+load_lab_config
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+grade_begin replication-03
+grade_require_state replication-03
 
-PASS_COUNT=0
-FAIL_COUNT=0
+[ "$NODES_ENABLED" = "true" ] || grade_abort "Multi-node labs are enabled in the configuration"
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null || grade_abort "The configuration defines at least 3 nodes"
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+NODE1_IP=$(get_node_ip 1)
+NODE2_IP=$(get_node_ip 2)
+NODE3_IP=$(get_node_ip 3)
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    fail "Lab requires at least 3 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
-
-# Get node IPs
-NODE_A=$(echo "$(get_all_node_ips)" | awk '{print $1}')
-NODE_B=$(echo "$(get_all_node_ips)" | awk '{print $2}')
-NODE_C=$(echo "$(get_all_node_ips)" | awk '{print $3}')
-
-echo "Checking Node A: $NODE_A"
-echo "Checking Node B: $NODE_B"
-echo "Checking Node C: $NODE_C"
-echo ""
-
-# Check 1-3: MySQL running on all nodes
-for i in 1 2 3; do
-    eval "node_ip=\$NODE_$(printf \\$(printf '%03o' $((65+i-1))))"
-    echo -n "$i. Checking MySQL on node $((i)): $node_ip... "
-    if run_on_node "$node_ip" "sudo systemctl is-active mysqld > /dev/null 2>&1"; then
-        pass "MySQL running"
-        ((PASS_COUNT++))
-    else
-        fail "MySQL not running"
-        ((FAIL_COUNT++))
-    fi
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	test_node_connectivity "$ip" >/dev/null 2>&1 || grade_abort "All three nodes are reachable over SSH"
 done
 
-# Check 4-6: Binary logging on all nodes
-for i in 1 2 3; do
-    eval "node_ip=\$NODE_$(printf \\$(printf '%03o' $((65+i-1))))"
-    echo -n "$((i+3)). Checking binary logging on node $((i)): $node_ip... "
-    binlog=$(run_on_node "$node_ip" "sudo mysql -u root  -e \"SHOW VARIABLES LIKE 'log_bin';\" 2>/dev/null" | grep -i "ON" || echo "")
-    if [[ -n "$binlog" ]]; then
-        pass "Binary logging enabled"
-        ((PASS_COUNT++))
-    else
-        fail "Binary logging not enabled"
-        ((FAIL_COUNT++))
-    fi
-done
+# sql_on <ip> <statement>: run SQL as MySQL root on a node, batch output
+# without column names. The statement goes through stdin, so it may
+# contain any quotes.
+sql_on() {
+	printf '%s\n' "$2" | run_on_node "$1" "sudo mysql -u root -N -B"
+}
 
-# Check 7: Node A replicates to B
-echo -n "7. Checking A→B replication... "
-slave_status=$(run_on_node "$NODE_B" "sudo mysql -u root  -e \"SHOW SLAVE STATUS\\G\" 2>/dev/null" | grep -i "Master_Host" || echo "")
-if [[ -n "$slave_status" ]]; then
-    pass "Node B configured as slave of Node A"
-    ((PASS_COUNT++))
-else
-    fail "Node B not configured as slave of Node A"
-    ((FAIL_COUNT++))
-fi
+mysqld_running() {
+	local ip
+	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+		run_on_node "$ip" "sudo systemctl is-enabled mysqld && sudo systemctl is-active mysqld" || return 1
+	done
+}
 
-# Check 8: Node B replicates to C
-echo -n "8. Checking B→C replication... "
-slave_status=$(run_on_node "$NODE_C" "sudo mysql -u root  -e \"SHOW SLAVE STATUS\\G\" 2>/dev/null" | grep -i "Master_Host" || echo "")
-if [[ -n "$slave_status" ]]; then
-    pass "Node C configured as slave of Node B"
-    ((PASS_COUNT++))
-else
-    fail "Node C not configured as slave of Node B"
-    ((FAIL_COUNT++))
-fi
+binlog_enabled() {
+	local ip
+	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+		[ "$(sql_on "$ip" "SELECT @@log_bin")" = "1" ] || return 1
+	done
+}
 
-# Check 9: Node C replicates to A
-echo -n "9. Checking C→A replication... "
-slave_status=$(run_on_node "$NODE_A" "sudo mysql -u root  -e \"SHOW SLAVE STATUS\\G\" 2>/dev/null" | grep -i "Master_Host" || echo "")
-if [[ -n "$slave_status" ]]; then
-    pass "Node A configured as slave of Node C"
-    ((PASS_COUNT++))
-else
-    fail "Node A not configured as slave of Node C"
-    ((FAIL_COUNT++))
-fi
+# Running server IDs: three numbers, all different, none zero
+server_ids_differ() {
+	local a b c
+	a=$(sql_on "$NODE1_IP" "SELECT @@server_id") || return 1
+	b=$(sql_on "$NODE2_IP" "SELECT @@server_id") || return 1
+	c=$(sql_on "$NODE3_IP" "SELECT @@server_id") || return 1
+	case "$a$b$c" in *[!0-9]* | "") return 1 ;; esac
+	[ "$a" -gt 0 ] && [ "$b" -gt 0 ] && [ "$c" -gt 0 ] || return 1
+	[ "$a" != "$b" ] && [ "$a" != "$c" ] && [ "$b" != "$c" ]
+}
 
-# Check 10: Test circular replication
-echo -n "10. Testing circular replication... "
-test_db="mm_test_$RANDOM"
-test_ok=0
+# configured_server_id <ip>: the server ID that a restart of mysqld would
+# use. SET PERSIST (mysqld-auto.cnf) wins over the option files, and the
+# last server-id line of the option files wins over earlier ones.
+configured_server_id() {
+	local v
+	v=$(run_on_node "$1" "sudo cat /var/lib/mysql/mysqld-auto.cnf 2>/dev/null" |
+		grep -Eo '"server_id" *: *\{ *"Value" *: *"[0-9]+"' | grep -Eo '[0-9]+"$' | tr -d '"')
+	if [ -z "$v" ]; then
+		v=$(run_on_node "$1" "sudo cat /etc/my.cnf /etc/my.cnf.d/*.cnf 2>/dev/null" |
+			grep -Ei '^[[:space:]]*server[-_]id[[:space:]]*=' | tail -n 1 |
+			sed 's/^[^=]*=[[:space:]]*//; s/[[:space:]]*#.*//; s/[[:space:]]*$//')
+	fi
+	printf '%s' "$v"
+}
 
-# Create on Node A
-run_on_node "$NODE_A" "sudo mysql -u root  -e \"CREATE DATABASE $test_db;\" 2>/dev/null" > /dev/null 2>&1 || true
-sleep 3
+server_ids_persistent() {
+	local ip cfg run
+	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+		cfg=$(configured_server_id "$ip")
+		run=$(sql_on "$ip" "SELECT @@server_id") || return 1
+		[ -n "$cfg" ] && [ "$cfg" = "$run" ] || return 1
+	done
+}
 
-# Check on Node B and C
-b_exists=$(run_on_node "$NODE_B" "sudo mysql -u root  -e \"SHOW DATABASES LIKE '$test_db';\" 2>/dev/null" | grep "$test_db" || echo "")
-c_exists=$(run_on_node "$NODE_C" "sudo mysql -u root  -e \"SHOW DATABASES LIKE '$test_db';\" 2>/dev/null" | grep "$test_db" || echo "")
+# replicates_from <replica ip> <source ip>: the default channel points at
+# the source IP and both threads are on. Retries for a few seconds,
+# because a replica that has just been started shows CONNECTING.
+replicates_from() {
+	local row want
+	want=$(printf '%s\t%s\t%s' "$2" ON ON)
+	for _ in 1 2 3 4 5; do
+		row=$(sql_on "$1" "SELECT c.HOST, s.SERVICE_STATE, a.SERVICE_STATE FROM performance_schema.replication_connection_configuration c JOIN performance_schema.replication_connection_status s ON s.CHANNEL_NAME = c.CHANNEL_NAME JOIN performance_schema.replication_applier_status a ON a.CHANNEL_NAME = c.CHANNEL_NAME WHERE c.CHANNEL_NAME = ''")
+		[ "$row" = "$want" ] && return 0
+		sleep 1
+	done
+	return 1
+}
 
-if [[ -n "$b_exists" ]] && [[ -n "$c_exists" ]]; then
-    pass "Circular replication working (A→B and A→C)"
-    ((PASS_COUNT++))
-    test_ok=1
-    # Clean up
-    run_on_node "$NODE_A" "sudo mysql -u root  -e \"DROP DATABASE $test_db;\" 2>/dev/null" > /dev/null 2>&1 || true
-else
-    fail "Circular replication not working"
-    ((FAIL_COUNT++))
-fi
+# change_reaches <origin ip> <other ip> <other ip>: a database created on
+# the origin shows up on both other nodes within 12 seconds each. The
+# origin drops it again, which replicates the same way.
+change_reaches() {
+	local origin=$1 db other found bad=0
+	shift
+	db="lab_mm_${RANDOM}_$$"
+	sql_on "$origin" "CREATE DATABASE $db" >/dev/null || return 1
+	for other in "$@"; do
+		found=0
+		for _ in $(seq 12); do
+			if [ "$(sql_on "$other" "SELECT schema_name FROM information_schema.schemata WHERE schema_name = '$db'")" = "$db" ]; then
+				found=1
+				break
+			fi
+			sleep 1
+		done
+		[ "$found" = 1 ] || bad=1
+	done
+	sql_on "$origin" "DROP DATABASE IF EXISTS $db" >/dev/null
+	return "$bad"
+}
 
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
-
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    exit 0
-else
-    exit 1
-fi
+criterion "mysqld is enabled and running on all three nodes" mysqld_running
+criterion "Binary logging is enabled on all three nodes" binlog_enabled
+criterion "The three nodes have three different server IDs" server_ids_differ
+criterion "Each server ID is set in the MySQL configuration" server_ids_persistent
+criterion "Node 2 replicates from node 1, both threads running" replicates_from "$NODE2_IP" "$NODE1_IP"
+criterion "Node 3 replicates from node 2, both threads running" replicates_from "$NODE3_IP" "$NODE2_IP"
+criterion "Node 1 replicates from node 3, both threads running" replicates_from "$NODE1_IP" "$NODE3_IP"
+criterion "A change made on node 1 reaches nodes 2 and 3" change_reaches "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"
+criterion "A change made on node 2 reaches nodes 1 and 3" change_reaches "$NODE2_IP" "$NODE1_IP" "$NODE3_IP"
+criterion "A change made on node 3 reaches nodes 1 and 2" change_reaches "$NODE3_IP" "$NODE1_IP" "$NODE2_IP"
+grade_end

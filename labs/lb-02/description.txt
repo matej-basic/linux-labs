@@ -1,6 +1,4 @@
+title: Nginx reverse proxy with health checks
 category: Load Balancing
 complexity: Intermediate
-objective: Configure Nginx as a reverse proxy with health checks and backend monitoring
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, Nginx and Apache installed
-estimated_time: 35 minutes
-skills: Nginx reverse proxy configuration, upstream health checks, proxy headers, backend monitoring, passive/active health checks
+objective: Configure Nginx as a reverse proxy with passive health checks in front of two Apache backends.

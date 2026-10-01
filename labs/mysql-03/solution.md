@@ -1,44 +1,45 @@
-# MySQL 03 Solution
+# mysql-03: MySQL backup and restore
 
-Create a MySQL database backup and restore it to verify data integrity.
+## Solution
 
-## Commands to reach the expected state:
+1. [user] Dump the database labdb into a file:
+
+   ```bash
+   mysqldump -u root -plabpassword labdb > /tmp/labdb_backup.sql
+   ```
+
+2. [user] Create the empty restore database:
+
+   ```bash
+   mysql -u root -plabpassword -e "CREATE DATABASE labdb_restore;"
+   ```
+
+3. [user] Load the dump into the new database:
+
+   ```bash
+   mysql -u root -plabpassword labdb_restore < /tmp/labdb_backup.sql
+   ```
+
+## Verification
 
 ```bash
-# Create a backup of the labdb database
-sudo mysqldump -u root -plabpassword labdb > /tmp/labdb_backup.sql
-
-# Create the restore database
-sudo mysql -u root -plabpassword -e "CREATE DATABASE labdb_restore;"
-
-# Restore the backup to the new database
-sudo mysql -u root -plabpassword labdb_restore < /tmp/labdb_backup.sql
-```
-
-## Verify:
-
-```bash
-# Check if backup file exists
-ls -l /tmp/labdb_backup.sql
-
-# Check backup file contains valid SQL
-head -20 /tmp/labdb_backup.sql
-
-# Check if labdb_restore database exists
-mysql -u root -plabpassword -e "SHOW DATABASES;" | grep labdb_restore
-
-# Check tables in restored database
 mysql -u root -plabpassword labdb_restore -e "SHOW TABLES;"
-
-# Compare row count in original and restored
-mysql -u root -plabpassword labdb -e "SELECT COUNT(*) FROM users;"
-mysql -u root -plabpassword labdb_restore -e "SELECT COUNT(*) FROM users;"
-
-# Compare data in both databases
-mysql -u root -plabpassword labdb -e "SELECT * FROM users;"
-mysql -u root -plabpassword labdb_restore -e "SELECT * FROM users;"
-
-# Run the grading script
-sudo labctl grade mysql-03
+mysql -u root -plabpassword -e "SELECT COUNT(*) FROM labdb.users;"
+mysql -u root -plabpassword \
+  -e "SELECT COUNT(*) FROM labdb_restore.users;"
+labctl grade mysql-03
 ```
 
+## Explanation
+
+mysqldump writes the table definitions and the rows of one database as
+SQL statements. Because the dump has no CREATE DATABASE or USE line,
+it can be loaded into any database, so the mysql client with
+labdb_restore as its default database recreates both tables there.
+
+The grader compares the tables and every row of labdb and labdb_restore
+and expects labdb itself to be untouched. A dump made with
+--databases contains a USE labdb line, which sends the restore back
+into labdb instead of labdb_restore, so labdb_restore stays empty.
+The -p option with the password attached to it prints a warning about
+passwords on the command line; it is harmless here.

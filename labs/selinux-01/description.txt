@@ -1,3 +1,4 @@
+title: SELinux enforcing mode
 category: SELinux
 complexity: Beginner
-objective: Enable SELinux enforcing mode and verify the policy is loaded and active.
+objective: Switch SELinux to enforcing mode, immediately and persistently, and confirm the targeted policy is loaded.

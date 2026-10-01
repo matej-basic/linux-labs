@@ -1,56 +1,21 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# mysql-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+# Listening TCP socket on port 3306 (IPv4 or IPv6)
+port_listening() {
+	ss -H -tln | grep -Eq '[:.]3306[[:space:]]'
+}
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+# Login as root with the lab password returns a result
+root_login_works() {
+	MYSQL_PWD=labpassword mysql -u root -e 'SELECT 1' | grep -q 1
+}
 
-# Check if MySQL package is installed
-if rpm -q mysql-server mariadb-server > /dev/null 2>&1 | grep -q mysql-server || rpm -q mariadb-server > /dev/null 2>&1; then
-	pass "MySQL/MariaDB package installed"
-else
-	fail "MySQL/MariaDB package not installed"
-fi
-
-# Check if mysqld service is running
-if systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb; then
-	pass "MySQL service is running"
-else
-	fail "MySQL service is not running"
-fi
-
-# Check if mysqld is enabled on boot
-if systemctl is-enabled --quiet mysqld || systemctl is-enabled --quiet mariadb; then
-	pass "MySQL enabled on boot"
-else
-	fail "MySQL not enabled on boot"
-fi
-
-# Check if MySQL is listening on port 3306
-if ss -tlnp > /dev/null 2>&1 | grep -q ':3306 '; then
-	pass "MySQL listening on port 3306"
-else
-	fail "MySQL not listening on port 3306"
-fi
-
-# Check if root password is set to labpassword
-if mysql -u root -plabpassword -e "SELECT 1" > /dev/null 2>&1; then
-	pass "Root password set to labpassword"
-else
-	fail "Root password not set correctly"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+grade_begin mysql-01
+criterion "Package mysql-server is installed" rpm -q mysql-server
+criterion "Service mysqld is running" systemctl is-active --quiet mysqld
+criterion "Service mysqld is enabled at boot" systemctl is-enabled --quiet mysqld
+criterion "MySQL listens on port 3306/tcp" port_listening
+criterion "MySQL root login works with password labpassword" root_login_works
+grade_end

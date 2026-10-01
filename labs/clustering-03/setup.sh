@@ -1,92 +1,85 @@
 #!/bin/bash
-# clustering-03 - Advanced Cluster Protection and Split-Brain Prevention
-# Configures quorum, ring topology, and advanced failover scenarios
+# clustering-03 setup: checks that the clustering-01/02 cluster is up,
+# removes votequorum options left by an earlier attempt, and sets the
+# cluster property no-quorum-policy to ignore (the unsafe starting
+# state). Prints nothing on success.
 
-set -e
+# load-config.sh is not safe under "set -u", so source it first.
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
+set -eu
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+LAB=clustering-03
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/$LAB"
+CONF=/etc/corosync/corosync.conf
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
-fi
+die() {
+	echo "$LAB: $*" >&2
+	exit 1
+}
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    echo "ERROR: This lab requires at least 3 nodes"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 3"
-    exit 1
-fi
+[ "$NODES_ENABLED" = true ] ||
+	die "multi-node labs are not enabled (run: sudo labctl configure interactive)"
+[ "$NODE_COUNT" -ge 3 ] ||
+	die "this lab needs 3 nodes, NODE_COUNT is $NODE_COUNT (run: sudo labctl configure set NODE_COUNT 3)"
 
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║    Advanced Cluster Protection Lab (clustering-03)             ║
-╚════════════════════════════════════════════════════════════════╝
+ips=("$(get_node_ip 1)" "$(get_node_ip 2)" "$(get_node_ip 3)")
 
-OBJECTIVE:
-Implement advanced cluster protection mechanisms:
-1. Configure quorum voting and cluster composition
-2. Set up ring topology for Corosync communication
-3. Implement autofencing to prevent split-brain
-4. Configure cluster behavior during partitions
-5. Test split-brain scenarios and recovery
-6. Implement proper failure detection and response
+# Run a command on a node without ssh noise on stderr
+on_node() {
+	run_on_node "$@" 2>/dev/null
+}
 
-TOPOLOGY:
-     ┌──────────────────────────────────┐
-     │    3-Node Pacemaker Cluster      │
-     │  With Quorum (2 of 3 nodes)      │
-     └──────────────────────────────────┘
-              ↓
-     ┌──────────────────────────────────┐
-     │    Ring Topology                 │
-     │  (Corosync Primary + Backup)     │
-     └──────────────────────────────────┘
-              ↓
-     ┌──────────────────────────────────┐
-     │   STONITH + Autofencing          │
-     │  (Prevent concurrent access)     │
-     └──────────────────────────────────┘
+for ip in "${ips[@]}"; do
+	test_node_connectivity "$ip" >/dev/null ||
+		die "cannot reach node $ip over SSH (check the lab configuration)"
+	for unit in corosync pacemaker; do
+		on_node "$ip" "sudo systemctl is-active --quiet $unit" ||
+			die "$unit is not running on $ip; complete clustering-01 and clustering-02 first"
+	done
+done
 
-REQUIREMENTS:
-✓ Multi-node lab enabled (3+ nodes)
-✓ Cluster from clustering-01 running
-✓ STONITH configured (clustering-02)
-✓ Pacemaker and Corosync operational
-✓ Full SSH access between nodes
+# Wait until every node reports 3 members
+wait_members() {
+	local i ip
+	for ip in "${ips[@]}"; do
+		for i in $(seq 1 60); do
+			on_node "$ip" "sudo corosync-quorumtool -s | grep -Eq '^Nodes:[[:space:]]+3\$'" && break
+			sleep 2
+		done
+		[ "$i" -lt 60 ] || return 1
+	done
+}
 
-TASKS TO COMPLETE:
-1. Verify quorum configuration (2 of 3 nodes)
-2. Configure ring topology (primary + backup)
-3. Set cluster properties for quorum enforcement
-4. Configure wait_for_all behavior
-5. Set node priority and startup options
-6. Configure autofencing parameters
-7. Implement cluster recovery strategy
-8. Test split-brain scenarios:
-   - Isolate 1 node (stays down)
-   - Isolate 2 nodes (maintain quorum)
-   - Full cluster restart
-9. Verify resources stay available during partitions
-10. Test full cluster recovery
+# Remove votequorum options with a non-zero value (left behind by an
+# earlier attempt), then restart the changed nodes one at a time so
+# the cluster keeps quorum.
+changed=()
+for ip in "${ips[@]}"; do
+	if on_node "$ip" "sudo grep -Eq '^[[:space:]]*(wait_for_all|last_man_standing|last_man_standing_window):[[:space:]]*[1-9]' $CONF"; then
+		on_node "$ip" "sudo sed -i -E '/^[[:space:]]*(wait_for_all|last_man_standing|last_man_standing_window):/d' $CONF" ||
+			die "cannot edit $CONF on $ip"
+		changed+=("$ip")
+	fi
+done
+for ip in "${changed[@]+"${changed[@]}"}"; do
+	on_node "$ip" "sudo systemctl stop pacemaker corosync && sudo systemctl start pacemaker" ||
+		die "cannot restart the cluster services on $ip"
+	wait_members || die "cluster did not re-form after restarting $ip"
+done
 
-VERIFICATION:
-The grading script will:
-- Check quorum configuration (2/3 nodes)
-- Verify ring topology configuration
-- Confirm autofencing parameters
-- Test cluster behavior during partition
-- Verify split-brain prevention
-- Check cluster recovery after isolation
-- Confirm resources remain available
+# Unsafe starting state: lost quorum is ignored
+ok=false
+for _ in $(seq 1 30); do
+	if on_node "${ips[0]}" "sudo pcs property set no-quorum-policy=ignore"; then
+		ok=true
+		break
+	fi
+	sleep 2
+done
+$ok || die "cannot set the cluster property no-quorum-policy on ${ips[0]}"
 
-Begin working on the lab now. Use 'labctl solution clustering-03' if you need help.
-EOF
+mkdir -p "$STATE_DIR"
+printf '%s\n' "${ips[@]}" >"$STATE_FILE"
+chmod 644 "$STATE_FILE"

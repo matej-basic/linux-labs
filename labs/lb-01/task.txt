@@ -1,0 +1,64 @@
+OBJECTIVE
+  Set up HAProxy on node 1 to balance HTTP traffic round-robin across
+  three Apache web servers that listen on port 8080 on nodes 1, 2 and
+  3.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH.
+
+                  workstation (client)
+                         |
+                         | HTTP, port 80
+                         |
+                  node 1  {{NODE1_IP}}
+                  HAProxy, port 80
+                         |
+         +---------------+---------------+
+         | port 8080     | port 8080     | port 8080
+         |               |               |
+     node 1          node 2          node 3
+     {{NODE1_IP}}    {{NODE2_IP}}    {{NODE3_IP}}
+     Apache          Apache          Apache
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 3 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - SSH access to all three nodes works from the workstation.
+  - The nodes reach the Rocky Linux package repositories.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. Install the Apache web server (httpd) on nodes 1, 2 and 3.
+     Install HAProxy on node 1.
+  2. Apache on every node listens on port 8080. It is enabled at
+     boot and running.
+  3. Each Apache serves a home page at / that identifies its node and
+     differs from the home pages of the other two nodes. The page is
+     answered with HTTP status 200.
+  4. HAProxy on node 1 listens on port 80 and forwards requests to
+     {{NODE1_IP}}:8080, {{NODE2_IP}}:8080 and {{NODE3_IP}}:8080. The
+     configuration is in /etc/haproxy/haproxy.cfg. It uses the
+     round-robin balance algorithm and gives all backends the same
+     weight.
+  5. HAProxy checks the health of each of the three backends with an
+     HTTP request. The check is configured in
+     /etc/haproxy/haproxy.cfg.
+  6. HAProxy is enabled at boot and running on node 1.
+  7. The firewall on node 1 permanently allows port 80/tcp. The
+     firewalls on nodes 2 and 3 permanently allow port 8080/tcp.
+  8. SELinux stays in enforcing mode on all three nodes.
+
+EXPECTED RESULT
+  Twelve requests from the workstation to {{NODE1_IP}} on port 80
+  are answered by the three backends in turn, so each backend page
+  comes back four times.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - HAProxy marks a backend as up after its first successful health
+    checks, so wait a few seconds after starting it.
+  - Reference: man haproxy and the documentation under
+    /usr/share/doc/haproxy after installing the package.
+
+GRADING
+  labctl grade lb-01

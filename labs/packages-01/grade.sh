@@ -1,25 +1,16 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# packages-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+grade_begin packages-01
+grade_require_state packages-01
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+git_runs() {
+	local out
+	out=$(/usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin git --version) || return 1
+	[[ "$out" == git\ version\ * ]]
+}
 
-rpm -q git &>/dev/null && pass "git package is installed" || { fail "git package not installed"; rc=1; }
-which git &>/dev/null && pass "git command is available" || { fail "git command not found"; rc=1; }
-dnf list --installed &>/dev/null && pass "dnf list --installed works" || { fail "dnf list --installed failed"; rc=1; }
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+criterion "Package git is installed" rpm -q git
+criterion "Command git is in the default PATH and runs" git_runs
+grade_end

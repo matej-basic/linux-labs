@@ -1,34 +1,26 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# packages-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+OUT=/tmp/curl-files.txt
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+# The file is a regular file (not a symlink)
+is_regular_file() {
+	[ -f "$OUT" ] && [ ! -L "$OUT" ]
+}
 
-rpm -q curl &>/dev/null && pass "curl package is installed" || { fail "curl package not installed"; rc=1; }
-[ -f /tmp/curl-files.txt ] && pass "/tmp/curl-files.txt exists" || { fail "/tmp/curl-files.txt not found"; rc=1; }
-grep -q "/usr/bin/curl" /tmp/curl-files.txt && pass "curl binary found in file list" || { fail "/usr/bin/curl not in file list"; rc=1; }
-[ $(wc -l < /tmp/curl-files.txt) -gt 0 ] && pass "File list is not empty" || { fail "File list is empty"; rc=1; }
+# The file holds exactly the paths owned by curl, one per line
+list_matches_package() {
+	local expected actual
+	is_regular_file || return 1
+	expected=$(rpm -ql curl 2>/dev/null | sort) || return 1
+	[ -n "$expected" ] || return 1
+	actual=$(sort "$OUT")
+	[ "$expected" = "$actual" ]
+}
 
-# Compare /tmp/curl-files.txt with rpm -ql curl output
-if diff -q <(rpm -ql curl | sort) <(sort /tmp/curl-files.txt) &>/dev/null; then
-    pass "/tmp/curl-files.txt matches rpm -ql curl output"
-else
-    fail "/tmp/curl-files.txt does not match rpm -ql curl output"
-    rc=1
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
-
+grade_begin packages-03
+criterion "Package curl is installed" rpm -q curl
+criterion "File $OUT exists" is_regular_file
+criterion "File $OUT lists exactly the files of curl" list_matches_package
+grade_end

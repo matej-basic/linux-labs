@@ -1,33 +1,36 @@
 #!/bin/bash
-# Scheduling Lab 03: Cleanup
+# scheduling-03 cleanup: remove the anacron job, the timer, the scripts and
+# logs, and restore root's crontab from the backup made by setup.sh.
+STATE_DIR=/opt/linux-labs/state/scheduling-03
 
-# Anacron cleanup
-TMPFILE=$(mktemp)
-grep -v "anacron_lab" /etc/anacrontab > "$TMPFILE" 2>/dev/null
-sudo cp "$TMPFILE" /etc/anacrontab 2>/dev/null || true
-rm -f "$TMPFILE"
-sudo rm -f /usr/local/bin/anacron-task.sh
-sudo rm -f /var/spool/anacron/anacron_lab
+# Anacron job (in place, to keep mode and SELinux context)
+if grep -q 'anacron_lab' /etc/anacrontab 2>/dev/null; then
+	tmp=$(mktemp)
+	grep -v 'anacron_lab' /etc/anacrontab > "$tmp"
+	cat "$tmp" > /etc/anacrontab
+	rm -f "$tmp"
+fi
+rm -f /var/spool/anacron/anacron_lab /usr/local/bin/anacron-task.sh \
+	/var/log/anacron-task.log
 
-# Systemd timer cleanup
-sudo systemctl stop persistent-timer.timer 2>/dev/null || true
-sudo systemctl disable persistent-timer.timer 2>/dev/null || true
-sudo rm -f /etc/systemd/system/persistent-timer.service
-sudo rm -f /etc/systemd/system/persistent-timer.timer
-sudo rm -f /usr/local/bin/persistent-task.sh
+# Systemd timer
+systemctl disable --now persistent-timer.timer >/dev/null 2>&1 || true
+systemctl stop persistent-timer.service >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/persistent-timer.service \
+	/etc/systemd/system/persistent-timer.timer \
+	/etc/systemd/system/timers.target.wants/persistent-timer.timer \
+	/usr/local/bin/persistent-task.sh /var/log/persistent-task.log
+systemctl daemon-reload >/dev/null 2>&1 || true
+systemctl reset-failed persistent-timer.service persistent-timer.timer \
+	>/dev/null 2>&1 || true
 
-# Cron cleanup
-TMPFILE=$(mktemp)
-sudo crontab -l 2>/dev/null | grep -vE "SHELL=|PATH=|LOGFILE=|env_task|env-task" > "$TMPFILE"
-sudo crontab "$TMPFILE" 2>/dev/null || true
-rm -f "$TMPFILE"
-sudo rm -f /usr/local/bin/env-task.sh
+# Root's crontab: restore the original
+if [ -f "$STATE_DIR/crontab.orig" ]; then
+	crontab -u root "$STATE_DIR/crontab.orig" >/dev/null 2>&1 || true
+elif [ -f "$STATE_DIR/no-crontab" ]; then
+	crontab -r -u root >/dev/null 2>&1 || true
+fi
+rm -f /usr/local/bin/env-task.sh /var/log/env-task.log
 
-# Clean up log files
-sudo rm -f /var/log/env-task.log
-sudo rm -f /var/log/anacron-task.log
-sudo rm -f /var/log/persistent-task.log
-
-sudo systemctl daemon-reload &>/dev/null
-
-echo "Cleanup complete."
+rm -rf "$STATE_DIR"
+exit 0

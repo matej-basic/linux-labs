@@ -1,0 +1,41 @@
+OBJECTIVE
+  Configure a static IPv4 address and a DNS server on a free network
+  interface with NetworkManager, without touching the interface that
+  carries the default route.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with NetworkManager running.
+  - At least one free ethernet interface, which labctl start checks.
+
+TASKS
+  1. Identify the first free ethernet interface: the first one by
+     name that does not carry the default route. Its name is also
+     the first line of /opt/linux-labs/state/networking-01. Do not
+     change the interface that carries the default route or its
+     connection profile.
+  2. Create a NetworkManager connection profile named labnet-static
+     that is bound to the free interface and has this IPv4
+     configuration:
+
+       method    manual
+       address   192.168.1.100/24
+       DNS       8.8.8.8
+
+  3. The profile must not install a default route and must not
+     define a gateway.
+  4. Activate the profile. Interface IPv4 address 192.168.1.100/24
+     is configured on the free interface, and the default route
+     still uses the original interface.
+
+EXPECTED RESULT
+  Connection labnet-static is active on the free interface with
+  192.168.1.100/24 and DNS 8.8.8.8. The default route and the SSH
+  session are unaffected.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded.
+  - Reference: man nmcli, man nmcli-examples and man
+    nm-settings-nmcli.
+
+GRADING
+  labctl grade networking-01

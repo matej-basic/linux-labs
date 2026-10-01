@@ -1,4 +1,4 @@
+title: DNSSEC signed zone with zone transfer
 category: DNS
 complexity: Advanced
-objective: Configure DNSSEC for a zone, set up a secondary DNS server with zone transfer, and verify DNSSEC validation.
-
+objective: Serve a DNSSEC-signed zone with BIND using a KSK and a ZSK, and restrict zone transfers to the loopback addresses.

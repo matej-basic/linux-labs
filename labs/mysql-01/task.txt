@@ -1,0 +1,35 @@
+OBJECTIVE
+  Install MySQL Server, run it as a service and secure the database
+  root account with a password.
+
+PREREQUISITES
+  - Supported on Rocky Linux 8 and 9. Both provide MySQL 8.0 in the
+    AppStream repository under the package name mysql-server and the
+    service name mysqld. MariaDB is a different product and is not
+    accepted here.
+  - Internet access to the package repositories.
+
+TASKS
+  1. Install the package mysql-server.
+  2. Run the mysqld service now and make it start at every boot.
+  3. Make MySQL listen on TCP port 3306.
+  4. Set the password of the MySQL user root@localhost to labpassword.
+     Logging in as root with this password must work.
+
+EXPECTED RESULT
+  mysql-server is installed, mysqld is active and enabled, port
+  3306/tcp is listening, and the MySQL client can log in as root with
+  the password labpassword.
+
+PRACTICE (not graded)
+  - Log in with the mysql client and list the databases.
+  - Query the server version.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man dnf, man systemctl and man mysql.
+  - You need root privileges (sudo) for the installation.
+
+GRADING
+  labctl grade mysql-01

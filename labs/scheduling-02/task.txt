@@ -1,0 +1,35 @@
+OBJECTIVE
+  Create a systemd timer and service pair that runs a script every 10
+  minutes and logs each run.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with systemd. Work as {{LAB_USER}} and use sudo
+    where root rights are needed.
+
+TASKS
+  1. Create the script /usr/local/bin/lab-task.sh. It must be
+     executable. Each run appends one line to /var/log/lab-task.log.
+     The line contains the current date and time.
+  2. Create the service unit /etc/systemd/system/lab-task.service. It
+     is of type oneshot and its ExecStart runs
+     /usr/local/bin/lab-task.sh.
+  3. Create the timer unit /etc/systemd/system/lab-task.timer. It
+     starts the service 1 minute after boot (OnBootSec=1min) and
+     again 10 minutes after each previous run of the service
+     (OnUnitActiveSec=10min).
+  4. The timer is installed into timers.target, so it is started at
+     boot.
+  5. The timer is enabled and running now.
+
+EXPECTED RESULT
+  systemd lists lab-task.timer as active with the next elapse time
+  set. Running the service by hand adds a line to the log file.
+
+NOTES
+  - Reference: man systemd.service, man systemd.timer and
+    man systemd.unit.
+  - The grader runs the service once to check that the script works.
+    That adds one line to /var/log/lab-task.log.
+
+GRADING
+  labctl grade scheduling-02

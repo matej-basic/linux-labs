@@ -1,318 +1,155 @@
-# Load Balancing 03 Solution - Advanced HA with Keepalived VIP
+# lb-03: Highly available load balancer with keepalived
 
-## Overview
-This solution implements high availability load balancing using HAProxy on Nodes 1 and 2 with keepalived managing a Virtual IP (VIP) for automatic failover, distributing traffic to Apache backends on all 3 nodes.
+## Solution
 
-## Architecture
-- **VIP**: 172.25.250.100 (floats between Node 1 and Node 2)
-- **Node 1**: HAProxy MASTER (priority 100) + Apache backend
-- **Node 2**: HAProxy BACKUP (priority 90) + Apache backend
-- **Node 3**: Apache backend only
-
-## Step 1: Install Packages on All Nodes
+Work on the nodes over SSH. The commands use these values; set them on
+each node first. NODE1_IP, NODE2_IP and NODE3_IP are the node addresses
+from the task header, and VIP is the address of node 1 with the last
+octet 100 (it is also the first line of
+/opt/linux-labs/state/lb-03 on the workstation):
 
 ```bash
-# On Nodes 1 and 2
-sudo dnf install -y haproxy keepalived httpd
-
-# On Node 3
-sudo dnf install -y httpd
+NODE1_IP=<address of node 1>
+NODE2_IP=<address of node 2>
+NODE3_IP=<address of node 3>
+VIP=<address of node 1 with last octet 100>
 ```
 
-## Step 2: Configure Apache on All Nodes
+1. [sudo] On all three nodes, install httpd, move it to port 8080,
+   give it a page that names the node and open the port. Set N to the
+   node number (1, 2 or 3) on each node:
+
+   ```bash
+   N=1
+   sudo dnf -y install httpd
+   sudo sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
+   echo "Backend Server - Node $N" | sudo tee /var/www/html/index.html
+   sudo systemctl enable --now httpd
+   sudo firewall-cmd --permanent --add-port=8080/tcp
+   sudo firewall-cmd --reload
+   ```
+
+2. [sudo] On nodes 1 and 2, install HAProxy and keepalived and let
+   HAProxy connect to the backends on port 8080 under SELinux:
+
+   ```bash
+   sudo dnf -y install haproxy keepalived
+   sudo setsebool -P haproxy_connect_any 1
+   ```
+
+3. [sudo] On nodes 1 and 2, write the same HAProxy configuration, open
+   the http service and the VRRP protocol, and start HAProxy:
+
+   ```bash
+   sudo tee /etc/haproxy/haproxy.cfg >/dev/null <<EOF
+   global
+       chroot      /var/lib/haproxy
+       pidfile     /var/run/haproxy.pid
+       maxconn     4000
+       user        haproxy
+       group       haproxy
+       daemon
+
+   defaults
+       mode                    http
+       option                  dontlognull
+       timeout connect         10s
+       timeout client          1m
+       timeout server          1m
+
+   frontend web_frontend
+       bind *:80
+       default_backend web_servers
+
+   backend web_servers
+       balance roundrobin
+       option httpchk GET /
+       server node1 $NODE1_IP:8080 check
+       server node2 $NODE2_IP:8080 check
+       server node3 $NODE3_IP:8080 check
+   EOF
+   sudo firewall-cmd --permanent --add-service=http
+   sudo firewall-cmd --permanent --add-protocol=vrrp
+   sudo firewall-cmd --reload
+   sudo systemctl enable --now haproxy
+   ```
+
+4. [sudo] On nodes 1 and 2, find the interface and prefix length of
+   the node address, then write the keepalived configuration. On node
+   1 use STATE=MASTER and PRIO=100, on node 2 use STATE=BACKUP and
+   PRIO=90. NODE_IP is the address of the node you are on:
+
+   ```bash
+   NODE_IP=$NODE1_IP
+   STATE=MASTER
+   PRIO=100
+   read -r IFACE CIDR < <(ip -o -4 addr show | awk -v ip="$NODE_IP" \
+     'index($4, ip "/") == 1 { print $2, $4; exit }')
+   sudo tee /etc/keepalived/keepalived.conf >/dev/null <<EOF
+   vrrp_script check_haproxy {
+       script "/usr/bin/pgrep -x haproxy"
+       interval 2
+       weight -20
+   }
+
+   vrrp_instance VI_1 {
+       state $STATE
+       interface $IFACE
+       virtual_router_id 51
+       priority $PRIO
+       advert_int 1
+       authentication {
+           auth_type PASS
+           auth_pass Secret12
+       }
+       virtual_ipaddress {
+           $VIP/${CIDR#*/}
+       }
+       track_script {
+           check_haproxy
+       }
+   }
+   EOF
+   ```
+
+5. [sudo] On nodes 1 and 2, start keepalived:
+
+   ```bash
+   sudo systemctl enable --now keepalived
+   ```
+
+## Verification
+
+Check which node holds the VIP and that requests to it reach all three
+backends:
 
 ```bash
-# On all 3 nodes - Configure Apache to listen on port 8080
-sudo sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
-
-# Create unique content on each node
-# On Node 1
-echo "Backend Server - Node 1" | sudo tee /var/www/html/index.html
-
-# On Node 2
-echo "Backend Server - Node 2" | sudo tee /var/www/html/index.html
-
-# On Node 3
-echo "Backend Server - Node 3" | sudo tee /var/www/html/index.html
-
-# Start and enable Apache on all nodes
-sudo systemctl start httpd
-sudo systemctl enable httpd
-
-# Configure firewall on all nodes
-sudo firewall-cmd --permanent --add-port=8080/tcp
-sudo firewall-cmd --reload
+ip -o -4 addr show | grep "$VIP"
+for i in 1 2 3 4 5 6; do curl -s http://$VIP/; done
 ```
-
-## Step 3: Configure HAProxy on Nodes 1 and 2
-
-Get node IPs first:
-```bash
-source /opt/linux-labs/lib/load-config.sh
-load_lab_config
-NODE1_IP=$(get_node_ip 1)
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
-```
-
-Create identical HAProxy configuration on both Nodes 1 and 2:
-```bash
-sudo tee /etc/haproxy/haproxy.cfg > /dev/null <<EOF
-global
-    log         127.0.0.1 local2
-    chroot      /var/lib/haproxy
-    pidfile     /var/run/haproxy.pid
-    maxconn     4000
-    user        haproxy
-    group       haproxy
-    daemon
-
-defaults
-    mode                    http
-    log                     global
-    option                  httplog
-    option                  dontlognull
-    timeout connect         10s
-    timeout client          1m
-    timeout server          1m
-
-frontend web_frontend
-    bind *:80
-    default_backend web_servers
-
-backend web_servers
-    balance roundrobin
-    option httpchk GET /
-    server node1 $NODE1_IP:8080 check
-    server node2 $NODE2_IP:8080 check
-    server node3 $NODE3_IP:8080 check
-EOF
-```
-
-## Step 4: Start HAProxy on Nodes 1 and 2
 
 ```bash
-# On Nodes 1 and 2
-sudo systemctl start haproxy
-sudo systemctl enable haproxy
-
-# Configure firewall
-sudo firewall-cmd --permanent --add-service=http
-sudo firewall-cmd --permanent --add-protocol=vrrp
-sudo firewall-cmd --reload
+labctl grade lb-03
 ```
 
-## Step 5: Configure Keepalived on Node 1 (MASTER)
+## Explanation
 
-```bash
-# On Node 1
-sudo tee /etc/keepalived/keepalived.conf > /dev/null <<'EOF'
-global_defs {
-    router_id LB_MASTER
-    enable_script_security
-}
+VRRP elects the node with the highest priority as master, and the
+master carries the VIP. Both nodes must use the same virtual router ID
+and the same password, or they do not see each other's advertisements
+and both claim the VIP. The grader checks that exactly one node holds
+it. The password is limited to 8 characters.
 
-vrrp_script check_haproxy {
-    script "/usr/bin/systemctl is-active haproxy"
-    interval 2
-    weight 2
-}
+The tracking script uses a negative weight. When pgrep finds no
+haproxy process the node loses 20 priority points, so node 1 drops to
+80, below node 2 at 90, and the VIP moves. With a positive weight a
+failing script would add nothing and the VIP would stay on the node
+with the dead load balancer. Stopping keepalived on the master moves
+the VIP too, and with the default preemption it returns when node 1
+starts again.
 
-vrrp_instance VI_1 {
-    state MASTER
-    interface eth0
-    virtual_router_id 51
-    priority 100
-    advert_int 1
-    
-    authentication {
-        auth_type PASS
-        auth_pass SecretPass123
-    }
-    
-    virtual_ipaddress {
-        172.25.250.100/24
-    }
-    
-    track_script {
-        check_haproxy
-    }
-}
-EOF
-```
-
-## Step 6: Configure Keepalived on Node 2 (BACKUP)
-
-```bash
-# On Node 2
-sudo tee /etc/keepalived/keepalived.conf > /dev/null <<'EOF'
-global_defs {
-    router_id LB_BACKUP
-    enable_script_security
-}
-
-vrrp_script check_haproxy {
-    script "/usr/bin/systemctl is-active haproxy"
-    interval 2
-    weight 2
-}
-
-vrrp_instance VI_1 {
-    state BACKUP
-    interface eth0
-    virtual_router_id 51
-    priority 90
-    advert_int 1
-    
-    authentication {
-        auth_type PASS
-        auth_pass SecretPass123
-    }
-    
-    virtual_ipaddress {
-        172.25.250.100/24
-    }
-    
-    track_script {
-        check_haproxy
-    }
-}
-EOF
-```
-
-**Important Notes:**
-- Both nodes must have the same `virtual_router_id` (51)
-- Both nodes must have the same `auth_pass`
-- Node 1 has higher priority (100) than Node 2 (90)
-- Adjust `interface` to match your network interface (use `ip addr` to check)
-
-## Step 7: Configure SELinux for Keepalived
-
-```bash
-# On Nodes 1 and 2
-sudo setsebool -P keepalived_connect_any 1
-```
-
-## Step 8: Start Keepalived on Nodes 1 and 2
-
-```bash
-# On Nodes 1 and 2
-sudo systemctl start keepalived
-sudo systemctl enable keepalived
-```
-
-## Step 9: Verify VIP Assignment
-
-```bash
-# Check which node has the VIP
-# On Node 1
-ip addr show | grep 172.25.250.100
-
-# On Node 2
-ip addr show | grep 172.25.250.100
-
-# The MASTER (Node 1) should have the VIP
-```
-
-## Step 10: Test Load Balancing via VIP
-
-```bash
-# From Node 1, test the VIP
-for i in {1..12}; do curl http://172.25.250.100; done
-
-# You should see responses from all 3 backend servers
-```
-
-## Step 11: Test Failover
-
-```bash
-# On Node 1, stop keepalived to simulate failure
-sudo systemctl stop keepalived
-
-# Check VIP moved to Node 2
-ssh node2 "ip addr show | grep 172.25.250.100"
-
-# Test VIP still responds (now handled by Node 2)
-curl http://172.25.250.100
-
-# Restart keepalived on Node 1
-sudo systemctl start keepalived
-
-# VIP should move back to Node 1 (MASTER)
-ip addr show | grep 172.25.250.100
-```
-
-## Step 12: Test HAProxy Failure Detection
-
-```bash
-# Stop HAProxy on Node 1 (current MASTER)
-sudo systemctl stop haproxy
-
-# Wait a few seconds, VIP should move to Node 2
-sleep 5
-ip addr show | grep 172.25.250.100
-
-# VIP should be gone from Node 1
-# Check Node 2
-ssh node2 "ip addr show | grep 172.25.250.100"
-
-# Restart HAProxy
-sudo systemctl start haproxy
-```
-
-## Verify
-
-```bash
-sudo labctl grade lb-03
-```
-
-## Troubleshooting
-
-Check keepalived status:
-```bash
-sudo systemctl status keepalived
-```
-
-View keepalived logs:
-```bash
-sudo journalctl -u keepalived -f
-```
-
-Check VRRP messages:
-```bash
-sudo tcpdump -i eth0 vrrp
-```
-
-Verify VIP:
-```bash
-ip addr show
-```
-
-Check HAProxy status:
-```bash
-sudo systemctl status haproxy
-```
-
-Test VIP connectivity:
-```bash
-ping 172.25.250.100
-curl http://172.25.250.100
-```
-
-## How It Works
-
-1. **VRRP Protocol**: Keepalived uses VRRP (Virtual Router Redundancy Protocol) to manage the VIP
-2. **Priority**: Node with highest priority becomes MASTER and owns the VIP
-3. **Health Checks**: The `vrrp_script` monitors HAProxy - if it fails, priority drops
-4. **Automatic Failover**: If MASTER fails, BACKUP automatically takes over the VIP
-5. **Authentication**: Prevents rogue VRRP instances from interfering
-
-## Key Configuration Parameters
-
-- `virtual_router_id`: Must be unique per VRRP group and identical on both nodes
-- `priority`: Higher priority = preferred MASTER (100 > 90)
-- `advert_int`: How often to send VRRP advertisements (1 second)
-- `auth_pass`: Shared secret for VRRP authentication
-- `check_haproxy`: Script to verify HAProxy is healthy
-
-This setup provides automatic failover with minimal downtime when the primary load balancer fails.
+Apache moves to port 8080 because HAProxy needs port 80 on nodes 1 and
+2. HAProxy connects to that port, which SELinux allows through the
+haproxy_connect_any boolean. VRRP is neither TCP nor UDP, so firewalld
+needs the protocol itself (vrrp). Without it each node misses the
+other's advertisements and takes the VIP for itself.

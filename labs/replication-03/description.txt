@@ -1,6 +1,4 @@
+title: MySQL multi-master circular replication
 category: Database Replication
 complexity: Advanced
-objective: Configure MySQL multi-master circular replication across three nodes
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, MySQL installed on all nodes
-estimated_time: 60 minutes
-skills: Multi-master replication, circular replication topology, conflict resolution, server IDs, binlog configuration
+objective: Configure MySQL circular multi-master replication across three nodes.

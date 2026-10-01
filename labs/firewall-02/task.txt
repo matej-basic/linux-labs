@@ -1,0 +1,33 @@
+OBJECTIVE
+  Configure a firewalld rich rule for source-based access control and
+  assign a network interface to the trusted zone.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with firewalld installed. The lab starts the
+    service if it is stopped.
+  - A free Ethernet interface: one that does not carry the default
+    route. The lab picks the first one in name order and writes its
+    name on the first line of /opt/linux-labs/state/firewall-02.
+
+TASKS
+  1. Make sure firewalld is enabled and running.
+  2. In the zone public, add a rich rule that accepts TCP port 443
+     from the IPv4 network 192.168.1.0/24. The rule must exist in the
+     running configuration and in the permanent configuration.
+  3. Assign the free interface named above to the zone trusted. The
+     assignment must be active now and must survive a reload and a
+     reboot.
+
+EXPECTED RESULT
+  The public zone lists the rich rule for 192.168.1.0/24 and port
+  443/tcp, both in the running and in the permanent configuration. The
+  free interface belongs to the zone trusted, both in the running and
+  in the permanent configuration.
+
+NOTES
+  - Do not change the interface that carries the default route and
+    SSH. Moving it out of a zone that allows SSH locks you out.
+  - Reference: man firewall-cmd and man firewalld.richlanguage.
+
+GRADING
+  labctl grade firewall-02

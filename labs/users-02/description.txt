@@ -1,3 +1,4 @@
+title: User accounts, password aging and limits
 category: Users
 complexity: Intermediate
-objective: Manage user accounts with password policies, expiration, resource limits, and restrictions.
+objective: Create contractor accounts with password aging, account expiry and resource limits, and set the system password aging defaults.

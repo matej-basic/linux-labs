@@ -1,0 +1,57 @@
+OBJECTIVE
+  Make the systemd journal persistent across reboots, create a
+  service that fails, and use the journal and systemd-analyze to
+  inspect boots, services and kernel messages.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with root access through sudo.
+  - Persistent journal storage is off at the start of the lab. The
+    journal is kept in memory only and /var/log/journal does not
+    exist.
+
+TASKS
+  1. Enable persistent storage for the systemd journal. The
+     directory /var/log/journal exists, is owned by root and is
+     writable by root only. A journal file must actually be written
+     below it, so the running systemd-journald must be using it.
+  2. Create the unit file /etc/systemd/system/labtest-fail.service
+     with these settings:
+
+       [Unit]
+       Description  Lab Test Fail Service
+
+       [Service]
+       Type         simple
+       ExecStart    /bin/false
+
+       [Install]
+       WantedBy     multi-user.target
+
+  3. Make systemd read the new unit and start labtest-fail.service.
+     The service is expected to fail and must be in the failed
+     state at the end of the lab.
+  4. systemd-journald must be active and running.
+
+EXPECTED RESULT
+  The journal survives a reboot, and labtest-fail.service is listed
+  as failed with its start attempt recorded in the journal.
+
+PRACTICE (not graded)
+  - List the boot sessions that the journal knows about and read
+    the log of the current boot and, after a reboot, of the
+    previous one.
+  - Read only the log of labtest-fail.service, and only messages of
+    priority err and higher.
+  - Show the total boot time, the slowest units at boot and the
+    critical chain of the default target with systemd-analyze.
+  - Show the kernel ring buffer and the kernel messages stored in
+    the journal.
+
+NOTES
+  - The setup of this lab moves an existing /var/log/journal aside
+    to /var/log/journal.labctl-backup, and the reset puts it back.
+  - Reference: man journald.conf, man journalctl, man
+    systemd-analyze and man systemd.service.
+
+GRADING
+  labctl grade logging-03

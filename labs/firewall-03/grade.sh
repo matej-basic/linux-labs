@@ -1,51 +1,63 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# firewall-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+SVC=custom-app
+SVC_FILE=/etc/firewalld/services/custom-app.xml
+FWD="port=8443:proto=tcp:toport=443:toaddr="
+DESC="Sample Custom Application Service"
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin firewall-03
+grade_require_state firewall-03
 
-# Check if masquerading is enabled on internal zone
-firewall-cmd --permanent --zone=internal --query-masquerade 2>/dev/null && \
-  pass "Masquerading is enabled on internal zone" || \
-  { fail "Masquerading not enabled on internal zone"; rc=1; }
+firewalld_up() {
+	systemctl is-enabled --quiet firewalld && systemctl is-active --quiet firewalld
+}
 
-# Check if port forwarding 8443->443 exists on public zone
-firewall-cmd --permanent --zone=public --list-forward-ports 2>/dev/null | grep -q "port=8443:proto=tcp:toport=443" && \
-  pass "Port forwarding 8443->443 is configured on public zone" || \
-  { fail "Port forwarding 8443->443 not found on public zone"; rc=1; }
+# Exact line match in a space-separated list
+has_word() {
+	tr ' ' '\n' | grep -qxF -- "$1"
+}
 
-# Check if custom-app service exists
-[ -f /etc/firewalld/services/custom-app.xml ] && \
-  pass "Custom service definition file exists" || \
-  { fail "Custom service definition file not found"; rc=1; }
+# Forward-port list: one rule per line in some versions, space-separated
+# in others
+forward_ok() {
+	tr ' ' '\n' | grep -qxF -- "$FWD"
+}
+forward_permanent() {
+	firewall-cmd --permanent --zone=public --list-forward-ports | forward_ok
+}
+forward_runtime() {
+	firewall-cmd --zone=public --list-forward-ports | forward_ok
+}
 
-# Check if custom-app service is added to public zone
-firewall-cmd --permanent --zone=public --list-services 2>/dev/null | grep -q "custom-app" && \
-  pass "Custom-app service is added to public zone" || \
-  { fail "Custom-app service not found in public zone"; rc=1; }
+service_ports_ok() {
+	[ "$(firewall-cmd --permanent --service=$SVC --get-ports | tr ' ' '\n' | sort | tr '\n' ' ')" = "9090/tcp 9090/udp " ]
+}
 
-# Check if HTTP service is in public zone
-firewall-cmd --permanent --zone=public --list-services 2>/dev/null | grep -q "http" && \
-  pass "HTTP service is in public zone" || \
-  { fail "HTTP service not found in public zone"; rc=1; }
+service_description_ok() {
+	[ "$(firewall-cmd --permanent --service=$SVC --get-description | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')" = "$DESC" ]
+}
 
-# Verify firewalld is running
-systemctl is-active firewalld &>/dev/null && \
-  pass "Firewalld service is running" || \
-  { fail "Firewalld service is not running"; rc=1; }
+public_has() {
+	firewall-cmd "${@:2}" --zone=public --list-services | has_word "$1"
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+runtime_matches() {
+	firewall-cmd --zone=internal --query-masquerade >/dev/null &&
+		forward_runtime &&
+		public_has $SVC &&
+		public_has http
+}
 
-if [[ $failcount -eq 0 ]]; then
-  pass "Lab completed successfully"
-  exit 0
-else
-  fail "Lab incomplete"
-  exit 1
-fi
-
+criterion "firewalld is enabled and running" firewalld_up
+criterion "Masquerading is enabled in the internal zone" \
+	firewall-cmd --permanent --zone=internal --query-masquerade
+criterion "Public zone forwards TCP port 8443 to port 443" forward_permanent
+criterion "File $SVC_FILE exists" test -f "$SVC_FILE"
+criterion "Service $SVC defines ports 9090/tcp and 9090/udp" service_ports_ok
+criterion "Service $SVC has the required description" service_description_ok
+criterion "Public zone allows the $SVC service" public_has $SVC --permanent
+criterion "Public zone allows the http service" public_has http --permanent
+criterion "The rules are also active in the running firewall" runtime_matches
+grade_end

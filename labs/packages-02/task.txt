@@ -1,0 +1,29 @@
+OBJECTIVE
+  Enable the EPEL (Extra Packages for Enterprise Linux) repository
+  and install the htop package from it.
+
+PREREQUISITES
+  - Internet access to the Rocky Linux and EPEL mirrors.
+  - Supported on Rocky Linux 8 and 9. EPEL is not configured and
+    htop is not installed when the lab starts.
+
+TASKS
+  1. Enable the EPEL repository on this system. Its repository ID
+     must be epel.
+  2. Install the htop package. It must come from the EPEL
+     repository.
+  3. Make sure the htop command is available and runs.
+
+EXPECTED RESULT
+  The epel repository is enabled, the package htop is installed
+  from it, and the htop command runs and prints its version.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Root privileges are needed to change repositories and install
+    packages.
+  - Reference: man dnf and man yum.conf.
+
+GRADING
+  labctl grade packages-02

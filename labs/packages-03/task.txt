@@ -1,0 +1,27 @@
+OBJECTIVE
+  Query the files installed by a package and save the list to a file
+  for inventory and auditing.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with internet access, so that the curl
+    package can be installed if it is missing.
+
+TASKS
+  1. Make sure the curl package is installed.
+  2. Save the list of all files that the installed curl package
+     provides to /tmp/curl-files.txt. The file holds one absolute
+     path per line and nothing else, so it includes /usr/bin/curl.
+     The list must be complete: it matches the package database
+     exactly, in any order.
+
+EXPECTED RESULT
+  /tmp/curl-files.txt is a regular file whose lines are exactly the
+  paths the curl package owns.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man rpm (section Query Options).
+
+GRADING
+  labctl grade packages-03

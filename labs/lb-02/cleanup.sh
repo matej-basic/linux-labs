@@ -1,44 +1,47 @@
 #!/bin/bash
-# lb-02 - Cleanup script
+# lb-02 cleanup: undo setup and the solution on Nodes 1 to 3.
+source /opt/linux-labs/lib/load-config.sh
+set -u
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+# Nothing to undo when multi-node labs are not configured.
+[ "$NODES_ENABLED" = true ] || exit 0
+
+# Runs on every node: removes nginx and httpd with their lab configuration,
+# the firewall openings and the SELinux booleans the solution created.
+reset_script() {
+	cat <<'REMOTE'
+S=
+[ "$(id -u)" -eq 0 ] || S="sudo -n"
+for u in nginx httpd; do
+	$S systemctl disable --now "$u" >/dev/null 2>&1
+done
+for p in nginx httpd; do
+	rpm -q "$p" >/dev/null 2>&1 && $S dnf -y remove "$p" >/dev/null 2>&1
+done
+$S rm -f /etc/nginx/conf.d/lb.conf /etc/nginx/nginx.conf.rpmsave \
+	/etc/httpd/conf/httpd.conf.rpmsave /var/log/nginx/lb_access.log \
+	/var/log/nginx/lb_error.log /var/www/html/index.html /var/www/html/health
+if $S systemctl is-active firewalld >/dev/null 2>&1; then
+	$S firewall-cmd --permanent --remove-port=8080/tcp >/dev/null 2>&1
+	$S firewall-cmd --permanent --remove-service=http >/dev/null 2>&1
+	$S firewall-cmd --reload >/dev/null 2>&1
 fi
-
-# Get node IPs
-NODE1_IP=$(get_node_ip 1)
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
-
-echo "Cleaning up lb-02 lab environment..."
-
-echo "  [1/4] Stopping services..."
-run_on_node "$NODE1_IP" "sudo systemctl stop nginx 2>/dev/null || true" &>/dev/null
-run_on_node "$NODE1_IP" "sudo systemctl disable nginx 2>/dev/null || true" &>/dev/null
-for node_ip in $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo systemctl stop httpd 2>/dev/null || true" &>/dev/null
-    run_on_node "$node_ip" "sudo systemctl disable httpd 2>/dev/null || true" &>/dev/null
+for b in httpd_can_network_connect httpd_can_network_relay; do
+	if getsebool "$b" 2>/dev/null | grep -q ' on$'; then
+		$S setsebool -P "$b" 0
+	fi
 done
+exit 0
+REMOTE
+}
 
-echo "  [2/4] Removing packages..."
-run_on_node "$NODE1_IP" "sudo dnf -y remove nginx &>/dev/null || true"
-for node_ip in $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo dnf -y remove httpd &>/dev/null || true"
+rc=0
+for n in 1 2 3; do
+	[ "$n" -le "$NODE_COUNT" ] || break
+	ip=$(get_node_ip "$n")
+	if ! reset_script | run_on_node "$ip" "bash -s" >/dev/null 2>&1; then
+		echo "lb-02: could not clean up Node $n ($ip)." >&2
+		rc=1
+	fi
 done
-
-echo "  [3/4] Removing configuration files..."
-run_on_node "$NODE1_IP" "sudo rm -f /etc/nginx/conf.d/lb.conf /etc/nginx/conf.d/lb.conf.rpmsave 2>/dev/null || true"
-for node_ip in $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo rm -f /var/www/html/index.html /var/www/html/health /etc/httpd/conf/httpd.conf.rpmsave 2>/dev/null || true"
-done
-
-echo "  [4/4] Reverting firewall rules..."
-for node_ip in $NODE1_IP $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo firewall-cmd --permanent --remove-port=8080/tcp &>/dev/null || true"
-    run_on_node "$node_ip" "sudo firewall-cmd --permanent --remove-service=http &>/dev/null || true"
-    run_on_node "$node_ip" "sudo firewall-cmd --reload &>/dev/null || true"
-done
-
-echo "Cleanup complete."
+exit "$rc"

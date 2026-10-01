@@ -1,85 +1,74 @@
 #!/bin/bash
+# storage-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-source /opt/linux-labs/lib/colors.sh
+IMG=/tmp/lvm.img
+VG=datavg
+LV=vol0
+MNT=/mnt/lvm
 
-passcount=0
-failcount=0
+grade_begin storage-02
+grade_require_state storage-02
 
-ok()   { pass "$*"; ((++passcount)); }
-err()  { fail "$*"; ((++failcount)); }
+img_loops() {
+	losetup -j "$IMG" -O NAME -n 2>/dev/null
+}
 
-# Check /tmp/lvm.img exists
-if [[ -f /tmp/lvm.img ]]; then
-    ok "/tmp/lvm.img exists"
-else
-    err "/tmp/lvm.img exists"
-fi
+image_size_ok() {
+	local size
+	[ -f "$IMG" ] && [ ! -L "$IMG" ] || return 1
+	size=$(stat -c %s "$IMG")
+	[ "$size" -ge 100000000 ] && [ "$size" -le 104857600 ]
+}
 
-# Check PV exists
-if pvs 2>/dev/null | grep -q "loop"; then
-    ok "Physical Volume exists"
-else
-    err "Physical Volume exists"
-fi
+loop_attached() {
+	[ -n "$(img_loops)" ]
+}
 
-# Check VG datavg exists
-if vgs datavg 2>/dev/null | grep -q "datavg"; then
-    ok "Volume Group 'datavg' exists"
-else
-    err "Volume Group 'datavg' exists"
-fi
+pv_on_loop() {
+	local d
+	for d in $(img_loops); do
+		pvs --noheadings "$d" >/dev/null 2>&1 && return 0
+	done
+	return 1
+}
 
-# Check LV vol0 exists
-if lvs /dev/datavg/vol0 2>/dev/null | grep -q "vol0"; then
-    ok "Logical Volume 'vol0' exists"
-else
-    err "Logical Volume 'vol0' exists"
-fi
+pv_in_vg() {
+	local d
+	for d in $(img_loops); do
+		[ "$(pvs --noheadings -o vg_name "$d" 2>/dev/null | tr -d ' ')" = "$VG" ] && return 0
+	done
+	return 1
+}
 
-# Check LV size
-SIZE=$(lvs /dev/datavg/vol0 2>/dev/null | tail -1 | awk '{print $4}')
-if lvs /dev/datavg/vol0 2>/dev/null | tail -1 | awk '{print $4}' | grep -qE "80.0|8[0-9]|9[0-9]"; then
-    ok "LV size at least 80MB (${SIZE})"
-else
-    err "LV size at least 80MB (got ${SIZE})"
-fi
+lv_size_ok() {
+	local size
+	size=$(lvs --noheadings --nosuffix --units b -o lv_size "$VG/$LV" 2>/dev/null | tr -d ' ')
+	[ -n "$size" ] && [ "$size" -ge 80000000 ]
+}
 
-# Check /mnt/lvm exists
-if [[ -d /mnt/lvm ]]; then
-    ok "/mnt/lvm mount point exists"
-else
-    err "/mnt/lvm mount point exists"
-fi
+lv_is_ext4() {
+	[ "$(blkid -p -o value -s TYPE "/dev/$VG/$LV" 2>/dev/null)" = ext4 ]
+}
 
-# Check /mnt/lvm mounted
-if mountpoint -q /mnt/lvm; then
-    ok "/mnt/lvm is mounted"
-else
-    err "/mnt/lvm is mounted"
-fi
+lv_mounted() {
+	local src
+	src=$(findmnt -rn -M "$MNT" -o SOURCE 2>/dev/null | tail -n 1)
+	[ -n "$src" ] && [ "$(readlink -f "$src")" = "$(readlink -f "/dev/$VG/$LV")" ]
+}
 
-# Check filesystem type
-FSTYPE=$(df -hPT /mnt/lvm 2>/dev/null | tail -1 | awk '{print $2}')
-if [[ "$FSTYPE" == "ext4" ]]; then
-    ok "filesystem type ext4"
-else
-    err "filesystem type ext4 (got ${FSTYPE})"
-fi
+mount_mode_755() {
+	lv_mounted && [ "$(stat -c %a "$MNT" 2>/dev/null)" = 755 ]
+}
 
-# Check LV mounted correctly
-if mount | grep -q "/dev/mapper/datavg-vol0.*on /mnt/lvm"; then
-    ok "/dev/datavg/vol0 mounted at /mnt/lvm"
-else
-    err "/dev/datavg/vol0 mounted at /mnt/lvm"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+criterion "File $IMG is a 100 MB disk image" image_size_ok
+criterion "$IMG is attached to a loop device" loop_attached
+criterion "The loop device is an LVM physical volume" pv_on_loop
+criterion "Volume group $VG contains that physical volume" pv_in_vg
+criterion "Logical volume $LV exists in $VG" lvs "$VG/$LV"
+criterion "Logical volume $LV is at least 80 MB" lv_size_ok
+criterion "Logical volume $LV holds an ext4 file system" lv_is_ext4
+criterion "Directory $MNT exists" test -d "$MNT"
+criterion "Logical volume $LV is mounted on $MNT" lv_mounted
+criterion "Mounted file system root $MNT has mode 755" mount_mode_755
+grade_end

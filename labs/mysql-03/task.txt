@@ -1,0 +1,34 @@
+OBJECTIVE
+  Back up a MySQL database to an SQL file and restore it into a new
+  database to verify data integrity.
+
+PREREQUISITES
+  - Supported on Rocky Linux 8 and 9 (MySQL 8.0 from the AppStream
+    repository, package mysql-server, service mysqld).
+  - Starting the lab installs mysql-server if it is missing, starts
+    mysqld, sets the password of the MySQL user root@localhost to
+    labpassword and creates the database labdb.
+  - labdb holds two tables: users (5 rows) and products (3 rows).
+
+TASKS
+  1. Create a logical backup of the database labdb in the file
+     /tmp/labdb_backup.sql. The file is plain SQL and contains the
+     definitions and the rows of both tables of labdb.
+  2. Create a new, empty database named labdb_restore.
+  3. Load the backup file into labdb_restore. Afterwards labdb_restore
+     has the tables users and products with exactly the same rows as
+     labdb.
+  4. Leave the database labdb unchanged.
+
+EXPECTED RESULT
+  /tmp/labdb_backup.sql is a valid dump of labdb, and labdb_restore is
+  a complete copy of labdb restored from that dump.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Log in to MySQL as root with the password labpassword.
+  - Reference: man mysqldump and man mysql.
+
+GRADING
+  labctl grade mysql-03

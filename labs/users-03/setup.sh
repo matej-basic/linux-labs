@@ -1,64 +1,55 @@
 #!/bin/bash
+# users-03 setup: removes leftovers of a previous run of this lab and
+# refuses to start if the accounts, IDs or directories the lab needs are
+# already in use by something else. Prints nothing on success.
+set -eu
 
-# Reset lab state
-userdel -r bob >/dev/null 2>&1
-userdel -r charlie >/dev/null 2>&1
-groupdel devops >/dev/null 2>&1
-groupdel analytics >/dev/null 2>&1
-rm -rf /srv/shared /home/bob /home/charlie
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/users-03"
 
-# Print task description
-cat <<'EOF'
+if ! command -v setfacl >/dev/null 2>&1 || ! command -v getfacl >/dev/null 2>&1; then
+	dnf -y -q install acl >/dev/null 2>&1 || {
+		echo "setup: the acl package is required and could not be installed" >&2
+		exit 1
+	}
+fi
 
-====================================================
-LAB: Advanced Users and Groups (users-02)
-====================================================
+remove_lab_objects() {
+	userdel -r bob >/dev/null 2>&1 || true
+	userdel -r charlie >/dev/null 2>&1 || true
+	groupdel devops >/dev/null 2>&1 || true
+	groupdel analytics >/dev/null 2>&1 || true
+	rm -rf /srv/shared
+}
 
-OBJECTIVE:
-Create users, groups, and shared directories with ACLs and
-permissions that enforce access control for different roles.
+if [ -e "$STATE_FILE" ]; then
+	# Previous run of this lab (possibly half solved): start over
+	remove_lab_objects
+else
+	# Fresh start: nothing may exist that the lab would destroy
+	busy=""
+	for u in bob charlie; do
+		getent passwd "$u" >/dev/null && busy="$busy user:$u"
+	done
+	for g in devops analytics; do
+		getent group "$g" >/dev/null && busy="$busy group:$g"
+	done
+	for n in 1010 1011; do
+		getent passwd "$n" >/dev/null && busy="$busy uid:$n"
+	done
+	for n in 2000 2001; do
+		getent group "$n" >/dev/null && busy="$busy gid:$n"
+	done
+	[ -e /srv/shared ] && busy="$busy /srv/shared"
+	[ -e /home/bob ] && busy="$busy /home/bob"
+	[ -e /home/charlie ] && busy="$busy /home/charlie"
+	if [ -n "$busy" ]; then
+		echo "setup: already in use on this system:$busy" >&2
+		echo "setup: remove them first; the lab will not delete data it did not create" >&2
+		exit 1
+	fi
+fi
 
-TASKS:
-
-1. Create groups:
-   - devops (GID 2000)
-   - analytics (GID 2001)
-
-2. Create user bob:
-   - UID: 1010
-   - Primary group: devops
-   - Supplementary groups: wheel, analytics
-   - Home: /home/bob (mode 750, owned bob:devops)
-   - Shell: /bin/bash
-
-3. Create user charlie:
-   - UID: 1011
-   - Primary group: analytics
-   - Supplementary group: wheel
-   - Home: /home/charlie (mode 750, owned charlie:analytics)
-   - Shell: /bin/bash
-   - Account expiration: 2099-12-31 (far future for grading)
-
-4. Create shared directory: /srv/shared
-   - Owner/group: root:devops
-   - Permissions: 750
-   - Apply default ACL so new files inherit group devops with rw-
-     Example: setfacl -d -m g:devops:rwx /srv/shared
-
-5. Set up sub-directory: /srv/shared/analytics
-   - Owner/group: root:analytics
-   - Permissions: 750
-   - ACL so charlie (analytics member) can read/write
-     Example: setfacl -m u:charlie:rwx /srv/shared/analytics
-
-NOTES:
-- Use getent, id, chage, getfacl to verify settings.
-- Passwords are not graded.
-- Focus on UIDs, GIDs, group membership, ACLs, and expiration.
-
-When ready, run:
-  sudo labctl grade users-02
-
-====================================================
-
-EOF
+mkdir -p "$STATE_DIR"
+echo "users-03" > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

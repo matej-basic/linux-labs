@@ -1,36 +1,43 @@
-# Web Server 01 Solution
+# webserver-01: Install and run Apache HTTP Server
 
-Install and start Apache HTTP Server.
+## Solution
 
-## Commands to reach the expected state:
+1. [sudo] Install the Apache HTTP Server package:
+
+   ```bash
+   sudo dnf -y install httpd
+   ```
+
+2. [sudo] Start the service and enable it at boot:
+
+   ```bash
+   sudo systemctl enable --now httpd
+   ```
+
+3. [user] Check that Apache answers on port 80:
+
+   ```bash
+   curl -sI http://localhost
+   ```
+
+## Verification
 
 ```bash
-# Install Apache HTTP Server
-sudo yum install -y httpd
-
-# Start the Apache service
-sudo systemctl start httpd
-
-# Enable Apache to start on boot
-sudo systemctl enable httpd
-```
-
-## Verify:
-
-```bash
-# Check if httpd is installed
 rpm -q httpd
-
-# Check if httpd is running
-sudo systemctl status httpd
-
-# Check if port 80 is listening
-sudo ss -tlnp | grep :80
-
-# Test connectivity
-curl http://localhost
-
-# Run the grading script
-sudo labctl grade webserver-01
+systemctl is-active httpd
+sudo ss -tlnp 'sport = :80'
+labctl grade webserver-01
 ```
 
+## Explanation
+
+The httpd package ships a unit file that listens on port 80 by
+default, so no configuration change is needed. The command enable
+--now both starts the service and creates the boot-time link, which
+covers two criteria in one step.
+
+On a fresh install without content, Apache serves its test page, and
+depending on the release the status code can be 403 rather than 200.
+That is still a valid answer from Apache, so the grader accepts any
+HTTP status. The firewall stays closed to other hosts, which does not
+affect requests to localhost.

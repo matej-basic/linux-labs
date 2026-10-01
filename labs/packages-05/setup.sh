@@ -1,40 +1,23 @@
 #!/bin/bash
-# Package Management Lab 05: Build and Install from Source (Advanced)
+# packages-05 setup: no joe on the system, neither the RPM nor a source
+# install left by an earlier attempt. Prints nothing on success.
+set -eu
 
-# The joe RPM would collide with the source install, so make sure it is gone.
-# A previous source install is left alone: the student may be redoing the lab.
-rpm -q joe &>/dev/null && dnf -y remove joe &>/dev/null
+# The joe RPM would collide with the source install
+if rpm -q joe &>/dev/null; then
+	dnf -y remove joe &>/dev/null || {
+		echo "Error: could not remove the joe package" >&2
+		exit 1
+	}
+fi
 
-cat <<'TXT'
-====================================================
-LAB: Packages 05 - Build and Install from Source
-====================================================
+# Source install, source tree and tarball of an earlier attempt.
+# cleanup.sh never touches files owned by an RPM package.
+"$(dirname "$0")/cleanup.sh"
 
-OBJECTIVE
-Install the joe text editor, version 4.6, from its source
-code instead of from a package. A C compiler and the usual
-build tools are needed to do this, and they are not
-guaranteed to be installed on this system.
-
-The source tarball is joe-4.6.tar.gz, available from:
-  https://sourceforge.net/projects/joe-editor/files/JOE%20sources/joe-4.6/joe-4.6.tar.gz/download
-(use curl -L, the link redirects to a mirror)
-
-REQUIREMENTS
-1) Download the tarball and unpack it with tar into a
-   separate directory of your own.
-2) Read the output of ./configure --help. Find out which
-   installation prefix is used by default.
-3) Configure the build so that joe is installed under /usr
-   and its configuration files under /etc.
-4) Compile and install joe.
-5) Verify where joe was installed and that it runs.
-
-QUESTIONS (not graded)
-- What do the x, v and f options mean in: tar xvf ?
-- What is the default installation prefix?
-
-Run grading when done:
-  sudo labctl grade packages-05
-====================================================
-TXT
+# Fail if a joe binary is still there (for example owned by a package
+# that is not called joe)
+if [ -e /usr/bin/joe ] || [ -e /usr/local/bin/joe ]; then
+	echo "Error: a joe binary is still installed and could not be removed" >&2
+	exit 1
+fi

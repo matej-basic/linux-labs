@@ -1,177 +1,111 @@
 #!/bin/bash
-# clustering-02 - STONITH Fencing and Failover Grading Script
+# clustering-02 grader
+source /opt/linux-labs/lib/grading.sh
+source /opt/linux-labs/lib/load-config.sh
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+STATE_FILE=/opt/linux-labs/state/clustering-02
 
-PASS_COUNT=0
-FAIL_COUNT=0
+grade_begin clustering-02
+grade_require_state clustering-02 "$STATE_FILE"
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+load_lab_config
+[ "$NODES_ENABLED" = "true" ] || grade_abort "Multi-node labs are enabled in the configuration"
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null || grade_abort "The configuration has at least 3 nodes"
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    fail "Lab requires at least 3 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
-
-# Get node IPs
 NODE1_IP=$(get_node_ip 1)
 NODE2_IP=$(get_node_ip 2)
 NODE3_IP=$(get_node_ip 3)
 
-echo "Cluster Node 1: $NODE1_IP"
-echo "Cluster Node 2: $NODE2_IP"
-echo "Cluster Node 3: $NODE3_IP"
-echo ""
+# Run a command on node 1, where the cluster is queried
+n1() {
+	run_on_node "$NODE1_IP" "$1"
+}
 
-# Check 1: Cluster is running
-echo -n "1. Checking cluster is running... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active pacemaker > /dev/null 2>&1"; then
-    pass "Cluster is running"
-    ((PASS_COUNT++))
-else
-    fail "Cluster not running"
-    ((FAIL_COUNT++))
-fi
+# Succeeds if the CIB on node 1 matches the XPath expression
+cib_has() {
+	n1 "sudo cibadmin -Q --xpath \"$1\""
+}
 
-# Check 2: Fence agents installed
-echo -n "2. Checking fence agents installed... "
-if run_on_node "$NODE1_IP" "test \$(ls /usr/sbin/fence_* 2>/dev/null | wc -l) -gt 0"; then
-    pass "Fence agent installed"
-    ((PASS_COUNT++))
-else
-    fail "Fence agent not found"
-    ((FAIL_COUNT++))
-fi
+# Print the crm_mon XML status of the cluster
+cluster_xml() {
+	n1 "sudo crm_mon -1 --output-as=xml --include=all 2>/dev/null || sudo crm_mon -1 --output-as=xml 2>/dev/null || sudo crm_mon -1 -X 2>/dev/null"
+}
 
-# Check 3: STONITH resource configured
-echo -n "3. Checking STONITH resource configuration... "
-stonith_check=$(run_on_node "$NODE1_IP" "sudo pcs stonith config 2>/dev/null | grep -i stonith || echo ''" || echo "")
-if [[ -n "$stonith_check" ]]; then
-    pass "STONITH resource configured"
-    ((PASS_COUNT++))
-else
-    fail "STONITH resource not configured"
-    ((FAIL_COUNT++))
-fi
+agent_installed() {
+	run_on_node "$1" "test -x /usr/sbin/fence_virsh"
+}
 
-# Check 4: STONITH is enabled in cluster
-echo -n "4. Checking STONITH is enabled... "
-stonith_enabled=$(run_on_node "$NODE1_IP" "sudo pcs property config 2>/dev/null | grep -i 'stonith-enabled' || echo 'true'" || echo "")
-if [[ "$stonith_enabled" != *"false"* ]]; then
-    pass "STONITH is enabled in cluster"
-    ((PASS_COUNT++))
-else
-    fail "STONITH is disabled"
-    ((FAIL_COUNT++))
-fi
+device_uses_agent() {
+	cib_has "//primitive[@id='$1' and @class='stonith' and @type='fence_virsh']"
+}
 
-# Check 5: STONITH device for Node 1 exists
-echo -n "5. Checking STONITH device for Node 1... "
-device1=$(run_on_node "$NODE1_IP" "sudo pcs stonith config 2>/dev/null | grep -E 'stonith-node1' | head -1 || echo ''" || echo "")
-if [[ -n "$device1" ]]; then
-    pass "STONITH device configured for Node 1"
-    ((PASS_COUNT++))
-else
-    fail "STONITH device not configured for Node 1"
-    ((FAIL_COUNT++))
-fi
+# device_restricted <device> <node ip>: the host list is the node's name
+device_restricted() {
+	local name
+	name=$(run_on_node "$2" "sudo crm_node -n") || return 1
+	name=$(printf '%s' "$name" | tr -d '[:space:]')
+	[ -n "$name" ] || return 1
+	cib_has "//primitive[@id='$1']//nvpair[@name='pcmk_host_list' and @value='$name']"
+}
 
-# Check 6: STONITH device for Node 2 exists
-echo -n "6. Checking STONITH device for Node 2... "
-device2=$(run_on_node "$NODE1_IP" "sudo pcs stonith config 2>/dev/null | grep -E 'stonith-node2' | head -1 || echo ''" || echo "")
-if [[ -n "$device2" ]]; then
-    pass "STONITH device configured for Node 2"
-    ((PASS_COUNT++))
-else
-    fail "STONITH device not configured for Node 2"
-    ((FAIL_COUNT++))
-fi
+fencing_enabled() {
+	local v
+	v=$(n1 "sudo cibadmin -Q >/dev/null 2>&1 && { sudo crm_attribute --type crm_config --name stonith-enabled --query --quiet 2>/dev/null || echo default; }") || return 1
+	v=$(printf '%s' "$v" | tr -d '[:space:]')
+	case "$v" in
+		"") return 1 ;;
+		false|no|off|0) return 1 ;;
+	esac
+	return 0
+}
 
-# Check 7: STONITH device for Node 3 exists
-echo -n "7. Checking STONITH device for Node 3... "
-device3=$(run_on_node "$NODE1_IP" "sudo pcs stonith config 2>/dev/null | grep -E 'stonith-node3' | head -1 || echo ''" || echo "")
-if [[ -n "$device3" ]]; then
-    pass "STONITH device configured for Node 3"
-    ((PASS_COUNT++))
-else
-    fail "STONITH device not configured for Node 3"
-    ((FAIL_COUNT++))
-fi
+has_quorum() {
+	n1 "sudo corosync-quorumtool -s"
+}
 
-# Check 8: All cluster nodes are online
-echo -n "8. Checking all nodes online... "
-online_nodes=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -c 'Online:' || echo 0")
-if [[ "$online_nodes" -ge 1 ]]; then
-    pass "All cluster nodes are online"
-    ((PASS_COUNT++))
-else
-    fail "Cluster nodes offline"
-    ((FAIL_COUNT++))
-fi
+all_nodes_online() {
+	local x
+	x=$(cluster_xml) || return 1
+	[ "$(printf '%s\n' "$x" | grep -c '<node .*online="true"')" -ge 3 ] || return 1
+	! printf '%s\n' "$x" | grep -q '<node .*online="false"'
+}
 
-# Check 9: Cluster has quorum
-echo -n "9. Checking cluster quorum... "
-quorum=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -i 'partition with quorum' || echo ''" || echo "")
-if [[ -n "$quorum" ]]; then
-    pass "Cluster has quorum"
-    ((PASS_COUNT++))
-else
-    fail "Cluster lost quorum"
-    ((FAIL_COUNT++))
-fi
+apache_started() {
+	local line
+	line=$(cluster_xml | grep '<resource id="apache_web"' | head -n 1)
+	case "$line" in
+		*'role="Started"'*) ;;
+		*) return 1 ;;
+	esac
+	case "$line" in
+		*'active="true"'*) ;;
+		*) return 1 ;;
+	esac
+	case "$line" in
+		*'failed="false"'*) return 0 ;;
+	esac
+	return 1
+}
 
-# Check 10: STONITH device test (test connectivity)
-echo -n "10. Testing STONITH device connectivity... "
-fence_test=$(run_on_node "$NODE1_IP" "sudo pcs stonith config 2>/dev/null | grep -c 'Resource:' || echo 0")
-if [[ "$fence_test" -ge 3 ]]; then
-    pass "STONITH devices operational"
-    ((PASS_COUNT++))
-else
-    fail "STONITH device status unclear"
-    ((FAIL_COUNT++))
-fi
+no_failed_actions() {
+	local x
+	x=$(cluster_xml) || return 1
+	[ -n "$x" ] || return 1
+	! printf '%s\n' "$x" | grep '<failure ' | grep -qv 'op_key="stonith-node[123]_'
+}
 
-# Check 11: Verify resource is still running
-echo -n "11. Checking managed resource status... "
-resource=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -i 'apache' || echo ''" || echo "")
-if [[ -n "$resource" ]]; then
-    pass "Managed resource is running"
-    ((PASS_COUNT++))
-else
-    fail "Managed resource not running"
-    ((FAIL_COUNT++))
-fi
-
-# Check 12: Cluster shows no failed non-STONITH resources
-echo -n "12. Checking for failed cluster resources... "
-failed=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -E '^\s+\* .*error|^\s+\* .*FAILED' | grep -vi 'stonith' || echo ''" || echo "")
-if [[ -z "$failed" ]]; then
-    pass "No failed cluster resources detected"
-    ((PASS_COUNT++))
-else
-    fail "Failed cluster resources detected"
-    ((FAIL_COUNT++))
-fi
-
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
-
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+criterion "fence_virsh is installed on node 1 ($NODE1_IP)" agent_installed "$NODE1_IP"
+criterion "fence_virsh is installed on node 2 ($NODE2_IP)" agent_installed "$NODE2_IP"
+criterion "fence_virsh is installed on node 3 ($NODE3_IP)" agent_installed "$NODE3_IP"
+criterion "Fence device stonith-node1 uses fence_virsh" device_uses_agent stonith-node1
+criterion "Fence device stonith-node2 uses fence_virsh" device_uses_agent stonith-node2
+criterion "Fence device stonith-node3 uses fence_virsh" device_uses_agent stonith-node3
+criterion "Device stonith-node1 is restricted to node 1" device_restricted stonith-node1 "$NODE1_IP"
+criterion "Device stonith-node2 is restricted to node 2" device_restricted stonith-node2 "$NODE2_IP"
+criterion "Device stonith-node3 is restricted to node 3" device_restricted stonith-node3 "$NODE3_IP"
+criterion "Fencing is enabled in the cluster properties" fencing_enabled
+criterion "The cluster has quorum" has_quorum
+criterion "All three nodes are online" all_nodes_online
+criterion "Resource apache_web is started" apache_started
+criterion "No failed actions except for the fence devices" no_failed_actions
+grade_end

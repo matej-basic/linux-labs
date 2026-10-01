@@ -1,62 +1,76 @@
-# Packages 05 Solution
+# packages-05: Build joe from source with a custom prefix
 
-Build joe 4.6 from source and install it under /usr, with configuration files in /etc.
+## Solution
 
-Install the compiler and build tools (gcc and make are enough for joe 4.6;
-`sudo dnf groupinstall "Development Tools"` also works but installs much more):
+1. [sudo] Install the compiler and build tools. gcc and make are enough
+   for joe 4.6:
+
+   ```bash
+   sudo dnf -y install gcc make
+   ```
+
+2. [user] Download the tarball. The SourceForge link redirects to a
+   mirror, so curl needs -L:
+
+   ```bash
+   curl -L -o joe-4.6.tar.gz "https://sourceforge.net/projects/joe-editor/files/JOE%20sources/joe-4.6/joe-4.6.tar.gz/download"
+   ```
+
+3. [user] Unpack it in a separate directory:
+
+   ```bash
+   mkdir -p ~/src
+   tar xvf joe-4.6.tar.gz -C ~/src
+   cd ~/src/joe-4.6
+   ```
+
+4. [user] Read the configure options. The default prefix is /usr/local.
+   Then configure and compile:
+
+   ```bash
+   ./configure --help | less
+   ./configure --prefix=/usr --sysconfdir=/etc
+   make
+   ```
+
+5. [sudo] Install:
+
+   ```bash
+   sudo make install
+   ```
+
+6. [user] Check where joe went and that it runs:
+
+   ```bash
+   command -v joe
+   ls -l /usr/bin/joe
+   ls /etc/joe
+   rpm -qf /usr/bin/joe
+   joe /tmp/test.txt
+   ```
+
+   rpm reports that the file is not owned by any package. In joe,
+   Ctrl+C exits an unmodified file and Ctrl+K X saves and exits.
+
+## Verification
 
 ```bash
-sudo dnf -y install gcc make
+labctl grade packages-05
 ```
 
-Download the tarball (the SourceForge link redirects to a mirror, so curl needs -L):
+## Explanation
 
-```bash
-curl -L -o joe-4.6.tar.gz "https://sourceforge.net/projects/joe-editor/files/JOE%20sources/joe-4.6/joe-4.6.tar.gz/download"
-```
+In tar xvf, x extracts, v lists each file as it is processed and f says
+the next argument is the archive. tar detects the gzip compression by
+itself.
 
-Unpack it in a separate directory:
+The help of configure shows `--prefix=PREFIX` with the default
+/usr/local. Without `--prefix=/usr` the binary lands in /usr/local/bin,
+which the grader rejects. The sysconfdir defaults to PREFIX/etc, so
+without `--sysconfdir=/etc` the configuration files go to
+/usr/local/etc/joe, or to /usr/etc/joe with `--prefix=/usr` alone.
 
-```bash
-mkdir ~/src
-tar xvf joe-4.6.tar.gz -C ~/src
-cd ~/src/joe-4.6
-```
-
-In `tar xvf`: x extracts, v lists each file as it is processed (verbose),
-f says the next argument is the archive file. tar detects the gzip
-compression by itself.
-
-Read the configure options. The default prefix is /usr/local
-(the help says `--prefix=PREFIX  install architecture-independent files in PREFIX [/usr/local]`):
-
-```bash
-./configure --help | less
-```
-
-Configure, compile, install (installing needs root, compiling does not):
-
-```bash
-./configure --prefix=/usr --sysconfdir=/etc
-make
-sudo make install
-```
-
-Without `--sysconfdir=/etc` the configuration files would go to
-/usr/local/etc/joe (sysconfdir defaults to PREFIX/etc), and without
-`--prefix=/usr` the binary would land in /usr/local/bin.
-
-Verify:
-
-```bash
-which joe
-ls -l /usr/bin/joe
-ls /etc/joe
-rpm -qf /usr/bin/joe      # "not owned by any package": it was not installed from an RPM
-joe /tmp/test.txt         # Ctrl+C exits an unmodified file, Ctrl+K X saves and exits
-```
-
-Grade:
-```bash
-sudo labctl grade packages-05
-```
+Compiling needs no privileges, only make install writes outside the
+home directory. A file installed by make has no RPM owner, which is what
+`rpm -qf` shows. The unpacked source stays in ~/src until labctl reset
+removes it.

@@ -1,0 +1,57 @@
+OBJECTIVE
+  Serve the zone labsecure.com from BIND, sign it with DNSSEC using a
+  key signing key and a zone signing key, and allow zone transfers
+  only from the loopback addresses.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with internet access and sudo rights.
+  - On Rocky 9 the signing tools may come in a separate package,
+    bind-dnssec-utils. Install it if the tools are missing.
+
+TASKS
+  1. Install the packages bind and bind-utils.
+  2. Create the zone labsecure.com on this server with these records:
+
+       ns1.labsecure.com   A   192.168.1.5
+       web.labsecure.com   A   192.168.1.10
+       api.labsecure.com   A   192.168.1.15
+
+     The zone has a valid SOA record and the NS record ns1. The
+     name server named serves the zone as the primary (master).
+  3. Generate a key signing key (KSK) and a zone signing key (ZSK)
+     for labsecure.com. Both use a SHA-2 or newer algorithm, such
+     as RSASHA256. SHA-1 based algorithms are not accepted.
+  4. Sign the zone and serve the signed data. The zone publishes
+     the DNSKEY records of both keys and the answers carry RRSIG
+     records.
+  5. Allow zone transfers (AXFR) of labsecure.com from the loopback
+     addresses only. Other addresses of this host are refused. A
+     transfer from 127.0.0.1 returns the signed zone with its RRSIG
+     records.
+  6. Start the named service and enable it at boot.
+
+EXPECTED RESULT
+  A query to 127.0.0.1 for web.labsecure.com returns 192.168.1.10
+  with an RRSIG record when DNSSEC data is requested. The DNSKEY
+  set holds one KSK (flag 257) and one ZSK (flag 256).
+
+PRACTICE (not graded)
+  - Keep the zone files and the keys in /var/named. Only the data
+    served by named is graded, not the file locations.
+  - Confirm that the packaged named configuration still has DNSSEC
+    validation enabled, and that a recursive query for a signed
+    public domain returns the ad flag.
+  - Write the zone stanza that a second server would need to
+    replicate labsecure.com from this one. It cannot be tested on a
+    single machine.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - The checks query named on 127.0.0.1 with dig, so the zone must
+    be loaded and answering.
+  - Reference: man dnssec-keygen, man dnssec-signzone and
+    man named.conf.
+
+GRADING
+  labctl grade dns-03

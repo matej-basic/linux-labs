@@ -1,70 +1,71 @@
-# PostgreSQL 02 Solution
+# postgres-02: PostgreSQL database and role management
 
-Create a PostgreSQL database and role with appropriate privileges.
+## Solution
 
-## Commands to reach the expected state:
+1. [sudo] Switch the localhost TCP rules in pg_hba.conf from ident to
+   password authentication and reload the server:
+
+   ```bash
+   sudo sed -i -E \
+     's/(127\.0\.0\.1\/32|::1\/128)(\s+)ident/\1\2md5/' \
+     /var/lib/pgsql/data/pg_hba.conf
+   sudo grep '^host' /var/lib/pgsql/data/pg_hba.conf
+   sudo systemctl reload postgresql
+   ```
+
+2. [sudo] Create the role and the database, and allow the role to
+   connect:
+
+   ```bash
+   sudo -iu postgres psql \
+     -c "CREATE ROLE labuser WITH LOGIN PASSWORD 'userpass123';" \
+     -c "CREATE DATABASE labdb;" \
+     -c "GRANT CONNECT ON DATABASE labdb TO labuser;"
+   ```
+
+3. [sudo] In labdb, grant schema access, create the table, grant
+   table privileges and insert two rows:
+
+   ```bash
+   sudo -iu postgres psql -d labdb \
+     -c "GRANT USAGE ON SCHEMA public TO labuser;" \
+     -c "CREATE TABLE users (id SERIAL PRIMARY KEY, name TEXT NOT NULL,
+     email TEXT NOT NULL);" \
+     -c "GRANT SELECT, INSERT, UPDATE, DELETE ON users TO labuser;" \
+     -c "GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO labuser;" \
+     -c "INSERT INTO users (name, email)
+     VALUES ('John', 'a@example.com'), ('Jane', 'b@example.com');"
+   ```
+
+4. [user] Connect as labuser over TCP:
+
+   ```bash
+   PGPASSWORD=userpass123 psql -h 127.0.0.1 -U labuser -d labdb \
+     -c 'SELECT * FROM users;'
+   ```
+
+## Verification
 
 ```bash
-# Configure PostgreSQL to allow password authentication
-sudo sed -i 's/^host.*all.*all.*127.0.0.1\/32.*ident$/host    all             all             127.0.0.1\/32            md5/' /var/lib/pgsql/data/pg_hba.conf
-sudo sed -i 's/^host.*all.*all.*::1\/128.*ident$/host    all             all             ::1\/128                 md5/' /var/lib/pgsql/data/pg_hba.conf
-
-# Restart PostgreSQL to apply changes
-sudo systemctl restart postgresql
-
-# Create the role
-cd /tmp && sudo -u postgres psql -c "CREATE ROLE labuser WITH LOGIN PASSWORD 'userpass123';"
-
-# Create the database
-cd /tmp && sudo -u postgres psql -c "CREATE DATABASE labdb OWNER postgres;"
-
-# Grant CONNECT privilege on database
-cd /tmp && sudo -u postgres psql -c "GRANT CONNECT ON DATABASE labdb TO labuser;"
-
-# Grant USAGE on public schema
-cd /tmp && sudo -u postgres psql -d labdb -c "GRANT USAGE ON SCHEMA public TO labuser;"
-
-# Create the users table
-cd /tmp && sudo -u postgres psql -d labdb -c "
-CREATE TABLE users (
-    id SERIAL PRIMARY KEY,
-    name VARCHAR(100) NOT NULL,
-    email VARCHAR(100) NOT NULL
-);
-"
-
-# Grant privileges on the table
-cd /tmp && sudo -u postgres psql -d labdb -c "GRANT SELECT, INSERT, UPDATE, DELETE ON users TO labuser;"
-cd /tmp && sudo -u postgres psql -d labdb -c "GRANT USAGE, SELECT ON SEQUENCE users_id_seq TO labuser;"
-
-# Insert sample records
-cd /tmp && sudo -u postgres psql -d labdb -c "
-INSERT INTO users (name, email) VALUES 
-('John Doe', 'john@example.com'),
-('Jane Smith', 'jane@example.com');
-"
+sudo -iu postgres psql -d labdb -c '\dp users'
+sudo -iu postgres psql -c '\du labuser'
+labctl grade postgres-02
 ```
 
-## Verify:
+## Explanation
 
-```bash
-# Check if database exists
-cd /tmp && sudo -u postgres psql -l | grep labdb
+On Rocky Linux the default pg_hba.conf lets 127.0.0.1 and ::1 connect
+with the ident method, which asks the operating system for the client
+user name and ignores passwords. Changing the method to md5 makes the
+server ask for the password. The change takes effect on a reload, a
+restart is not needed. Both the IPv4 and the IPv6 line are changed
+because the name localhost can resolve to either.
 
-# Check if role exists
-cd /tmp && sudo -u postgres psql -c "\du" | grep labuser
+A role that is created with LOGIN and without SUPERUSER, CREATEDB or
+CREATEROLE has no administrative privileges. CONNECT on the database,
+USAGE on the schema and the four table privileges are separate grants.
+The sequence grant is not graded, but without it labuser cannot insert
+rows into a table whose id column is SERIAL.
 
-# Check privileges on database
-cd /tmp && sudo -u postgres psql -c "\l" | grep labdb
-
-# Connect as labuser and verify access
-export PGPASSWORD=userpass123
-psql -U labuser -d labdb -h localhost -c "SELECT * FROM users;"
-
-# Check table privileges
-cd /tmp && sudo -u postgres psql -d labdb -c "\dp users"
-
-# Run the grading script
-sudo labctl grade postgres-02
-```
-
+The grader also checks that a wrong password is rejected, so a
+pg_hba.conf with the trust method fails.

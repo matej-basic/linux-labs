@@ -1,109 +1,94 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# users-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+STATE_FILE=/opt/linux-labs/state/users-03
+SHARED=/srv/shared
+ANALYTICS=/srv/shared/analytics
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin users-03
+grade_require_state users-03 "$STATE_FILE"
 
-# Check groups
-if getent group devops >/dev/null && [ "$(getent group devops | cut -d: -f3)" = "2000" ]; then
-    pass "group devops GID 2000"
-else
-    fail "group devops missing or wrong GID"
-    rc=1
-fi
+# gid_is <group> <gid>
+gid_is() {
+	[ "$(getent group "$1" | cut -d: -f3)" = "$2" ]
+}
 
-if getent group analytics >/dev/null && [ "$(getent group analytics | cut -d: -f3)" = "2001" ]; then
-    pass "group analytics GID 2001"
-else
-    fail "group analytics missing or wrong GID"
-    rc=1
-fi
+# uid_is <user> <uid>
+uid_is() {
+	[ "$(getent passwd "$1" | cut -d: -f3)" = "$2" ]
+}
 
-# Check user bob
-if getent passwd bob >/dev/null; then
-    [ "$(getent passwd bob | cut -d: -f3)" = "1010" ] && pass "bob UID 1010" || { fail "bob UID wrong"; rc=1; }
-    [ "$(id -gn bob 2>/dev/null)" = "devops" ] && pass "bob primary group devops" || { fail "bob primary group wrong"; rc=1; }
-    
-    groups_bob=$(id -nG bob 2>/dev/null | tr ' ' '\n' | sort)
-    echo "$groups_bob" | grep -qx wheel && pass "bob in wheel" || { fail "bob not in wheel"; rc=1; }
-    echo "$groups_bob" | grep -qx analytics && pass "bob in analytics" || { fail "bob not in analytics"; rc=1; }
-    
-    [ "$(getent passwd bob | cut -d: -f7)" = "/bin/bash" ] && pass "bob shell /bin/bash" || { fail "bob shell wrong"; rc=1; }
-    [ -d /home/bob ] && [ "$(stat -c '%a' /home/bob 2>/dev/null)" = "750" ] && [ "$(stat -c '%U:%G' /home/bob 2>/dev/null)" = "bob:devops" ] && pass "/home/bob correct" || { fail "/home/bob incorrect"; rc=1; }
-else
-    fail "user bob missing"
-    rc=1
-fi
+# primary_group_is <user> <group>
+primary_group_is() {
+	[ "$(id -gn "$1" 2>/dev/null)" = "$2" ]
+}
 
-# Check user charlie
-if getent passwd charlie >/dev/null; then
-    [ "$(getent passwd charlie | cut -d: -f3)" = "1011" ] && pass "charlie UID 1011" || { fail "charlie UID wrong"; rc=1; }
-    [ "$(id -gn charlie 2>/dev/null)" = "analytics" ] && pass "charlie primary group analytics" || { fail "charlie primary group wrong"; rc=1; }
-    
-    groups_charlie=$(id -nG charlie 2>/dev/null | tr ' ' '\n' | sort)
-    echo "$groups_charlie" | grep -qx wheel && pass "charlie in wheel" || { fail "charlie not in wheel"; rc=1; }
-    
-    [ "$(getent passwd charlie | cut -d: -f7)" = "/bin/bash" ] && pass "charlie shell /bin/bash" || { fail "charlie shell wrong"; rc=1; }
-    [ -d /home/charlie ] && [ "$(stat -c '%a' /home/charlie 2>/dev/null)" = "750" ] && [ "$(stat -c '%U:%G' /home/charlie 2>/dev/null)" = "charlie:analytics" ] && pass "/home/charlie correct" || { fail "/home/charlie incorrect"; rc=1; }
-    
-    # Check expiration (should be set to far future date like 2099-12-31 or later)
-    exp_days=$(chage -l charlie 2>/dev/null | grep "Account expires" | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}|never" || echo "")
-    if [[ "$exp_days" =~ 209[0-9]|210[0-9] ]] || [ "$exp_days" = "never" ]; then
-        pass "charlie account expiration set"
-    else
-        fail "charlie account expiration not set correctly (expected far future, got: $exp_days)"
-        rc=1
-    fi
-else
-    fail "user charlie missing"
-    rc=1
-fi
+# in_group <user> <group>
+in_group() {
+	id -nG "$1" 2>/dev/null | tr ' ' '\n' | grep -qx "$2"
+}
 
-# Check /srv/shared
-if [ -d /srv/shared ]; then
-    [ "$(stat -c '%U:%G' /srv/shared 2>/dev/null)" = "root:devops" ] && pass "/srv/shared owned root:devops" || { fail "/srv/shared ownership wrong"; rc=1; }
-    [ "$(stat -c '%a' /srv/shared 2>/dev/null)" = "750" ] && pass "/srv/shared mode 750" || { fail "/srv/shared mode wrong"; rc=1; }
-    
-    # Check default ACL
-    if getfacl /srv/shared 2>/dev/null | grep -q "default:group:devops"; then
-        pass "/srv/shared has default devops ACL"
-    else
-        fail "/srv/shared missing default devops ACL"
-        rc=1
-    fi
-else
-    fail "/srv/shared missing"
-    rc=1
-fi
+# shell_is <user> <shell>
+shell_is() {
+	[ "$(getent passwd "$1" | cut -d: -f7)" = "$2" ]
+}
 
-# Check /srv/shared/analytics
-if [ -d /srv/shared/analytics ]; then
-    [ "$(stat -c '%U:%G' /srv/shared/analytics 2>/dev/null)" = "root:analytics" ] && pass "/srv/shared/analytics owned root:analytics" || { fail "/srv/shared/analytics ownership wrong"; rc=1; }
-    [ "$(stat -c '%a' /srv/shared/analytics 2>/dev/null)" = "750" ] && pass "/srv/shared/analytics mode 750" || { fail "/srv/shared/analytics mode wrong"; rc=1; }
-    
-    # Check if charlie has ACL access
-    if getfacl /srv/shared/analytics 2>/dev/null | grep -q "user:charlie"; then
-        pass "/srv/shared/analytics has charlie ACL"
-    else
-        fail "/srv/shared/analytics missing charlie ACL"
-        rc=1
-    fi
-else
-    fail "/srv/shared/analytics missing"
-    rc=1
-fi
+# home_is <user> <group>: /home/<user> is <user>:<group> with mode 750
+home_is() {
+	local d="/home/$1"
+	[ -d "$d" ] || return 1
+	[ "$(stat -c %U:%G "$d")" = "$1:$2" ] || return 1
+	[ "$(stat -c %a "$d")" = 750 ]
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+# not_in_group <user> <group>
+not_in_group() {
+	! in_group "$1" "$2"
+}
 
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+# Account expiry of charlie is 2099-12-31 (shadow field 8, days since epoch)
+charlie_expires() {
+	local want have
+	want=$(( $(date -u -d 2099-12-31 +%s) / 86400 ))
+	have=$(getent shadow charlie | cut -d: -f8)
+	[ "$have" = "$want" ]
+}
+
+# dir_is <dir> <group>: owned root:<group>, base permissions rwxr-x---
+dir_is() {
+	local acl
+	[ -d "$1" ] && [ ! -L "$1" ] || return 1
+	[ "$(stat -c %U:%G "$1")" = "root:$2" ] || return 1
+	acl=$(getfacl -c -p "$1" 2>/dev/null) || return 1
+	grep -qx 'user::rwx' <<<"$acl" &&
+		grep -qx 'group::r-x' <<<"$acl" &&
+		grep -qx 'other::---' <<<"$acl"
+}
+
+# acl_has <dir> <entry>
+acl_has() {
+	getfacl -c -p "$1" 2>/dev/null | grep -qx "$2"
+}
+
+criterion "Group devops exists with GID 2000" gid_is devops 2000
+criterion "Group analytics exists with GID 2001" gid_is analytics 2001
+criterion "User bob exists with UID 1010" uid_is bob 1010
+criterion "User bob has primary group devops" primary_group_is bob devops
+criterion "User bob is a member of wheel" in_group bob wheel
+criterion "User bob is a member of analytics" in_group bob analytics
+criterion "User bob has login shell /bin/bash" shell_is bob /bin/bash
+criterion "/home/bob is bob:devops with mode 750" home_is bob devops
+criterion "User charlie exists with UID 1011" uid_is charlie 1011
+criterion "User charlie has primary group analytics" primary_group_is charlie analytics
+criterion "User charlie is a member of wheel" in_group charlie wheel
+criterion "User charlie has login shell /bin/bash" shell_is charlie /bin/bash
+criterion "/home/charlie is charlie:analytics with mode 750" home_is charlie analytics
+criterion "Account charlie expires on 2099-12-31" charlie_expires
+criterion "$SHARED is root:devops with base rwxr-x---" dir_is "$SHARED" devops
+criterion "$SHARED has default ACL group:devops:rwx" acl_has "$SHARED" default:group:devops:rwx
+criterion "$ANALYTICS is root:analytics, base rwxr-x---" dir_is "$ANALYTICS" analytics
+criterion "$ANALYTICS has ACL entry user:charlie:rwx" acl_has "$ANALYTICS" user:charlie:rwx
+criterion "User charlie is not a member of devops" not_in_group charlie devops
+criterion "User charlie can write in $ANALYTICS" runuser -u charlie -- test -w "$ANALYTICS"
+grade_end

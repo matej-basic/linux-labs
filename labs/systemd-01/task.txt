@@ -1,0 +1,25 @@
+OBJECTIVE
+  Enable a systemd service so that it starts at boot, and start it
+  now.
+
+PREREQUISITES
+  Root access is required to manage services. Use sudo as
+  {{LAB_USER}}. The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. The unit test-service.service already exists on this system.
+     Configure it to start automatically at boot.
+  2. Make test-service.service active (running) now.
+
+PRACTICE (not graded)
+  Look at the status of the service and at the list of installed
+  unit files. Find out whether the service is enabled and whether
+  it is running, using two separate queries.
+
+NOTES
+  - Only the final state is graded; command history is not
+    evaluated.
+  - Reference: man systemctl.
+
+GRADING
+  labctl grade systemd-01

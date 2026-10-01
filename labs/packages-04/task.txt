@@ -1,0 +1,58 @@
+OBJECTIVE
+  Query the RPM database, then install and remove a package from an
+  RPM file that you download by hand.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with internet access. The joe text editor is
+    not in the base repositories, it is published in EPEL.
+  - The joe package is not installed when the lab starts.
+
+TASKS
+  1. Download the joe RPM file for this system from this directory
+     of the EPEL mirror. Find the right file name in the directory
+     yourself. Where you save the file is not graded.
+
+       https://dl.fedoraproject.org/pub/epel/{{EL_MAJOR}}/Everything/{{ARCH}}/Packages/j/
+
+  2. Install joe with dnf from the downloaded file. The install must
+     not come from a configured repository: dnf has to record the
+     file as the source of the package.
+  3. Remove the joe package with dnf after it has been installed
+     from the file.
+  4. At the end joe is not installed, and the joe command is not
+     available on this system.
+
+EXPECTED RESULT
+  The dnf history shows one transaction that installed joe from a
+  local file, followed by one that removed it. The package database
+  and the command path no longer contain joe.
+
+PRACTICE (not graded)
+  Answer these on the command line. Nothing here is checked, but
+  these are the queries you need for package work on the exam.
+
+  1. How many packages are installed on this system?
+  2. Which package installed the file /sbin/fdisk? Show the
+     information about that package.
+  3. How many files did that package install?
+  4. Which documentation files does that package ship?
+  5. When was the openssh package installed?
+  6. Which capabilities does the bc package require?
+  7. Verify an installed package of your choice, for example
+     openssh-server or setup. Explain what each flag in the
+     verification output means.
+  8. Which repositories does dnf use on this system?
+  9. Show the header information stored inside the downloaded joe
+     RPM file before it is installed.
+  10. Start joe to test it and find where its command is installed.
+      To leave the editor, press Ctrl+C, or press Ctrl+K and then
+      X. If you typed anything, Ctrl+C asks for confirmation and
+      Ctrl+K X saves the file.
+
+NOTES
+  - Only the final state is graded; the order of the practice
+    questions does not matter.
+  - Reference: man rpm, man dnf and man dnf-history.
+
+GRADING
+  labctl grade packages-04

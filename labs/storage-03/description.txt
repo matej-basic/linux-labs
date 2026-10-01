@@ -1,3 +1,4 @@
+title: LVM snapshots on a loopback volume group
 category: Storage
 complexity: Advanced
-objective: Create LVM snapshots, manage snapshot space, and demonstrate copy-on-write functionality.
+objective: Build a loopback-backed LVM volume group, snapshot a logical volume and show that the snapshot keeps the earlier state.

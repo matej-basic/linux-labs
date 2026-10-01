@@ -1,7 +1,12 @@
 #!/bin/bash
-rm -rf /tmp/webfiles /tmp/config
+# Remove the tree and, only if setup.sh created it, the apache user.
+rm -rf /tmp/webfiles
 
-# Remove the apache user only if setup.sh created it (httpd not installed)
-if ! rpm -q httpd >/dev/null 2>&1 && getent passwd apache >/dev/null; then
-    userdel apache
+if grep -qx 'apache_created=yes' /opt/linux-labs/state/files-02 2>/dev/null &&
+	! rpm -q httpd >/dev/null 2>&1; then
+	userdel apache 2>/dev/null || true
+	getent group apache >/dev/null && groupdel apache 2>/dev/null || true
 fi
+
+rm -f /opt/linux-labs/state/files-02
+exit 0

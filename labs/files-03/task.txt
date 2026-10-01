@@ -1,0 +1,45 @@
+OBJECTIVE
+  Build a directory tree with special permission bits and ACLs, then
+  archive it with ownership and modes recorded.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with the acl package installed (setup installs
+    it if it is missing).
+  - Most steps need root privileges.
+
+TASKS
+  1. Create the group developers with GID 3000 and the user alice with
+     UID 1001.
+  2. Create the directory /srv/secure, owned by root:root, with mode
+     755.
+  3. Create /srv/secure/bin/deploy.sh as a regular file owned by root
+     with mode 4755 (setuid, executable by everyone). The content is a
+     simple shell script and is not graded.
+  4. Create /srv/secure/shared, owned by root:developers, with mode
+     2770 (setgid). An ACL entry gives the group developers read,
+     write and execute access to it.
+  5. Create /srv/secure/tmp, owned by root, with mode 1777 (sticky
+     bit, writable by everyone). An ACL entry gives the user alice
+     read, write and execute access to it.
+  6. Create the gzip-compressed tar archive /tmp/backup.tar.gz with
+     the whole /srv/secure tree: the directories /srv/secure,
+     /srv/secure/bin, /srv/secure/shared and /srv/secure/tmp, and
+     the file /srv/secure/bin/deploy.sh. The archive must record the
+     owners and modes from tasks 2 to 5 for these entries, so create
+     it after the tree is complete.
+
+EXPECTED RESULT
+  /srv/secure has the three subdirectories bin, shared and tmp.
+  deploy.sh shows the setuid letter s in its owner permissions,
+  shared shows the setgid letter s in its group permissions and tmp
+  shows the sticky letter t in its other permissions. The archive
+  lists the tree with the same modes and owners.
+
+NOTES
+  - The kernel ignores the setuid bit on shell scripts. Only the mode
+    is graded, not the effect.
+  - Reference: man chmod, man setfacl, man getfacl, man acl and
+    man tar.
+
+GRADING
+  labctl grade files-03

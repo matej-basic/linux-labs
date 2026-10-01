@@ -1,0 +1,45 @@
+OBJECTIVE
+  Serve a web application from the non-standard directory /webapp
+  with SELinux enforcing, by giving the web content a persistent file
+  context.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with SELinux in enforcing mode (the lab sets
+    it to enforcing when it starts).
+  - Internet access or a configured package repository.
+
+TASKS
+  1. The directories /webapp/www, /webapp/config and /webapp/data
+     exist and hold the files index.html, db.conf and app.log. They
+     were created for you and must stay in place.
+  2. Install the Apache web server (httpd). It must be enabled to
+     start at boot and running.
+  3. Configure a virtual host on port 80 with ServerName localhost
+     and the document root /webapp/www, in the file
+     /etc/httpd/conf.d/myapp.conf. Access to the document root must
+     be allowed.
+  4. A request to http://localhost/ must return the content of
+     /webapp/www/index.html with HTTP status 200.
+  5. Everything under /webapp/www, the directory itself included,
+     must have the SELinux type httpd_sys_rw_content_t. The label
+     must survive a relabel: restoring the default contexts of
+     /webapp/www must not change it.
+  6. Keep /webapp/config and /webapp/data private. Neither may be
+     labelled with a type that starts with httpd_.
+  7. SELinux must stay in enforcing mode, both now and in
+     /etc/selinux/config.
+
+PRACTICE (not graded)
+  - Request the page before the label is fixed, then find the denial
+    in the audit log or the journal.
+  - Compare the type of the web content with the type of
+    /var/www/html.
+
+NOTES
+  - Do not switch SELinux to permissive mode or disable it to make
+    the page work.
+  - Reference: man semanage-fcontext, man restorecon, man httpd_selinux
+    and man ausearch.
+
+GRADING
+  labctl grade selinux-02

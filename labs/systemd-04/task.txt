@@ -1,0 +1,34 @@
+OBJECTIVE
+  Change the default boot target from graphical to text mode and
+  confirm with a reboot that the system really boots that way.
+
+TASKS
+  1. The system boots into graphical.target by default. Make
+     multi-user.target the default boot target. The setting must
+     survive a reboot.
+  2. Reboot the system after you have made the change. The system
+     must have been rebooted since this lab was started.
+  3. After the reboot, the running system is in multi-user.target
+     and graphical.target is not active.
+
+EXPECTED RESULT
+  The default boot target is multi-user.target, the system has
+  booted since the lab started, and it came up in text mode.
+
+PRACTICE (not graded)
+  Before you reboot, find out how to switch the running system to
+  the text target without a reboot. Then check whether that changes
+  the default boot target, and think about why it does or does not.
+  The explanation is in the solution.
+
+NOTES
+  - Root access is required to change the default target.
+  - Do not switch the default back after the reboot. Resetting the
+    lab restores the original default for you.
+  - On a machine with a desktop you get a text login after the
+    reboot. That is expected.
+  - Reference: man systemctl and man systemd.special.
+  - Run the grading after the reboot, not before.
+
+GRADING
+  labctl grade systemd-04

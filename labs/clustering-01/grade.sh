@@ -1,172 +1,109 @@
 #!/bin/bash
-# clustering-01 - Basic HA Cluster Setup Grading Script
+# clustering-01 grader
+source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/grading.sh
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+STATE_FILE=/opt/linux-labs/state/clustering-01
 
-PASS_COUNT=0
-FAIL_COUNT=0
+grade_begin clustering-01
+grade_require_state clustering-01 "$STATE_FILE"
+[ "${NODES_ENABLED:-}" = true ] ||
+	grade_abort "Multi-node labs are enabled in the configuration"
+[ "${NODE_COUNT:-0}" -ge 3 ] 2>/dev/null ||
+	grade_abort "NODE_COUNT is at least 3 in the configuration"
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
-
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    fail "Lab requires at least 3 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
-
-# Get node IPs
 NODE1_IP=$(get_node_ip 1)
 NODE2_IP=$(get_node_ip 2)
 NODE3_IP=$(get_node_ip 3)
 
-echo "Cluster Node 1: $NODE1_IP"
-echo "Cluster Node 2: $NODE2_IP"
-echo "Cluster Node 3: $NODE3_IP"
-echo ""
+# service_up <ip> <unit>: the unit is enabled at boot and running
+service_up() {
+	run_on_node "$1" "sudo systemctl is-enabled --quiet $2 && sudo systemctl is-active --quiet $2"
+}
 
-# Check 1: Corosync running on Node 1
-echo -n "1. Checking Corosync on Node 1... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active corosync > /dev/null 2>&1"; then
-    pass "Corosync running on Node 1"
-    ((PASS_COUNT++))
-else
-    fail "Corosync not running on Node 1"
-    ((FAIL_COUNT++))
-fi
+# is_member <ip>: the node, by host name, is a member in node 1's view
+is_member() {
+	local h
+	h=$(run_on_node "$1" "uname -n") || return 1
+	h="${h%%.*}"
+	run_on_node "$NODE1_IP" "sudo crm_node -l" |
+		awk -v h="$h" '{ n = $2; sub(/\..*/, "", n) } n == h && $3 == "member" { f = 1 } END { exit !f }'
+}
 
-# Check 2: Corosync running on Node 2
-echo -n "2. Checking Corosync on Node 2... "
-if run_on_node "$NODE2_IP" "sudo systemctl is-active corosync > /dev/null 2>&1"; then
-    pass "Corosync running on Node 2"
-    ((PASS_COUNT++))
-else
-    fail "Corosync not running on Node 2"
-    ((FAIL_COUNT++))
-fi
+# quorum_field <pattern> <value>: corosync-quorumtool shows the value
+quorum_field() {
+	run_on_node "$NODE1_IP" "sudo corosync-quorumtool -s" |
+		awk -v p="$1" -v v="$2" '$0 ~ p { if ($NF == v) f = 1 } END { exit !f }'
+}
 
-# Check 3: Corosync running on Node 3
-echo -n "3. Checking Corosync on Node 3... "
-if run_on_node "$NODE3_IP" "sudo systemctl is-active corosync > /dev/null 2>&1"; then
-    pass "Corosync running on Node 3"
-    ((PASS_COUNT++))
-else
-    fail "Corosync not running on Node 3"
-    ((FAIL_COUNT++))
-fi
+cluster_name_is() {
+	run_on_node "$NODE1_IP" "sudo corosync-cmapctl -g totem.cluster_name" |
+		awk -v n="$1" '{ if ($NF == n) f = 1 } END { exit !f }'
+}
 
-# Check 4: Pacemaker running on Node 1
-echo -n "4. Checking Pacemaker on Node 1... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active pacemaker > /dev/null 2>&1"; then
-    pass "Pacemaker running on Node 1"
-    ((PASS_COUNT++))
-else
-    fail "Pacemaker not running on Node 1"
-    ((FAIL_COUNT++))
-fi
+stonith_disabled() {
+	[ "$(run_on_node "$NODE1_IP" "sudo crm_attribute -t crm_config -n stonith-enabled -G -q")" = false ]
+}
 
-# Check 5: Pacemaker running on Node 2
-echo -n "5. Checking Pacemaker on Node 2... "
-if run_on_node "$NODE2_IP" "sudo systemctl is-active pacemaker > /dev/null 2>&1"; then
-    pass "Pacemaker running on Node 2"
-    ((PASS_COUNT++))
-else
-    fail "Pacemaker not running on Node 2"
-    ((FAIL_COUNT++))
-fi
+# httpd_ready <ip>: httpd installed, not enabled at boot
+httpd_ready() {
+	run_on_node "$1" "rpm -q httpd >/dev/null && ! sudo systemctl is-enabled --quiet httpd"
+}
 
-# Check 6: Pacemaker running on Node 3
-echo -n "6. Checking Pacemaker on Node 3... "
-if run_on_node "$NODE3_IP" "sudo systemctl is-active pacemaker > /dev/null 2>&1"; then
-    pass "Pacemaker running on Node 3"
-    ((PASS_COUNT++))
-else
-    fail "Pacemaker not running on Node 3"
-    ((FAIL_COUNT++))
-fi
+# page_ok <ip>: the page names the cluster and the host
+page_ok() {
+	# shellcheck disable=SC2016 # the command is meant to expand on the node
+	run_on_node "$1" 'h=$(uname -n); h=${h%%.*}; grep -qF "HA Cluster" /var/www/html/index.html && grep -qF "$h" /var/www/html/index.html'
+}
 
-# Check 7: Cluster has 3 nodes
-echo -n "7. Checking cluster membership... "
-cluster_nodes=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -c 'Online:' || echo 0")
-if [[ "$cluster_nodes" -ge 1 ]]; then
-    pass "Cluster is responding"
-    ((PASS_COUNT++))
-else
-    fail "Cluster not responding"
-    ((FAIL_COUNT++))
-fi
+resource_defined() {
+	run_on_node "$NODE1_IP" "sudo crm_resource -r apache_web -q" |
+		grep 'class="ocf"' | grep 'provider="heartbeat"' | grep -q 'type="apache"'
+}
 
-# Check 8: Cluster status shows 3 nodes
-echo -n "8. Checking all 3 nodes are online... "
-node_count=$(run_on_node "$NODE1_IP" "sudo crm_node -l 2>/dev/null | grep -c 'member' || echo 0")
-if [[ "$node_count" -ge 3 ]]; then
-    pass "All 3 nodes are online in cluster"
-    ((PASS_COUNT++))
-else
-    fail "Not all 3 nodes online (found: $node_count)"
-    ((FAIL_COUNT++))
-fi
+resource_started() {
+	run_on_node "$NODE1_IP" "sudo crm_mon -1 -r" | grep -Eq 'apache_web.*Started'
+}
 
-# Check 9: Apache installed and configured on Node 1
-echo -n "9. Checking Apache on Node 1... "
-if run_on_node "$NODE1_IP" "sudo systemctl list-unit-files | grep -q httpd"; then
-    pass "Apache installed on Node 1"
-    ((PASS_COUNT++))
-else
-    fail "Apache not installed on Node 1"
-    ((FAIL_COUNT++))
-fi
+httpd_on_one_node() {
+	local ip count=0
+	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+		if run_on_node "$ip" "pgrep -x httpd"; then
+			count=$((count + 1))
+		fi
+	done
+	[ "$count" -eq 1 ]
+}
 
-# Check 10: Pacemaker resource configured
-echo -n "10. Checking Pacemaker resource configuration... "
-resource_check=$(run_on_node "$NODE1_IP" "sudo pcs resource status 2>/dev/null | grep -i apache || echo ''" || echo "")
-if [[ -n "$resource_check" ]]; then
-    pass "Apache resource configured in Pacemaker"
-    ((PASS_COUNT++))
-else
-    fail "Apache resource not found in Pacemaker"
-    ((FAIL_COUNT++))
-fi
+n=0
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	n=$((n + 1))
+	criterion "corosync is enabled and running on node $n ($ip)" service_up "$ip" corosync
+	criterion "pacemaker is enabled and running on node $n ($ip)" service_up "$ip" pacemaker
+done
 
-# Check 11: Quorum configured
-echo -n "11. Checking cluster quorum... "
-quorum_check=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -i quorum || echo ''" || echo "")
-if [[ -n "$quorum_check" ]]; then
-    pass "Cluster quorum is configured"
-    ((PASS_COUNT++))
-else
-    fail "Cluster quorum not configured"
-    ((FAIL_COUNT++))
-fi
+criterion "Cluster is named ha_cluster" cluster_name_is ha_cluster
 
-# Check 12: No split-brain (all nodes agree on status)
-echo -n "12. Checking cluster consistency... "
-node_members=$(run_on_node "$NODE1_IP" "sudo crm_node -l 2>/dev/null | grep -c 'member' || echo 0")
-if [[ "$node_members" -ge 3 ]]; then
-    pass "Cluster nodes are communicating"
-    ((PASS_COUNT++))
-else
-    fail "Cluster communication issue"
-    ((FAIL_COUNT++))
-fi
+n=0
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	n=$((n + 1))
+	criterion "Node $n ($ip) is an online cluster member" is_member "$ip"
+done
 
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
+criterion "Cluster has quorum" quorum_field '^Quorate:' Yes
+criterion "Cluster has 3 votes" quorum_field '^Total votes:' 3
+criterion "Quorum is 2 votes" quorum_field '^Quorum:' 2
+criterion "STONITH is disabled" stonith_disabled
 
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+n=0
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	n=$((n + 1))
+	criterion "httpd is installed, not enabled at boot, node $n" httpd_ready "$ip"
+	criterion "Node $n has an HA Cluster page naming its host" page_ok "$ip"
+done
+
+criterion "Resource apache_web uses ocf:heartbeat:apache" resource_defined
+criterion "Resource apache_web is started" resource_started
+criterion "httpd runs on exactly one node" httpd_on_one_node
+
+grade_end

@@ -1,0 +1,58 @@
+OBJECTIVE
+  Set up asynchronous MySQL replication from node 1 (the source,
+  formerly called master) to node 2 (the replica, formerly called
+  slave), and show that data written on node 1 appears on node 2.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH.
+
+     workstation
+          |
+          | SSH to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     MySQL source: takes the writes, keeps the binary log
+          |
+          | replication, port 3306
+          |
+     node 2  {{NODE2_IP}}
+     MySQL replica: applies the changes
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - SSH access to both nodes works from the workstation.
+  - Both nodes run the MySQL server (package mysql-server, service
+    mysqld) from the Rocky Linux repositories. The lab needs MySQL
+    8.0.22 or later and works the same on Rocky Linux 8 and 9.
+  - Both nodes start with the same server ID, no replication
+    account, no replication settings and port 3306 closed in the
+    firewall.
+
+TASKS
+  1. MySQL is enabled at boot and running on node 1 and on node 2.
+  2. Binary logging is enabled on node 1.
+  3. Node 1 and node 2 have different server IDs. The server ID of
+     node 2 survives a restart of mysqld.
+  4. Node 1 has a MySQL account named repl with the REPLICATION SLAVE
+     privilege. Use the password replpassword for it; the password is
+     not graded.
+  5. Node 2 replicates from {{NODE1_IP}} (use the address, not a host
+     name) with the account repl. Its I/O thread and its SQL thread
+     are both running.
+  6. A database with a table and a row that you create on node 1
+     appears with its row on node 2 within a few seconds.
+
+NOTES
+  - Connect to MySQL as the MySQL user root from the operating system
+    user root on each node. If you set a MySQL root password, keep it
+    in /root/.my.cnf on that node so that the client logs in without
+    a prompt. Grading and reset use the same login.
+  - Reference: the MySQL 8.0 manual, chapter Replication.
+  - labctl reset removes the repl account, the replication settings
+    and the test databases (names starting with replication_test)
+    from both nodes and closes port 3306. It leaves mysql-server
+    installed.
+
+GRADING
+  labctl grade replication-01

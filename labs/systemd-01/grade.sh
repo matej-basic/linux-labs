@@ -1,34 +1,19 @@
 #!/bin/bash
+# systemd-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-source /opt/linux-labs/lib/colors.sh
+UNIT=test-service.service
 
-passcount=0
-failcount=0
+# "enabled" exactly: not static, linked, masked or disabled
+unit_enabled() {
+	[ "$(systemctl is-enabled "$UNIT" 2>/dev/null)" = enabled ]
+}
 
-ok()   { pass "$*"; ((++passcount)); }
-err()  { fail "$*"; ((++failcount)); }
+unit_active() {
+	[ "$(systemctl is-active "$UNIT" 2>/dev/null)" = active ]
+}
 
-# Check if enabled
-if systemctl is-enabled test-service.service >/dev/null 2>&1; then
-    ok "test-service.service is enabled"
-else
-    err "test-service.service is enabled"
-fi
-
-# Check if running
-if systemctl is-active test-service.service >/dev/null 2>&1; then
-    ok "test-service.service is running"
-else
-    err "test-service.service is running"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+grade_begin systemd-01
+criterion "$UNIT is enabled" unit_enabled
+criterion "$UNIT is active (running)" unit_active
+grade_end

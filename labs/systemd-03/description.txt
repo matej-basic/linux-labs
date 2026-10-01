@@ -1,3 +1,4 @@
+title: Systemd timers and scheduled services
 category: Systemd
 complexity: Advanced
-objective: Design and manage systemd timer units for scheduled task execution with persistence.
+objective: Create a worker script, oneshot service units and a systemd timer that runs it on a schedule.

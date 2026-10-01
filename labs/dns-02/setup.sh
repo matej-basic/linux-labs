@@ -1,43 +1,19 @@
 #!/bin/bash
+# dns-02 setup: remove BIND, its configuration and the lab zone so the
+# student starts from a clean system. Prints nothing on success.
+set -u
 
-# Reset lab state
-systemctl stop named > /dev/null 2>&1
-dnf remove -y bind bind-utils > /dev/null 2>&1
-rm -rf /var/named/labdomain.com.zone > /dev/null 2>&1
+systemctl stop named >/dev/null 2>&1 || true
+systemctl disable named >/dev/null 2>&1 || true
 
-# Print task description
-cat <<'EOF'
+if rpm -q bind >/dev/null 2>&1 || rpm -q bind-utils >/dev/null 2>&1; then
+	dnf -y -q remove bind bind-utils >/dev/null 2>&1 || true
+fi
+if rpm -q bind >/dev/null 2>&1 || rpm -q bind-utils >/dev/null 2>&1; then
+	echo "dns-02: could not remove the bind and bind-utils packages" >&2
+	exit 1
+fi
 
-====================================================
-LAB: DNS - Zone Configuration (dns-02)
-====================================================
-
-OBJECTIVE:
-Configure a BIND forward zone for labdomain.com,
-create DNS records (A, CNAME, MX), and verify DNS
-resolution with dig or nslookup.
-
-REQUIREMENTS:
-- Install BIND DNS server (bind and bind-utils)
-- Create a forward zone file for labdomain.com
-- Add A record for web.labdomain.com pointing to 192.168.1.10
-- Add A record for mail.labdomain.com pointing to 192.168.1.20
-- Add CNAME record www pointing to web.labdomain.com
-- Add MX record pointing to mail.labdomain.com with priority 10
-- Add SOA record with serial number 2026012501
-- Update named.conf to include the new zone
-- Start the named service
-- Verify DNS records can be queried
-
-NOTES:
-- You may use any valid Linux commands and text editors
-- The grading script checks only the final state
-- Zone file must be in /var/named/labdomain.com.zone
-
-When ready, run:
-  sudo labctl grade dns-02
-
-====================================================
-
-EOF
-
+rm -f /var/named/labdomain.com.zone /var/named/labdomain.com.zone.jnl \
+	/etc/named.conf /etc/named.conf.rpmsave
+exit 0

@@ -1,24 +1,60 @@
-# Solution: users-01
+# users-01: Users, groups and shared directories
+
+## Solution
+
+1. [sudo] Create the group:
+
+   ```bash
+   sudo groupadd project
+   ```
+
+2. [sudo] Create alice with primary group project, supplementary
+   group wheel, a home directory and bash:
+
+   ```bash
+   sudo useradd -m -g project -G wheel -s /bin/bash alice
+   ```
+
+3. [sudo] Create the system account svcapp with home /srv/svcapp, and
+   set ownership and permissions of the home directory:
+
+   ```bash
+   sudo useradd -r -M -d /srv/svcapp -g project \
+     -s /usr/sbin/nologin svcapp
+   sudo mkdir -p /srv/svcapp
+   sudo chown svcapp:project /srv/svcapp
+   sudo chmod 750 /srv/svcapp
+   ```
+
+4. [sudo] Create the shared directory with the setgid bit:
+
+   ```bash
+   sudo mkdir -p /srv/project
+   sudo chown root:project /srv/project
+   sudo chmod 2775 /srv/project
+   ```
+
+## Verification
 
 ```bash
-# Group
-sudo getent group project || sudo groupadd project
-
-# alice user
-sudo id -u alice >/dev/null 2>&1 || sudo useradd -m -g project -G wheel -s /bin/bash alice
-
-# svcapp system user
-sudo id -u svcapp >/dev/null 2>&1 || sudo useradd -r -M -d /srv/svcapp -g project -s /usr/sbin/nologin svcapp
-sudo mkdir -p /srv/svcapp && sudo chown svcapp:project /srv/svcapp && sudo chmod 750 /srv/svcapp
-
-# shared dir
-sudo mkdir -p /srv/project && sudo chown root:project /srv/project && sudo chmod 2775 /srv/project
-
-# Verify
 id alice
 id svcapp
 ls -ld /home/alice /srv/svcapp /srv/project
-
-# Grade
-sudo labctl grade users-01
+labctl grade users-01
 ```
+
+## Explanation
+
+useradd -g sets the primary group and -G the supplementary groups, so
+alice ends up in project and wheel. -m creates the home directory from
+/etc/skel with alice:project as owner, because the primary group is
+project and not a private group named alice.
+
+-r makes svcapp a system account with a UID below 1000. Such accounts
+get no home directory by default, and -M keeps useradd from creating
+one, so the directory is made and owned by hand. The shell
+/usr/sbin/nologin refuses interactive logins.
+
+The leading 2 in 2775 is the setgid bit: files created in /srv/project
+get the group project instead of the primary group of their creator.
+The grader compares the full mode, so 775 alone fails.

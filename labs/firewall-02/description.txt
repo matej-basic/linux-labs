@@ -1,3 +1,4 @@
+title: Rich rules and zone assignment
 category: Firewall
 complexity: Intermediate
-objective: Configure firewalld rich rules and zone assignments for source-based access control.
+objective: Configure a firewalld rich rule for source-based access control and assign an interface to a zone.

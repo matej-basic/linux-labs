@@ -1,0 +1,77 @@
+OBJECTIVE
+  Configure nginx on Node 1 as a reverse proxy in front of two Apache
+  backends on Nodes 2 and 3. The proxy passes client information to
+  the backends, keeps connections to them open and takes a failed
+  backend out of rotation.
+
+TOPOLOGY
+                      client
+                        |
+                        | port 80
+                +---------------+
+                | Node 1        |
+                | {{NODE1_IP}}  |
+                | nginx         |
+                +---------------+
+                   |         |
+          port 8080|         |port 8080
+                   |         |
+       +---------------+  +---------------+
+       | Node 2        |  | Node 3        |
+       | {{NODE2_IP}}  |  | {{NODE3_IP}}  |
+       | httpd         |  | httpd         |
+       +---------------+  +---------------+
+
+PREREQUISITES
+  - Multi-node labs are enabled in the labctl configuration with at
+    least 3 nodes, and the workstation reaches all nodes over SSH.
+  - Rocky Linux 8 or 9 on every node. SELinux stays enforcing and
+    firewalld stays running.
+  - Do the work on the nodes. The grader runs from the workstation.
+
+TASKS
+  1. On Node 1, run nginx. The service is enabled at boot, active, and
+     listens on port 80.
+  2. On Node 2 and Node 3, run the Apache web server (httpd). The
+     service is enabled at boot, active, and listens on port 8080.
+  3. Each backend serves a front page and a health page:
+
+       /         the text "Backend Server - Node 2" on Node 2 and
+                 "Backend Server - Node 3" on Node 3
+       /health   the text "OK"
+
+     Both pages answer on port 8080 when requested from Node 1.
+  4. Configure nginx on Node 1 so that requests to port 80 are
+     proxied to an upstream group that contains both backends,
+     {{NODE2_IP}}:8080 and {{NODE3_IP}}:8080. Requests are spread
+     over both of them.
+  5. Every backend in the upstream group has passive health checking:
+     max_fails is set to at least 1 and fail_timeout is set.
+  6. The proxy sends the Host, X-Real-IP and X-Forwarded-For headers
+     to the backends.
+  7. The proxy keeps connections to the backends open: the upstream
+     group sets keepalive, and the proxy speaks HTTP/1.1 to the
+     backends.
+  8. Node 1 accepts connections on port 80 from other hosts, and
+     nginx may connect to the backends with SELinux enforcing.
+  9. When httpd on Node 2 is stopped, requests to port 80 on Node 1
+     still succeed and are answered by Node 3.
+
+EXPECTED RESULT
+  Requests to http://{{NODE1_IP}}/ alternate between the two backend
+  pages. A stopped backend causes no failed request.
+
+PRACTICE (not graded)
+  - Stop and start httpd on one backend and watch the nginx error log
+    on Node 1.
+  - Compare the order of the answers with a different balancing
+    method.
+
+NOTES
+  - The grader stops httpd on Node 2 for a moment and starts it
+    again if it was running.
+  - Reference: man nginx and the ngx_http_upstream_module and
+    ngx_http_proxy_module documentation, man httpd.
+
+GRADING
+  labctl grade lb-02

@@ -1,0 +1,45 @@
+OBJECTIVE
+  Configure an active-backup network bond from the two free network
+  interfaces, with a static IPv4 address, saved in NetworkManager.
+
+PREREQUISITES
+  - The workstation has a default-route interface (it carries SSH) and
+    two free Ethernet interfaces on an isolated network without DHCP.
+    The lab starts only if it finds two free interfaces.
+  - The lab uses bonding on Rocky Linux 8 and 9. Network teaming
+    (teamd) is deprecated on Rocky Linux 9 and is not part of this lab.
+  - The automatic NetworkManager profiles "Wired connection 1" and
+    "Wired connection 2" are removed from the free interfaces while the
+    lab is active. "labctl reset" restores them.
+
+TASKS
+  1. Find the two free Ethernet interfaces: the first two, in name
+     order, that do not carry the default route. Do not change the
+     default-route interface or its connection profile.
+  2. Create a bond interface named bond0 in NetworkManager. It uses
+     the mode active-backup and checks link state every 100 ms.
+  3. Make both free interfaces ports of bond0. Each port has its own
+     saved NetworkManager profile.
+  4. Give bond0 the static IPv4 address 192.168.100.1/24. Do not use
+     DHCP for it.
+  5. bond0 and both port profiles must connect automatically at boot.
+  6. Activate the configuration now: bond0 is up, has the address and
+     has an active port.
+
+EXPECTED RESULT
+  bond0 is an active-backup bond with two ports and the address
+  192.168.100.1/24, and the default route still uses its original
+  interface.
+
+PRACTICE (not graded)
+  - Take the active port down and check that the other port becomes
+    active and that bond0 keeps its address. Bring the port back up.
+    Do this only on the two free interfaces.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded.
+  - Reference: man nmcli, man nmcli-examples. The kernel reports the
+    state of the bond in /proc/net/bonding/bond0.
+
+GRADING
+  labctl grade networking-03

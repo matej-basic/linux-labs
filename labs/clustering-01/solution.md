@@ -1,244 +1,117 @@
-# Clustering 01 Solution - Basic Pacemaker/Corosync HA Cluster
+# clustering-01: Basic three-node Pacemaker cluster
 
-## Overview
-This solution sets up a basic 3-node Pacemaker/Corosync HA cluster with Apache as a managed resource.
+## Solution
 
-## Architecture
-- **Cluster Formation**: 3 nodes communicating via Corosync
-- **Resource Manager**: Pacemaker
-- **Managed Resource**: Apache web server (HA enabled)
-- **Quorum**: 2 nodes (simple majority)
+All steps run on the workstation as the lab user. They reach the nodes
+with run_on_node from the lab library, which uses the SSH settings of
+the lab configuration.
 
-## Step 1: Install Pacemaker and Corosync on All Nodes
+1. [user] Load the lab configuration and collect the node addresses
+   and host names:
 
-Pacemaker is in the High Availability repo — enable it explicitly:
+   ```bash
+   source /opt/linux-labs/lib/load-config.sh
+   N1=$(get_node_ip 1); N2=$(get_node_ip 2); N3=$(get_node_ip 3)
+   ALL="$N1 $N2 $N3"
+   H1=$(run_on_node "$N1" uname -n)
+   H2=$(run_on_node "$N2" uname -n)
+   H3=$(run_on_node "$N3" uname -n)
+   ```
 
-```bash
-# On all 3 nodes (servera, serverb, serverc)
-sudo dnf install -y --enablerepo=ha pacemaker corosync pcs httpd
-```
+2. [user] Install Pacemaker, pcs and httpd on all three nodes. The
+   High Availability repository is called ha on release 8 and
+   highavailability on release 9:
 
-## Step 2: Create the Corosync Log Directory
+   ```bash
+   EL=$(run_on_node "$N1" \
+     '. /etc/os-release; echo ${VERSION_ID%%.*}')
+   if [ "$EL" = 8 ]; then HA_REPO=ha; else HA_REPO=highavailability; fi
+   for ip in $ALL; do
+     run_on_node "$ip" \
+       "sudo dnf -y install --enablerepo=$HA_REPO pacemaker pcs httpd"
+   done
+   ```
 
-The log directory is not created automatically and corosync will fail to start without it:
+3. [user] On every node open the firewall for the cluster, set a
+   password for the hacluster account and start the pcs daemon:
 
-```bash
-# On all 3 nodes
-sudo mkdir -p /var/log/corosync
-```
+   ```bash
+   for ip in $ALL; do
+     run_on_node "$ip" "
+       sudo firewall-cmd --permanent --add-service=high-availability &&
+       sudo firewall-cmd --reload &&
+       echo 'hacluster:LabPass-2024' | sudo chpasswd &&
+       sudo systemctl enable --now pcsd"
+   done
+   ```
 
-## Step 3: Generate Cluster Authentication Key
+4. [user] Authenticate the nodes to each other and create the cluster
+   from node 1. The cluster is started and enabled at boot:
 
-```bash
-# On Node 1 (servera) only
-sudo corosync-keygen -l
-sudo chmod 400 /etc/corosync/authkey
-```
+   ```bash
+   NODES="$H1 addr=$N1 $H2 addr=$N2 $H3 addr=$N3"
+   run_on_node "$N1" \
+     "sudo pcs host auth $NODES -u hacluster -p LabPass-2024"
+   run_on_node "$N1" \
+     "sudo pcs cluster setup ha_cluster $NODES --start --enable"
+   ```
 
-## Step 4: Configure Corosync on Node 1
+5. [user] Wait until the cluster has quorum, then disable STONITH,
+   because the nodes have no fence devices:
 
-Get node IPs first:
-```bash
-source /opt/linux-labs/lib/load-config.sh
-load_lab_config
-NODE1_IP=$(get_node_ip 1)
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
-```
+   ```bash
+   run_on_node "$N1" "sudo crm_node -q"
+   run_on_node "$N1" "sudo pcs property set stonith-enabled=false"
+   ```
 
-Create Corosync configuration — `nodelist` must be a top-level block, not nested inside `totem`:
+   The first command prints 1 when the cluster has quorum. Repeat it
+   after a few seconds if it prints 0.
 
-```bash
-sudo tee /etc/corosync/corosync.conf > /dev/null <<EOF
-totem {
-    version: 2
-    cluster_name: ha_cluster
-    transport: udpu
-    interface {
-        ringnumber: 0
-        bindnetaddr: 0.0.0.0
-        mcastport: 5405
-        ttl: 1
-    }
-}
+6. [user] Write a page that names each node and make sure httpd does
+   not start at boot, so that only the cluster starts it:
 
-nodelist {
-    node {
-        ring0_addr: $NODE1_IP
-        nodeid: 1
-    }
-    node {
-        ring0_addr: $NODE2_IP
-        nodeid: 2
-    }
-    node {
-        ring0_addr: $NODE3_IP
-        nodeid: 3
-    }
-}
+   ```bash
+   for ip in $ALL; do
+     run_on_node "$ip" "
+       echo \"HA Cluster - \$(uname -n)\" |
+         sudo tee /var/www/html/index.html >/dev/null
+       sudo systemctl disable httpd"
+   done
+   ```
 
-quorum {
-    provider: corosync_votequorum
-    expected_votes: 3
-    two_node: 0
-    wait_for_all: 0
-}
+7. [user] Create the Apache resource:
 
-logging {
-    to_logfile: yes
-    logfile: /var/log/corosync/corosync.log
-    to_syslog: yes
-    timestamp: on
-}
-EOF
-```
+   ```bash
+   run_on_node "$N1" "sudo pcs resource create apache_web \
+     ocf:heartbeat:apache configfile=/etc/httpd/conf/httpd.conf \
+     op monitor interval=1min"
+   ```
 
-**Important**: `nodelist` must be a top-level block. Nesting it inside `totem` causes a parse error.
-
-## Step 5: Distribute Config and Authkey to Other Nodes
-
-Direct `scp` between nodes requires root SSH access which is not configured. Copy via workstation instead:
+## Verification
 
 ```bash
-# From workstation — read from Node 1 and write to Node 2 and 3
-for node in $NODE2_IP $NODE3_IP; do
-  ssh opsadmin@$NODE1_IP "sudo cat /etc/corosync/authkey" | \
-    ssh opsadmin@$node "sudo tee /etc/corosync/authkey > /dev/null && sudo chmod 400 /etc/corosync/authkey"
-
-  ssh opsadmin@$NODE1_IP "sudo cat /etc/corosync/corosync.conf" | \
-    ssh opsadmin@$node "sudo tee /etc/corosync/corosync.conf > /dev/null"
-done
+run_on_node "$N1" "sudo pcs status"
+labctl grade clustering-01
 ```
 
-## Step 6: Configure Firewall and Start Services
+## Explanation
 
-```bash
-# On all 3 nodes
-sudo firewall-cmd --permanent --add-service=high-availability
-sudo firewall-cmd --reload
-sudo systemctl enable --now corosync pacemaker
-```
+pcs is the supported way to build the cluster on Rocky and RHEL 8 and
+9. The pcs daemon on each node (pcsd, port 2224, opened by the
+high-availability firewall service) lets pcs on node 1 write
+corosync.conf and the authentication key to all nodes, so no files
+need to be copied between nodes, which cannot log in to each other as
+root anyway. The addr= values put the node IP addresses into the
+corosync node list, and the node names are the host names that
+Pacemaker expects. Corosync with three votes gives a quorum of 2:
+the cluster survives the loss of one node.
 
-## Step 7: Verify Cluster is Healthy
+Pacemaker refuses to start resources while STONITH is enabled and no
+fence device exists, so apache_web would stay stopped. The resource
+agent ocf:heartbeat:apache starts httpd itself, which is why httpd
+must not be enabled in systemd: two managers would fight over port
+80. The grader checks that httpd runs on one node only.
 
-```bash
-# On Node 1 — wait a few seconds after starting services
-sudo crm_mon -1
-
-# Should show:
-# Current DC: servera - partition with quorum
-# 3 nodes configured
-# Online: [ servera serverb serverc ]
-```
-
-Check node membership directly:
-```bash
-sudo crm_node -l
-# Should list all 3 nodes as "member"
-```
-
-## Step 8: Disable STONITH (Required Without Fence Devices)
-
-Pacemaker will not start resources if STONITH is enabled but no fence devices are configured:
-
-```bash
-# On Node 1
-sudo pcs property set stonith-enabled=false
-```
-
-## Step 9: Install Apache and Create Unique Content
-
-```bash
-# On Node 1
-echo "HA Cluster - servera" | sudo tee /var/www/html/index.html
-sudo systemctl disable httpd   # Let Pacemaker manage it, do not start manually
-
-# On Node 2
-echo "HA Cluster - serverb" | sudo tee /var/www/html/index.html
-sudo systemctl disable httpd
-
-# On Node 3
-echo "HA Cluster - serverc" | sudo tee /var/www/html/index.html
-sudo systemctl disable httpd
-```
-
-## Step 10: Add Apache as a Pacemaker Resource
-
-```bash
-# On Node 1
-sudo pcs resource create apache_web ocf:heartbeat:apache \
-  configfile=/etc/httpd/conf/httpd.conf \
-  op monitor interval=1min
-```
-
-The resource starts automatically after creation. Do not call `pcs resource start` — that subcommand does not exist in pcs 0.10+. Use `pcs resource enable` if the resource is stopped.
-
-## Step 11: Verify Resource is Running
-
-```bash
-sudo crm_mon -1
-# Should show:
-# Active Resources:
-#   * apache_web (ocf::heartbeat:apache): Started servera
-
-sudo pcs resource status
-```
-
-## Verify
-
-```bash
-sudo labctl grade clustering-01
-```
-
-## Troubleshooting
-
-**Corosync fails to start:**
-```bash
-# Check for parse errors
-sudo corosync -f
-
-# Common causes:
-# - /var/log/corosync/ directory does not exist
-# - nodelist nested inside totem block (must be top-level)
-```
-
-**Pacemaker starts but shows 0 nodes:**
-```bash
-# Wait ~10 seconds after starting corosync for Pacemaker to discover nodes
-sudo crm_mon -1
-sudo crm_node -l
-```
-
-**Resource stays Stopped:**
-```bash
-# Most likely cause: STONITH is enabled with no fence devices
-sudo pcs property set stonith-enabled=false
-sudo pcs resource cleanup apache_web
-```
-
-**Stray httpd process blocking port 80:**
-```bash
-# Happens if debug-start was used; kill it before letting Pacemaker manage
-sudo pkill httpd
-sudo pcs resource cleanup apache_web
-```
-
-Check Corosync ring status:
-```bash
-sudo corosync-cfgtool -s
-sudo corosync-quorumtool
-```
-
-## How It Works
-
-1. **Corosync**: Cluster communication — unicast UDP (udpu) on port 5405, Totem protocol
-2. **Pacemaker**: Resource manager — starts/stops/monitors Apache, handles failover
-3. **Quorum**: 2 of 3 nodes required; partition that loses quorum stops resources
-4. **OCF Resource Agent**: `ocf:heartbeat:apache` controls httpd via start/stop/monitor actions
-
-## Key Configuration Notes
-
-- `transport: udpu` — required for VM environments (unicast, no multicast needed)
-- `nodelist` at top level — not inside `totem`; each node needs `ring0_addr` and `nodeid`
-- `expected_votes: 3` — quorum threshold is 2
-- `stonith-enabled=false` — necessary in lab environments without real fence devices
+The repository id differs between releases (ha and highavailability),
+and the pcs commands are the same on both. pcs resource create starts
+the resource on its own; there is no separate start command.

@@ -1,11 +1,14 @@
 #!/bin/bash
-# Stop and disable MySQL/MariaDB service, remove packages and data
-echo "Cleaning up MySQL/MariaDB Installation (mysql-01) lab environment..."
+# mysql-01 cleanup: stop MySQL, remove the server package and its data.
+systemctl disable --now mysqld mariadb &>/dev/null || true
 
-systemctl stop mysqld mariadb > /dev/null 2>&1
-systemctl disable mysqld mariadb > /dev/null 2>&1
-dnf remove -y mysql-server mariadb-server > /dev/null 2>&1
-rm -rf /var/lib/mysql/*
+for pkg in mysql-server mariadb-server; do
+	if rpm -q --quiet "$pkg"; then
+		dnf -q -y remove "$pkg" >/dev/null 2>&1 || true
+	fi
+done
 
-# End of cleanup message
-echo "Cleanup completed."
+if [ -d /var/lib/mysql ]; then
+	find /var/lib/mysql -mindepth 1 -delete 2>/dev/null || true
+fi
+exit 0

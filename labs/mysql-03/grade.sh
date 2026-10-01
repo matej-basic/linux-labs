@@ -1,66 +1,65 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# mysql-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+BACKUP=/tmp/labdb_backup.sql
+STATE_FILE=/opt/linux-labs/state/mysql-03
+TABLES=(users products)
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+# Run a query as MySQL root (the lab password is part of the task)
+sql() {
+	local db=$1 query=$2
+	MYSQL_PWD=labpassword mysql -u root -N -B "$db" -e "$query"
+}
 
-# Check if MySQL is running
-if systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb; then
-	pass "MySQL service is running"
-else
-	fail "MySQL service is not running"
-fi
+mysql_running() {
+	systemctl is-active --quiet mysqld || systemctl is-active --quiet mariadb
+}
 
-# Check if backup file exists
-if [ -f /tmp/labdb_backup.sql ]; then
-	pass "Backup file /tmp/labdb_backup.sql exists"
-else
-	fail "Backup file /tmp/labdb_backup.sql not found"
-fi
+labdb_unchanged() {
+	[ "$(sql labdb 'SELECT COUNT(*) FROM users')" = 5 ] &&
+		[ "$(sql labdb 'SELECT COUNT(*) FROM products')" = 3 ] &&
+		[ "$(sql labdb "SELECT GROUP_CONCAT(name ORDER BY id) FROM users")" = \
+			"Alice Novak,Bob Horvat,Carla Kovac,Dino Babic,Eva Maric" ]
+}
 
-# Check if backup file is valid SQL
-if grep -q "CREATE TABLE" /tmp/labdb_backup.sql; then
-	pass "Backup file contains SQL statements"
-else
-	fail "Backup file does not contain valid SQL"
-fi
+backup_has_tables() {
+	local t
+	[ -s "$BACKUP" ] || return 1
+	for t in "${TABLES[@]}"; do
+		grep -q "^CREATE TABLE \`$t\`" "$BACKUP" || return 1
+		grep -q "^INSERT INTO \`$t\`" "$BACKUP" || return 1
+	done
+}
 
-# Check if labdb_restore database exists
-if mysql -u root -plabpassword -e "USE labdb_restore;" > /dev/null 2>&1; then
-	pass "Database labdb_restore exists"
-else
-	fail "Database labdb_restore does not exist"
-fi
+restore_db_exists() {
+	[ "$(sql information_schema "SELECT COUNT(*) FROM schemata WHERE schema_name='labdb_restore'")" = 1 ]
+}
 
-# Check if users table exists in labdb_restore
-if mysql -u root -plabpassword labdb_restore -e "DESC users;" > /dev/null 2>&1; then
-	pass "users table exists in labdb_restore"
-else
-	fail "users table does not exist in labdb_restore"
-fi
+same_tables() {
+	local a b
+	a=$(sql information_schema "SELECT table_name FROM tables WHERE table_schema='labdb' ORDER BY 1") || return 1
+	b=$(sql information_schema "SELECT table_name FROM tables WHERE table_schema='labdb_restore' ORDER BY 1") || return 1
+	[ -n "$a" ] && [ "$a" = "$b" ] && [ "$a" = "$(printf '%s\n' "${TABLES[@]}" | sort)" ]
+}
 
-# Check row count in original and restored database
-original_count=$(mysql -u root -plabpassword labdb -e "SELECT COUNT(*) FROM users;" > /dev/null 2>&1 | tail -1)
-restored_count=$(mysql -u root -plabpassword labdb_restore -e "SELECT COUNT(*) FROM users;" > /dev/null 2>&1 | tail -1)
+same_rows() {
+	local t a b
+	for t in "${TABLES[@]}"; do
+		a=$(sql labdb "SELECT * FROM $t ORDER BY id") || return 1
+		b=$(sql labdb_restore "SELECT * FROM $t ORDER BY id") || return 1
+		[ -n "$a" ] && [ "$a" = "$b" ] || return 1
+	done
+}
 
-if [ "$original_count" == "$restored_count" ] && [ -n "$original_count" ]; then
-	pass "Data restored correctly ($original_count rows)"
-else
-	fail "Data row count mismatch (original: $original_count, restored: $restored_count)"
-fi
+grade_begin mysql-03
+grade_require_state mysql-03 "$STATE_FILE"
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+criterion "MySQL server is running" mysql_running
+criterion "Database labdb is unchanged (users 5 rows, products 3 rows)" labdb_unchanged
+criterion "Backup file $BACKUP exists and is not empty" test -s "$BACKUP"
+criterion "Backup file contains tables and rows of labdb" backup_has_tables
+criterion "Database labdb_restore exists" restore_db_exists
+criterion "labdb_restore has the same tables as labdb" same_tables
+criterion "labdb_restore has the same rows as labdb" same_rows
+grade_end

@@ -1,105 +1,89 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# users-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+LIMITS=/etc/security/limits.d/70-contractors.conf
+STATE_FILE=/opt/linux-labs/state/users-02
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin users-02
+grade_require_state users-02 "$STATE_FILE"
 
-# Check contractors group
-if getent group contractors >/dev/null; then
-    pass "group contractors exists"
-else
-    fail "group contractors missing"
-    rc=1
-fi
+# user_home <user>: the account exists with its home directory in place
+user_home() {
+	local u=$1 home
+	home=$(getent passwd "$u" | cut -d: -f6)
+	[ "$home" = "/home/$u" ] && [ -d "$home" ] || return 1
+	[ "$(stat -c %U "$home")" = "$u" ]
+}
 
-# Check user dave
-if getent passwd dave >/dev/null; then
-    pass "user dave exists"
-    [ "$(id -gn dave 2>/dev/null)" = "contractors" ] && pass "dave primary group contractors" || { fail "dave primary group wrong"; rc=1; }
-    [ "$(getent passwd dave | cut -d: -f7)" = "/bin/bash" ] && pass "dave shell /bin/bash" || { fail "dave shell wrong"; rc=1; }
-    
-    # Check password expiration (should be around 30 days)
-    max_days=$(chage -l dave 2>/dev/null | grep "Maximum number of days" | grep -oE "[0-9]+")
-    if [ -n "$max_days" ] && [ "$max_days" -gt 25 ] && [ "$max_days" -lt 35 ]; then
-        pass "dave password expiration ~30 days"
-    else
-        fail "dave password expiration incorrect: $max_days"
-        rc=1
-    fi
-else
-    fail "user dave missing"
-    rc=1
-fi
+primary_group_is() {
+	[ "$(id -gn "$1" 2>/dev/null)" = "$2" ]
+}
 
-# Check user eve
-if getent passwd eve >/dev/null; then
-    pass "user eve exists"
-    [ "$(id -gn eve 2>/dev/null)" = "contractors" ] && pass "eve primary group contractors" || { fail "eve primary group wrong"; rc=1; }
-    [ "$(getent passwd eve | cut -d: -f7)" = "/bin/bash" ] && pass "eve shell /bin/bash" || { fail "eve shell wrong"; rc=1; }
-    
-    # Check account expiration (2026-01-31)
-    exp_date=$(chage -l eve 2>/dev/null | grep "Account expires" | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}")
-    [ "$exp_date" = "2026-01-31" ] && pass "eve account expires 2026-01-31" || { fail "eve expiration wrong: $exp_date"; rc=1; }
-    
-    # Check password never expires
-    pwd_exp=$(chage -l eve 2>/dev/null | grep "Password expires" | grep -i "never")
-    if [ -n "$pwd_exp" ]; then
-        pass "eve password never expires"
-    else
-        fail "eve password should never expire"
-        rc=1
-    fi
-else
-    fail "user eve missing"
-    rc=1
-fi
+shell_is() {
+	[ "$(getent passwd "$1" | cut -d: -f7)" = "$2" ]
+}
 
-# Check resource limits file
-if [ -f /etc/security/limits.d/70-contractors.conf ]; then
-    pass "/etc/security/limits.d/70-contractors.conf exists"
-    grep -q "contractors.*nofile.*1024" /etc/security/limits.d/70-contractors.conf && pass "limits: open files 1024" || { fail "limits: open files not set"; rc=1; }
-    grep -q "contractors.*nproc.*512" /etc/security/limits.d/70-contractors.conf && pass "limits: max processes 512" || { fail "limits: max processes not set"; rc=1; }
-else
-    fail "/etc/security/limits.d/70-contractors.conf missing"
-    rc=1
-fi
+# max_age_is <user> <days>: maximum password age in /etc/shadow
+max_age_is() {
+	[ "$(getent shadow "$1" | cut -d: -f5)" = "$2" ]
+}
 
-# Check password policy in /etc/login.defs
-if grep -q "PASS_MAX_DAYS" /etc/login.defs; then
-    max=$(grep "^PASS_MAX_DAYS" /etc/login.defs | awk '{print $2}')
-    [ "$max" = "90" ] && pass "PASS_MAX_DAYS 90" || { fail "PASS_MAX_DAYS not 90: $max"; rc=1; }
-else
-    fail "PASS_MAX_DAYS not set"
-    rc=1
-fi
+# password_is <user> <password>: compare the SHA-512 hash in /etc/shadow
+password_is() {
+	local hash salt
+	hash=$(getent shadow "$1" | cut -d: -f2)
+	case $hash in
+	"\$6\$"*) ;;
+	*) return 1 ;;
+	esac
+	salt=${hash#\$6\$}
+	salt=${salt%%\$*}
+	[ "$(openssl passwd -6 -salt "$salt" "$2" 2>/dev/null)" = "$hash" ]
+}
 
-if grep -q "PASS_MIN_DAYS" /etc/login.defs; then
-    min=$(grep "^PASS_MIN_DAYS" /etc/login.defs | awk '{print $2}')
-    [ "$min" = "1" ] && pass "PASS_MIN_DAYS 1" || { fail "PASS_MIN_DAYS not 1: $min"; rc=1; }
-else
-    fail "PASS_MIN_DAYS not set"
-    rc=1
-fi
+chage_field_is() {
+	local user=$1 field=$2 want=$3
+	[ "$(LC_ALL=C chage -l "$user" 2>/dev/null | sed -n "s/^$field *: *//p")" = "$want" ]
+}
 
-if grep -q "PASS_WARN_AGE" /etc/login.defs; then
-    warn=$(grep "^PASS_WARN_AGE" /etc/login.defs | awk '{print $2}')
-    [ "$warn" = "14" ] && pass "PASS_WARN_AGE 14" || { fail "PASS_WARN_AGE not 14: $warn"; rc=1; }
-else
-    fail "PASS_WARN_AGE not set"
-    rc=1
-fi
+# limit_set <item> <value>: soft and hard limit for @contractors
+limit_set() {
+	[ -f "$LIMITS" ] || return 1
+	awk -v item="$1" -v val="$2" '
+		/^[[:space:]]*#/ { next }
+		$1 == "@contractors" && $3 == item && $4 == val {
+			if ($2 == "-" || $2 == "soft") s = 1
+			if ($2 == "-" || $2 == "hard") h = 1
+		}
+		END { exit !(s && h) }' "$LIMITS"
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+# login_defs_is <key> <value>: the last active setting of the key
+login_defs_is() {
+	[ "$(awk -v k="$1" '$1 == k { v = $2 } END { print v }' /etc/login.defs)" = "$2" ]
+}
 
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+criterion "Group contractors exists" getent group contractors
+
+criterion "User dave has home /home/dave owned by dave" user_home dave
+criterion "User dave has primary group contractors" primary_group_is dave contractors
+criterion "User dave has login shell /bin/bash" shell_is dave /bin/bash
+criterion "User dave has maximum password age 30 days" max_age_is dave 30
+criterion "User dave has the password contractor123" password_is dave contractor123
+
+criterion "User eve has home /home/eve owned by eve" user_home eve
+criterion "User eve has primary group contractors" primary_group_is eve contractors
+criterion "User eve has login shell /bin/bash" shell_is eve /bin/bash
+criterion "Account eve expires on 2030-12-31" chage_field_is eve "Account expires" "Dec 31, 2030"
+criterion "Password of eve never expires" chage_field_is eve "Password expires" never
+criterion "User eve has the password eve-pass" password_is eve eve-pass
+
+criterion "File $LIMITS exists" test -f "$LIMITS"
+criterion "Group contractors has 1024 open files (soft and hard)" limit_set nofile 1024
+criterion "Group contractors has 512 processes (soft and hard)" limit_set nproc 512
+
+criterion "PASS_MAX_DAYS is 90 in /etc/login.defs" login_defs_is PASS_MAX_DAYS 90
+criterion "PASS_MIN_DAYS is 1 in /etc/login.defs" login_defs_is PASS_MIN_DAYS 1
+criterion "PASS_WARN_AGE is 14 in /etc/login.defs" login_defs_is PASS_WARN_AGE 14
+grade_end

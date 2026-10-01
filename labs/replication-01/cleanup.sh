@@ -1,43 +1,55 @@
 #!/bin/bash
-# replication-01 - Cleanup Script
+# replication-01 cleanup: removes the replication settings, the repl
+# account, the replication_test* databases, the option file lines and the
+# firewall rules on nodes 1 and 2. mysql-server stays installed. Always
+# exits 0.
+# No "set -u": load-config.sh reads variables that may be unset.
 
-echo "Cleaning up MySQL replication lab..."
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
+[ "$NODES_ENABLED" = "true" ] || exit 0
+[ "$NODE_COUNT" -ge 2 ] 2>/dev/null || exit 0
+
+# Remote script, run as root on each node; every step may fail.
+read -r -d '' CLEAN <<'REMOTE' || true
+if systemctl is-active --quiet mysqld; then
+	mysql --force >/dev/null 2>&1 <<'SQL'
+STOP REPLICA;
+RESET REPLICA ALL;
+RESET PERSIST IF EXISTS server_id;
+RESET PERSIST IF EXISTS log_bin;
+RESET PERSIST IF EXISTS relay_log;
+RESET PERSIST IF EXISTS binlog_format;
+SQL
+	mysql -N -B 2>/dev/null <<'SQL' | mysql --force >/dev/null 2>&1
+SELECT CONCAT('DROP USER ', QUOTE(User), '@', QUOTE(Host), ';') FROM mysql.user WHERE User = 'repl';
+SELECT CONCAT('DROP DATABASE `', schema_name, '`;') FROM information_schema.schemata WHERE schema_name LIKE 'replication\_test%';
+SQL
+	restart=yes
 fi
 
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "Multi-node lab not enabled, skipping cleanup"
-    exit 0
-fi
-
-if [[ "$NODE_COUNT" -lt 2 ]]; then
-    echo "Insufficient nodes, skipping cleanup"
-    exit 0
-fi
-
-# Get node IPs
-MASTER_IP=$(echo "$(get_all_node_ips)" | awk '{print $1}')
-SLAVE_IP=$(echo "$(get_all_node_ips)" | awk '{print $2}')
-
-# Stop slave replication
-echo "Stopping slave replication..."
-run_on_node "$SLAVE_IP" "sudo mysql -u root -plabpassword -e \"STOP SLAVE;\" 2>/dev/null" > /dev/null 2>&1 || true
-
-# Remove replication user from master
-echo "Removing replication user..."
-run_on_node "$MASTER_IP" "sudo mysql -u root -plabpassword -e \"DROP USER IF EXISTS 'repl'@'%';\" 2>/dev/null" > /dev/null 2>&1 || true
-
-# Reset slave (clear connection info)
-echo "Resetting slave configuration..."
-run_on_node "$SLAVE_IP" "sudo mysql -u root -plabpassword -e \"RESET SLAVE ALL;\" 2>/dev/null" > /dev/null 2>&1 || true
-
-# Remove any test databases
-echo "Removing test databases..."
-for node_ip in $MASTER_IP $SLAVE_IP; do
-    run_on_node "$node_ip" "sudo mysql -u root -plabpassword -e \"DROP DATABASE IF EXISTS replication_test_%;\" 2>/dev/null" > /dev/null 2>&1 || true
+rm -f /etc/my.cnf.d/replication.cnf
+for f in /etc/my.cnf /etc/my.cnf.d/*.cnf; do
+	[ -f "$f" ] || continue
+	sed -i -E '/^[[:space:]]*(log[-_]bin|skip[-_]log[-_]bin|disable[-_]log[-_]bin|server[-_]id|relay[-_]log|binlog[-_]format|gtid[-_]mode|enforce[-_]gtid[-_]consistency|log[-_](slave|replica)[-_]updates)[[:space:]]*(=.*)?$/d' "$f"
 done
 
-echo "✓ MySQL replication lab cleanup complete"
+if systemctl is-active --quiet firewalld; then
+	firewall-cmd --permanent --remove-service=mysql >/dev/null 2>&1 || true
+	firewall-cmd --permanent --remove-port=3306/tcp >/dev/null 2>&1 || true
+	firewall-cmd --reload >/dev/null 2>&1 || true
+fi
+
+[ "${restart:-}" = yes ] && systemctl restart mysqld </dev/null >/dev/null 2>&1
+true
+REMOTE
+
+B64=$(printf '%s\n' "$CLEAN" | base64 | tr -d '\n')
+
+# Slave first, so that dropping databases on node 1 cannot reach node 2
+for n in 2 1; do
+	ip=$(get_node_ip "$n")
+	run_on_node "$ip" "sudo -n bash -c \"\$(echo $B64 | base64 -d)\"" </dev/null >/dev/null 2>&1 || true
+done
+exit 0

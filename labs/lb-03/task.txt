@@ -1,0 +1,93 @@
+OBJECTIVE
+  Build a highly available web service. Two HAProxy load balancers
+  (nodes 1 and 2) share a virtual IP (VIP) managed by keepalived with
+  VRRP. They distribute requests over Apache backends on all three
+  nodes. Only one load balancer holds the VIP at a time.
+
+TOPOLOGY
+                 VIP (floats between node 1 and node 2)
+                       port 80
+                          |
+              +-----------+-----------+
+              |                       |
+     +----------------+      +----------------+
+     | Node 1         |      | Node 2         |
+     | {{NODE1_IP}}   |      | {{NODE2_IP}}   |
+     | HAProxy :80    |      | HAProxy :80    |
+     | keepalived     |      | keepalived     |
+     | priority high  |      | priority lower |
+     +----------------+      +----------------+
+              |                       |
+              +-----------+-----------+
+                          |
+          port 8080 on every node, round robin
+              |           |           |
+        +-----------+ +-----------+ +-----------+
+        | Node 1    | | Node 2    | | Node 3    |
+        | httpd     | | httpd     | | httpd     |
+        | :8080     | | :8080     | | :8080     |
+        +-----------+ +-----------+ +-----------+
+
+          Node 3: {{NODE3_IP}} (backend only)
+
+PREREQUISITES
+  - Multi-node labs are enabled in the labctl configuration with at
+    least 3 nodes, and the workstation reaches all nodes over SSH.
+  - Rocky Linux 8 or 9 on every node, SELinux enforcing, firewalld
+    running. All nodes are in the same IP network and subnet.
+  - At the start and at the reset, the lab removes the packages
+    httpd, haproxy and keepalived from all three nodes, together with
+    their configuration, and removes the 8080/tcp port, the http
+    service and the vrrp protocol from the permanent firewall
+    configuration of the nodes.
+  - The grader runs on the workstation and connects to the nodes
+    over SSH.
+
+TASKS
+  1. Install httpd on all three nodes. Each httpd listens on
+     TCP port 8080. It is enabled and running.
+  2. On every node, /var/www/html/index.html contains the single line
+     "Backend Server - Node N", where N is the node number (1, 2 or
+     3). Each backend answers on port 8080 to the other nodes.
+  3. Install HAProxy on nodes 1 and 2. Both run an identical
+     configuration: a frontend on port 80 that balances requests
+     round robin over the three backends on port 8080 (nodes 1, 2
+     and 3). HAProxy is enabled and running on both nodes and
+     answers on port 80 to the other nodes.
+  4. Install keepalived on nodes 1 and 2. It is enabled and running
+     on both. The VIP is the address in the network of node 1 whose
+     last octet is 100. Both nodes list the VIP in their keepalived
+     configuration.
+  5. Both nodes belong to the same VRRP group: the same virtual
+     router ID and the same password, with password authentication
+     enabled.
+  6. Node 1 has a VRRP priority of at least 100. Node 2 has a lower
+     priority.
+  7. Exactly one of nodes 1 and 2 holds the VIP, and requests to the
+     VIP on port 80 are answered by all three backends.
+
+EXPECTED RESULT
+  Requests to the VIP on port 80 return the pages of node 1, node 2
+  and node 3 in turn. With keepalived running on both nodes, node 1
+  holds the VIP. Requests to the addresses of node 1 and node 2 on
+  port 80 are balanced the same way.
+
+PRACTICE (not graded)
+  - You should let keepalived lower the priority of a node when
+    HAProxy is not running on it, so the VIP moves when HAProxy
+    fails. This is not graded.
+  - Stop keepalived on the node that holds the VIP and watch the VIP
+    move to the other node while the service keeps answering. Start
+    keepalived again and observe which node holds the VIP afterwards.
+
+NOTES
+  - The VIP is also in the first line of the file
+    /opt/linux-labs/state/lb-03 on the workstation.
+  - VRRP runs on the network interface that carries the node address.
+  - VRRP authentication passwords are limited to 8 characters.
+  - SELinux stays enforcing. Reference: man keepalived.conf and
+    man haproxy.
+  - Do the work on the nodes. Only the final state is graded.
+
+GRADING
+  labctl grade lb-03

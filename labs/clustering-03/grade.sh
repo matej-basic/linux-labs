@@ -1,178 +1,125 @@
 #!/bin/bash
-# clustering-03 - Advanced Cluster Protection Grading Script
+# clustering-03 grader
+source /opt/linux-labs/lib/grading.sh
+# load-config.sh is not safe under "set -u"; this grader does not use it
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+CONF=/etc/corosync/corosync.conf
 
-PASS_COUNT=0
-FAIL_COUNT=0
+grade_begin clustering-03
+grade_require_state clustering-03
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+[ "$NODES_ENABLED" = true ] ||
+	grade_abort "Multi-node labs are enabled in the configuration"
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null ||
+	grade_abort "The lab configuration has at least 3 nodes"
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    fail "Lab requires at least 3 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+ips=("$(get_node_ip 1)" "$(get_node_ip 2)" "$(get_node_ip 3)")
+node1="${ips[0]}"
 
-# Get node IPs
-NODE1_IP=$(get_node_ip 1)
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
+on_node() {
+	run_on_node "$@" 2>/dev/null
+}
 
-echo "Cluster Node 1: $NODE1_IP"
-echo "Cluster Node 2: $NODE2_IP"
-echo "Cluster Node 3: $NODE3_IP"
-echo ""
+# Corosync and Pacemaker are active on every node
+services_active() {
+	local ip unit
+	for ip in "${ips[@]}"; do
+		for unit in corosync pacemaker; do
+			on_node "$ip" "sudo systemctl is-active --quiet $unit" || return 1
+		done
+	done
+}
 
-# Check 1: Cluster is running
-echo -n "1. Checking cluster status... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active pacemaker > /dev/null 2>&1"; then
-    pass "Cluster is running"
-    ((PASS_COUNT++))
-else
-    fail "Cluster not running"
-    ((FAIL_COUNT++))
-fi
+# Pacemaker on node 1 lists exactly 3 members
+three_members() {
+	local n
+	n=$(on_node "$node1" "sudo crm_node -l" | grep -c ' member$')
+	[ "$n" -eq 3 ]
+}
 
-# Check 2: All 3 nodes are online
-echo -n "2. Checking all 3 nodes online... "
-nodes=$(run_on_node "$NODE1_IP" "sudo crm_node -l 2>/dev/null | grep -c 'member' || echo 0")
-if [[ "$nodes" -ge 3 ]]; then
-    pass "All 3 nodes online"
-    ((PASS_COUNT++))
-else
-    fail "Not all 3 nodes online"
-    ((FAIL_COUNT++))
-fi
+# Every node is quorate and expects 3 votes
+quorate_with_three_votes() {
+	local ip out
+	for ip in "${ips[@]}"; do
+		out=$(on_node "$ip" "sudo corosync-quorumtool -s") || true
+		echo "$out" | grep -Eq '^Quorate:[[:space:]]+Yes' || return 1
+		echo "$out" | grep -Eq '^Expected votes:[[:space:]]+3$' || return 1
+	done
+}
 
-# Check 3: Cluster has quorum
-echo -n "3. Checking cluster quorum... "
-quorum=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -i 'partition with quorum' || echo ''" || echo "")
-if [[ -n "$quorum" ]]; then
-    pass "Cluster has quorum"
-    ((PASS_COUNT++))
-else
-    fail "Cluster lost quorum"
-    ((FAIL_COUNT++))
-fi
+# Runtime value of a corosync cmap key on a node
+cmap_value() {
+	on_node "$1" "sudo corosync-cmapctl -g $2" | sed -n 's/^.* = //p'
+}
 
-# Check 4: Expected votes is set to 3
-echo -n "4. Checking expected votes = 3... "
-votes=$(run_on_node "$NODE1_IP" "sudo corosync-quorumtool 2>/dev/null | grep 'Expected votes' || echo ''" || echo "")
-if [[ "$votes" == *"3"* ]]; then
-    pass "Expected votes set to 3"
-    ((PASS_COUNT++))
-else
-    fail "Expected votes not set correctly"
-    ((FAIL_COUNT++))
-fi
+# votequorum is the provider and two_node is off, on every node
+provider_and_two_node() {
+	local ip v
+	for ip in "${ips[@]}"; do
+		[ "$(cmap_value "$ip" quorum.provider)" = corosync_votequorum ] || return 1
+		v=$(cmap_value "$ip" quorum.two_node)
+		case "$v" in "" | 0) ;; *) return 1 ;; esac
+	done
+}
 
-# Check 5: Quorum provider is votequorum
-echo -n "5. Checking votequorum provider... "
-provider=$(run_on_node "$NODE1_IP" "sudo grep -i 'provider: corosync_votequorum' /etc/corosync/corosync.conf || echo ''" || echo "")
-if [[ -n "$provider" ]]; then
-    pass "Votequorum provider configured"
-    ((PASS_COUNT++))
-else
-    fail "Votequorum provider not configured"
-    ((FAIL_COUNT++))
-fi
+# Option $1 has value $2 in corosync.conf and in the running corosync
+# on every node
+option_set() {
+	local ip
+	for ip in "${ips[@]}"; do
+		on_node "$ip" "sudo grep -Eq '^[[:space:]]*$1:[[:space:]]*$2[[:space:]]*\$' $CONF" || return 1
+		[ "$(cmap_value "$ip" "quorum.$1")" = "$2" ] || return 1
+	done
+}
 
-# Check 6: Ring topology configured
-echo -n "6. Checking ring topology... "
-ring=$(run_on_node "$NODE1_IP" "sudo grep -i 'ringnumber' /etc/corosync/corosync.conf || echo ''" || echo "")
-if [[ -n "$ring" ]]; then
-    pass "Ring topology configured"
-    ((PASS_COUNT++))
-else
-    fail "Ring topology not configured"
-    ((FAIL_COUNT++))
-fi
+# A cluster property has one of the accepted values: $1 is its name,
+# $2 an ERE of the accepted values. An unset property counts as ok,
+# because the default of the properties graded here is the accepted one.
+cluster_property_ok() {
+	local cfg
+	cfg=$(on_node "$node1" "sudo cibadmin -Q -o crm_config") || return 1
+	if echo "$cfg" | grep -q "name=\"$1\""; then
+		echo "$cfg" | grep -Eq "name=\"$1\"[^>]*value=\"($2)\""
+	else
+		return 0
+	fi
+}
 
-# Check 7: Two-node mode is disabled
-echo -n "7. Checking two_node is disabled... "
-two_node=$(run_on_node "$NODE1_IP" "sudo grep 'two_node: 0' /etc/corosync/corosync.conf || echo ''" || echo "")
-if [[ -n "$two_node" ]]; then
-    pass "two_node mode disabled"
-    ((PASS_COUNT++))
-else
-    fail "two_node mode not disabled"
-    ((FAIL_COUNT++))
-fi
+no_quorum_policy_stop() {
+	cluster_property_ok no-quorum-policy stop
+}
 
-# Check 8: Autofencing is enabled
-echo -n "8. Checking autofencing... "
-autofence=$(run_on_node "$NODE1_IP" "sudo grep -i 'autofencing' /etc/corosync/corosync.conf || echo ''" || echo "")
-if [[ -n "$autofence" ]]; then
-    pass "Autofencing is enabled"
-    ((PASS_COUNT++))
-else
-    fail "Autofencing not enabled"
-    ((FAIL_COUNT++))
-fi
+stonith_enabled() {
+	local cfg
+	cfg=$(on_node "$node1" "sudo cibadmin -Q -o crm_config") || return 1
+	echo "$cfg" | grep -Eq 'name="stonith-enabled"[^>]*value="(false|no|off|0)"' && return 1
+	return 0
+}
 
-# Check 9: STONITH is still enabled
-echo -n "9. Checking STONITH still enabled... "
-stonith=$(run_on_node "$NODE1_IP" "sudo pcs property config 2>/dev/null | grep 'stonith-enabled' || echo ''" || echo "")
-if [[ -n "$stonith" && "$stonith" != *"false"* ]]; then
-    pass "STONITH still enabled"
-    ((PASS_COUNT++))
-else
-    fail "STONITH not properly configured"
-    ((FAIL_COUNT++))
-fi
+apache_started() {
+	on_node "$node1" "sudo crm_resource --locate --resource apache_web" |
+		grep -q 'is running on'
+}
 
-# Check 10: Cluster shows no split-brain
-echo -n "10. Checking no split-brain conditions... "
-splitbrain=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -i 'split' || echo ''" || echo "")
-if [[ -z "$splitbrain" ]]; then
-    pass "No split-brain detected"
-    ((PASS_COUNT++))
-else
-    fail "Split-brain condition detected"
-    ((FAIL_COUNT++))
-fi
+# Every node sees the same 3-member cluster
+same_membership() {
+	local ip
+	for ip in "${ips[@]}"; do
+		on_node "$ip" "sudo corosync-quorumtool -s | grep -Eq '^Nodes:[[:space:]]+3\$'" || return 1
+	done
+}
 
-# Check 11: Cluster can reach all nodes
-echo -n "11. Checking node reachability... "
-reach=$(run_on_node "$NODE1_IP" "sudo crm_node -l 2>/dev/null | grep -c 'member' || echo 0")
-if [[ "$reach" -ge 3 ]]; then
-    pass "All nodes are reachable"
-    ((PASS_COUNT++))
-else
-    fail "Node reachability issue"
-    ((FAIL_COUNT++))
-fi
-
-# Check 12: Managed resources are running
-echo -n "12. Checking managed resources... "
-resources=$(run_on_node "$NODE1_IP" "sudo crm_mon -1 2>/dev/null | grep -E 'Started|running' | wc -l || echo 0")
-if [[ "$resources" -ge 1 ]]; then
-    pass "Managed resources are running"
-    ((PASS_COUNT++))
-else
-    fail "No managed resources found"
-    ((FAIL_COUNT++))
-fi
-
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
-
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+criterion "Corosync and Pacemaker are active on all three nodes" services_active
+criterion "Pacemaker lists all three nodes as members" three_members
+criterion "Every node has quorum and expects 3 votes" quorate_with_three_votes
+criterion "Quorum provider is votequorum, two_node is not enabled" provider_and_two_node
+criterion "wait_for_all is 1 on all nodes" option_set wait_for_all 1
+criterion "last_man_standing is 1 on all nodes" option_set last_man_standing 1
+criterion "last_man_standing_window is 10000 on all nodes" option_set last_man_standing_window 10000
+criterion "Cluster property no-quorum-policy is stop" no_quorum_policy_stop
+criterion "STONITH is enabled" stonith_enabled
+criterion "Resource apache_web is started" apache_started
+criterion "Every node sees the same 3-member cluster" same_membership
+grade_end

@@ -1,53 +1,32 @@
 #!/bin/bash
+# storage-02 setup: removes leftovers of an earlier run and records the
+# start in the state file. Prints nothing on success.
+set -eu
 
-# Storage Lab 02 - LVM Basics (Intermediate)
-# Objective: Create Physical Volumes, Volume Groups, and Logical Volumes
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/storage-02"
+dir=$(dirname "$0")
 
-cat <<'EOF'
-====================================================
-LAB: Storage 02 - LVM Basics
-====================================================
+if ! command -v pvcreate >/dev/null 2>&1; then
+	dnf -y -q install lvm2 >/dev/null 2>&1 || {
+		echo "storage-02: lvm2 is not installed and could not be installed" >&2
+		exit 1
+	}
+fi
 
-OBJECTIVE
-Create LVM structure with Physical Volumes, Volume Groups, and Logical Volumes.
+# Remove what an earlier run or its solution left behind
+bash "$dir/cleanup.sh"
 
-REQUIREMENTS
-1) Create a 100MB loopback image at /tmp/lvm.img
-   - Format as ext4 or use for LVM
+# Refuse to continue if datavg exists on real disks (not ours to remove)
+if vgs --noheadings datavg >/dev/null 2>&1; then
+	echo "storage-02: volume group datavg already exists on non-loop devices" >&2
+	exit 1
+fi
+if mountpoint -q /mnt/lvm; then
+	echo "storage-02: /mnt/lvm is already a mount point" >&2
+	exit 1
+fi
 
-2) Create a Physical Volume (PV) from the loopback device
-   - Initialize LVM on the loopback
-
-3) Create a Volume Group (VG) named 'datavg'
-   - Add the PV to this volume group
-
-4) Create a Logical Volume (LV) 'vol0'
-   - Size: 80MB
-   - In the 'datavg' volume group
-
-5) Format the LV as ext4
-
-6) Mount the LV at /mnt/lvm
-   - Permissions: 755
-
-7) Verify with commands:
-   - pvs (list physical volumes)
-   - vgs (list volume groups)
-   - lvs (list logical volumes)
-   - df -h /mnt/lvm
-
-CHALLENGE (Optional)
-- Extend vol0 to 90MB
-- Grow the filesystem to match
-
-USEFUL COMMANDS
-- pvcreate, pvs, pvdisplay
-- vgcreate, vgs, vgdisplay
-- lvcreate, lvs, lvdisplay
-- mkfs.ext4
-- mount, df, lsblk
-
-Run grading when done:
-  sudo labctl grade storage-02
-====================================================
-EOF
+mkdir -p "$STATE_DIR"
+date +%s > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

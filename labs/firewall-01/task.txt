@@ -1,0 +1,28 @@
+OBJECTIVE
+  Open a service and a custom port in the public zone of the running
+  firewalld.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with firewalld installed. The lab starts the
+    firewalld service if it is stopped.
+  - Root access through sudo.
+
+TASKS
+  1. Make sure the firewalld service is running.
+  2. Allow the http service in the public zone.
+  3. Allow port 8080/tcp in the public zone.
+  4. Both rules must be active in the running firewall. Making them
+     permanent is not required and is not graded.
+
+EXPECTED RESULT
+  The running firewall lists http among the services and 8080/tcp
+  among the ports of the public zone. Existing rules, including
+  ssh, stay as they are.
+
+NOTES
+  - Do not remove or change the ssh service, or your session may be
+    cut off.
+  - Reference: man firewall-cmd.
+
+GRADING
+  labctl grade firewall-01

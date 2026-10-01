@@ -1,83 +1,56 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# webserver-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+DOCROOT=/var/www/lab2/html
+NAME=lab2.local
+STATE_FILE=/opt/linux-labs/state/webserver-02
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+grade_begin webserver-02
+grade_require_state webserver-02 "$STATE_FILE"
 
-# Check if httpd package is installed and running
-if rpm -q httpd > /dev/null 2>&1; then
-	pass "httpd package installed"
-else
-	fail "httpd package not installed"
-fi
+httpd_enabled_running() {
+	systemctl is-enabled --quiet httpd && systemctl is-active --quiet httpd
+}
 
-if systemctl is-active --quiet httpd; then
-	pass "httpd service is running"
-else
-	fail "httpd service is not running"
-fi
+index_has_text() {
+	grep -qF "Welcome to Lab 2" "$DOCROOT/index.html"
+}
 
-# Check if directory exists
-if [ -d /var/www/lab2/html ]; then
-	pass "/var/www/lab2/html directory exists"
-else
-	fail "/var/www/lab2/html directory missing"
-fi
+hosts_maps_name() {
+	awk -v n="$NAME" '
+		{ sub(/#.*/, "") }
+		$1 == "127.0.0.1" { for (i = 2; i <= NF; i++) if ($i == n) found = 1 }
+		END { exit !found }' /etc/hosts
+}
 
-# Check if index.html exists
-if [ -f /var/www/lab2/html/index.html ]; then
-	pass "index.html exists"
-else
-	fail "index.html missing"
-fi
+# The running Apache has a name-based vhost for the name, whose
+# DocumentRoot (read from its configuration block) is the lab directory
+vhost_docroot() {
+	local entry file line
+	entry=$(httpd -S 2>&1 | grep -E "namevhost $NAME " | head -n 1)
+	[ -n "$entry" ] || return 1
+	entry=${entry##*(}
+	entry=${entry%)*}
+	file=${entry%:*}
+	line=${entry##*:}
+	[ -r "$file" ] || return 1
+	sed -n "${line},/<\/VirtualHost>/p" "$file" |
+		grep -Eiq '^[[:space:]]*DocumentRoot[[:space:]]+"?/var/www/lab2/html/?"?[[:space:]]*$'
+}
 
-# Check if index.html contains required content
-if grep -q "Welcome to Lab 2" /var/www/lab2/html/index.html > /dev/null 2>&1; then
-	pass "index.html contains 'Welcome to Lab 2'"
-else
-	fail "index.html missing required content"
-fi
+served_page_matches() {
+	local body
+	body=$(curl -fsS --max-time 10 "http://$NAME/") || return 1
+	[ -n "$body" ] && [ "$body" = "$(cat "$DOCROOT/index.html")" ]
+}
 
-# Check if lab2.local is in /etc/hosts
-if grep -q "lab2.local" /etc/hosts > /dev/null 2>&1; then
-	pass "lab2.local in /etc/hosts"
-else
-	fail "lab2.local not in /etc/hosts"
-fi
-
-# Check if virtual host config exists
-if [ -f /etc/httpd/conf.d/lab2.conf ]; then
-	pass "Virtual host config exists"
-else
-	fail "Virtual host config missing"
-fi
-
-# Check if config is valid
-if httpd -t 2>&1 | grep -q "Syntax OK"; then
-	pass "Apache config is valid"
-else
-	fail "Apache config has errors"
-fi
-
-# Check if curl can reach lab2.local
-if curl -s http://lab2.local > /dev/null 2>&1 | grep -q "Welcome to Lab 2"; then
-	pass "lab2.local is accessible"
-else
-	fail "lab2.local not accessible"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+criterion "Package httpd is installed" rpm -q httpd
+criterion "httpd is enabled and running" httpd_enabled_running
+criterion "Directory $DOCROOT exists" test -d "$DOCROOT"
+criterion "index.html contains 'Welcome to Lab 2'" index_has_text
+criterion "$NAME resolves to 127.0.0.1 in /etc/hosts" hosts_maps_name
+criterion "Apache configuration passes the syntax check" httpd -t
+criterion "Virtual host $NAME uses DocumentRoot $DOCROOT" vhost_docroot
+criterion "http://$NAME/ returns index.html with status 200" served_page_matches
+grade_end

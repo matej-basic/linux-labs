@@ -1,0 +1,32 @@
+OBJECTIVE
+  Install PostgreSQL Server, initialise the database cluster, start
+  the service and verify local connectivity.
+
+PREREQUISITES
+  - PostgreSQL is not installed at the start of the lab.
+  - The packages come from the default PostgreSQL version of the
+    distribution (version 10 on Rocky Linux 8, 13 on Rocky Linux 9).
+    Any version from the default repositories is accepted.
+
+TASKS
+  1. Install the PostgreSQL server package, postgresql-server.
+  2. Initialise the database cluster in the default data directory,
+     /var/lib/pgsql/data.
+  3. Run the postgresql service now and enable it to start at boot.
+  4. The server must listen on TCP port 5432.
+  5. The operating system user postgres must be able to connect to
+     the database postgres through the local socket and run a query.
+
+EXPECTED RESULT
+  The postgresql service is active and enabled, the data directory
+  holds an initialised cluster, port 5432 is served by PostgreSQL
+  and the user postgres can run SQL in the database postgres.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man postgresql-setup, man psql and man systemctl.
+  - Remote access and firewall rules are not part of this lab.
+
+GRADING
+  labctl grade postgres-01

@@ -1,4 +1,4 @@
+title: Install and run Apache HTTP Server
 category: Web Servers
 complexity: Beginner
 objective: Install and start Apache HTTP Server, verify it is running and accessible on port 80.
-

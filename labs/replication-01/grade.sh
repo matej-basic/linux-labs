@@ -1,114 +1,95 @@
 #!/bin/bash
-# replication-01 - MySQL Master-Slave Replication Grading Script
+# replication-01 grader
+source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/grading.sh
+load_lab_config
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+grade_begin replication-01
 
-PASS_COUNT=0
-FAIL_COUNT=0
+[ "$NODES_ENABLED" = "true" ] || grade_abort "Multi-node labs are enabled in the configuration"
+[ "$NODE_COUNT" -ge 2 ] 2>/dev/null || grade_abort "The configuration defines at least 2 nodes"
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+NODE1_IP=$(get_node_ip 1)
+NODE2_IP=$(get_node_ip 2)
 
-if [[ "$NODE_COUNT" -lt 2 ]]; then
-    fail "Lab requires at least 2 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+for ip in "$NODE1_IP" "$NODE2_IP"; do
+	test_node_connectivity "$ip" >/dev/null 2>&1 || grade_abort "Nodes 1 and 2 are reachable over SSH"
+done
 
-# Get node IPs
-MASTER_IP=$(echo "$(get_all_node_ips)" | awk '{print $1}')
-SLAVE_IP=$(echo "$(get_all_node_ips)" | awk '{print $2}')
+# sql <ip> <statements>: run SQL as MySQL root on a node, tab-separated
+# output without headers. Statements go in on standard input.
+sql() {
+	printf '%s\n' "$2" | run_on_node "$1" "sudo -n mysql -N -B" 2>/dev/null
+}
 
-echo "Checking master: $MASTER_IP"
-echo "Checking slave: $SLAVE_IP"
-echo ""
+service_ok() {
+	run_on_node "$1" "sudo -n systemctl is-enabled mysqld && sudo -n systemctl is-active mysqld"
+}
 
-# Check 1: Master has MySQL running
-echo -n "1. Checking master MySQL service... "
-if run_on_node "$MASTER_IP" "sudo systemctl is-active mysqld > /dev/null 2>&1"; then
-    pass "MySQL service running on master"
-    ((PASS_COUNT++))
-else
-    fail "MySQL service not running on master"
-    ((FAIL_COUNT++))
-fi
+binlog_on() {
+	[ "$(sql "$NODE1_IP" 'SELECT @@log_bin;')" = 1 ]
+}
 
-# Check 2: Slave has MySQL running
-echo -n "2. Checking slave MySQL service... "
-if run_on_node "$SLAVE_IP" "sudo systemctl is-active mysqld > /dev/null 2>&1"; then
-    pass "MySQL service running on slave"
-    ((PASS_COUNT++))
-else
-    fail "MySQL service not running on slave"
-    ((FAIL_COUNT++))
-fi
+server_ids_differ() {
+	local a b
+	a=$(sql "$NODE1_IP" 'SELECT @@server_id;')
+	b=$(sql "$NODE2_IP" 'SELECT @@server_id;')
+	[ -n "$a" ] && [ -n "$b" ] && [ "$a" != "$b" ]
+}
 
-# Check 3: Master has binary logging enabled
-echo -n "3. Checking master binary logging... "
-binlog_check=$(run_on_node "$MASTER_IP" "sudo mysql -u root -e \"SHOW VARIABLES LIKE 'log_bin';\" 2>/dev/null" | grep -i "ON" || echo "")
-if [[ -n "$binlog_check" ]]; then
-    pass "Binary logging enabled on master"
-    ((PASS_COUNT++))
-else
-    fail "Binary logging not enabled on master"
-    ((FAIL_COUNT++))
-fi
+# The server ID of node 2 comes from an option file or from SET PERSIST,
+# so it is still set after a restart of mysqld.
+replica_id_persistent() {
+	run_on_node "$NODE2_IP" "sudo -n mysqld --print-defaults 2>/dev/null" | grep -Eq -- '--server[-_]id=[0-9]+' && return 0
+	[ "$(sql "$NODE2_IP" "SELECT COUNT(*) FROM performance_schema.persisted_variables WHERE variable_name = 'server_id';")" -ge 1 ]
+}
 
-# Check 4: Replication user exists on master
-echo -n "4. Checking replication user on master... "
-user_check=$(run_on_node "$MASTER_IP" "sudo mysql -u root -e \"SELECT User FROM mysql.user WHERE User='repl';\" 2>/dev/null" | grep -i "repl" || echo "")
-if [[ -n "$user_check" ]]; then
-    pass "Replication user 'repl' exists on master"
-    ((PASS_COUNT++))
-else
-    fail "Replication user 'repl' not found on master"
-    ((FAIL_COUNT++))
-fi
+repl_account() {
+	[ "$(sql "$NODE1_IP" "SELECT COUNT(*) FROM mysql.user WHERE User = 'repl' AND Repl_slave_priv = 'Y';")" -ge 1 ]
+}
 
-# Check 5: Slave is connected to master
-echo -n "5. Checking slave replication status... "
-slave_status=$(run_on_node "$SLAVE_IP" "sudo mysql -u root -e \"SHOW SLAVE STATUS\\G\" 2>/dev/null" | grep -i "Master_Host" || echo "")
-if [[ -n "$slave_status" ]]; then
-    pass "Slave configured with master connection"
-    ((PASS_COUNT++))
-else
-    fail "Slave not configured with master connection"
-    ((FAIL_COUNT++))
-fi
+# replica_field <name>: a field of SHOW REPLICA STATUS on node 2
+replica_field() {
+	sql "$NODE2_IP" 'SHOW REPLICA STATUS\G' | sed -n "s/^ *$1: //p" | head -n 1
+}
 
-# Check 6: Test data replication
-echo -n "6. Testing data replication... "
-test_db="replication_test_$RANDOM"
-# Create test database on master
-run_on_node "$MASTER_IP" "sudo mysql -u root -e \"CREATE DATABASE $test_db;\" 2>/dev/null" > /dev/null 2>&1 || true
-sleep 2
-# Check if database exists on slave
-slave_db_check=$(run_on_node "$SLAVE_IP" "sudo mysql -u root -e \"SHOW DATABASES LIKE '$test_db';\" 2>/dev/null" | grep "$test_db" || echo "")
-if [[ -n "$slave_db_check" ]]; then
-    pass "Database replicated from master to slave"
-    ((PASS_COUNT++))
-    # Clean up test database
-    run_on_node "$MASTER_IP" "sudo mysql -u root -e \"DROP DATABASE $test_db;\" 2>/dev/null" > /dev/null 2>&1 || true
-else
-    fail "Database not replicated from master to slave"
-    ((FAIL_COUNT++))
-fi
+replicates_from_node1() {
+	[ "$(replica_field Source_Host)" = "$NODE1_IP" ] && [ "$(replica_field Source_User)" = repl ]
+}
 
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
+io_running() {
+	[ "$(replica_field Replica_IO_Running)" = Yes ]
+}
 
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    exit 0
-else
-    exit 1
-fi
+sql_running() {
+	[ "$(replica_field Replica_SQL_Running)" = Yes ]
+}
+
+# A database with a table and a row is created on node 1 and must show
+# up with its row on node 2 within 15 seconds. It is dropped afterwards.
+data_replicates() {
+	local db="replication_test_$$" got=""
+	sql "$NODE1_IP" "CREATE DATABASE $db; CREATE TABLE $db.t (id INT PRIMARY KEY, v VARCHAR(20)); INSERT INTO $db.t VALUES (1, 'grade');" >/dev/null || {
+		sql "$NODE1_IP" "DROP DATABASE IF EXISTS $db;" >/dev/null
+		return 1
+	}
+	for _ in $(seq 15); do
+		got=$(sql "$NODE2_IP" "SELECT v FROM $db.t WHERE id = 1;")
+		[ "$got" = grade ] && break
+		sleep 1
+	done
+	sql "$NODE1_IP" "DROP DATABASE IF EXISTS $db;" >/dev/null
+	[ "$got" = grade ]
+}
+
+criterion "MySQL is enabled and running on node 1" service_ok "$NODE1_IP"
+criterion "MySQL is enabled and running on node 2" service_ok "$NODE2_IP"
+criterion "Binary logging is enabled on node 1" binlog_on
+criterion "Node 1 and node 2 have different server IDs" server_ids_differ
+criterion "The server ID of node 2 is set persistently" replica_id_persistent
+criterion "Account repl with REPLICATION SLAVE exists on node 1" repl_account
+criterion "Node 2 replicates from $NODE1_IP as repl" replicates_from_node1
+criterion "The replication I/O thread on node 2 is running" io_running
+criterion "The replication SQL thread on node 2 is running" sql_running
+criterion "Data written on node 1 appears on node 2" data_replicates
+grade_end

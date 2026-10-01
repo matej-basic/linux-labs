@@ -1,0 +1,19 @@
+OBJECTIVE
+  Create a directory and a text file with the required content.
+
+TASKS
+  1. Create the directory /tmp/data.
+  2. Create the regular file /tmp/data/info.txt.
+  3. The file /tmp/data/info.txt must contain the word hello.
+
+EXPECTED RESULT
+  /tmp/data holds the file info.txt, and info.txt contains the word
+  hello.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man mkdir and man bash (section Redirection).
+
+GRADING
+  labctl grade files-01

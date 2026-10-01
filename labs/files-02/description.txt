@@ -1,3 +1,4 @@
+title: Web directory permissions and ownership
 category: Files
 complexity: Intermediate
-objective: Manage file permissions, ownership and directory structures for a web application directory tree.
+objective: Build a web application directory tree with the required owners and permissions.

@@ -1,29 +1,23 @@
 #!/bin/bash
+# firewall-03 cleanup: remove what the lab and its solution add and
+# restore what setup.sh removed. Never touches ssh or interfaces.
+STATE_FILE=/opt/linux-labs/state/firewall-03
 
-# Remove test configurations and restore default firewall state
-echo "Cleaning up firewall-03 lab..."
+fw() { firewall-cmd "$@" >/dev/null 2>&1 || true; }
 
-# Remove masquerading from internal zone
-firewall-cmd --permanent --zone=internal --remove-masquerade >/dev/null 2>&1
-
-# Remove port forwarding from public zone
-firewall-cmd --permanent --zone=public --remove-forward-port=port=8443:proto=tcp:toport=443 >/dev/null 2>&1
-
-# Remove custom-app service from public zone
-firewall-cmd --permanent --zone=public --remove-service=custom-app >/dev/null 2>&1
-
-# Remove HTTP service from public zone
-firewall-cmd --permanent --zone=public --remove-service=http >/dev/null 2>&1
-
-# Remove source from internal zone
-firewall-cmd --permanent --zone=internal --remove-source=10.0.0.0/8 >/dev/null 2>&1
-
-# Delete custom service definition
-firewall-cmd --delete-service=custom-app >/dev/null 2>&1
+fw --permanent --zone=internal --remove-masquerade
+fw --permanent --zone=public --remove-forward-port=port=8443:proto=tcp:toport=443
+fw --permanent --zone=public --remove-service=custom-app
+fw --permanent --zone=public --remove-service=http
+fw --permanent --delete-service=custom-app
 rm -f /etc/firewalld/services/custom-app.xml
 
-# Reload firewall configuration
-firewall-cmd --reload >/dev/null 2>&1
+# Restore what was there before the lab (only if the lab was started)
+if [ -f "$STATE_FILE" ]; then
+	grep -qx 'masquerade=1' "$STATE_FILE" && fw --permanent --zone=internal --add-masquerade
+	grep -qx 'http=1' "$STATE_FILE" && fw --permanent --zone=public --add-service=http
+fi
 
-echo "Firewall lab cleanup complete."
-
+fw --reload
+rm -f "$STATE_FILE"
+exit 0

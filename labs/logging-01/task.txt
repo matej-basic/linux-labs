@@ -1,0 +1,43 @@
+OBJECTIVE
+  Filter the systemd journal by identifier, priority, output format
+  and order, and save the results to files.
+
+PREREQUISITES
+  - Work as your normal user, {{LAB_USER}}. Reading the whole journal
+    may require sudo, depending on your group membership.
+
+TASKS
+  The journal contains 8 test entries with the syslog identifier
+  labjournal, written when the lab started. They have the
+  priorities crit, err, warning, notice and info. Save the results
+  in the directory journal-lab in your home directory. The files
+  must belong to your user.
+
+  1. Create all.txt with every entry of identifier labjournal in
+     the default output format. It holds all 8 entries and nothing
+     from other identifiers.
+  2. Create errors.txt with the labjournal entries of priority err
+     or more severe. It holds 3 entries.
+  3. Create warnings.txt with the labjournal entries of priority
+     warning or more severe. It holds 5 entries.
+  4. Create latest.txt with only the 3 newest labjournal entries,
+     the newest one first.
+  5. Create errors.json with the same 3 entries as errors.txt in
+     JSON format, one entry per line.
+
+PRACTICE (not graded)
+  - Show the entries of the unit systemd-logind.
+  - Show only the messages of the current boot.
+  - Show the entries of the last 10 minutes, and combine this with
+    a unit and a priority.
+  - Follow the journal in real time and leave the view again.
+
+NOTES
+  - The journal keeps entries of earlier lab runs. Select by
+    identifier and priority; do not edit the files by hand.
+  - Priorities from most to least severe: emerg, alert, crit, err,
+    warning, notice, info, debug.
+  - Reference: man journalctl and man systemd.journal-fields.
+
+GRADING
+  labctl grade logging-01

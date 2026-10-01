@@ -1,41 +1,110 @@
 #!/bin/bash
+# postgres-03 setup: PostgreSQL installed, initialised and running, with
+# database labdb and table users holding sample data. Records in the state
+# file what this script did, so that cleanup.sh undoes only that.
+# Prints nothing on success.
+set -eu
 
-# Reset lab state
-sudo -u postgres psql -d postgres -c "DROP DATABASE IF EXISTS labdb_restore;" > /dev/null 2>&1
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/postgres-03"
+DATA_DIR=/var/lib/pgsql/data
+
+# Flags: 1 = created or started by this lab (cleanup undoes it)
+pkg=0 init=0 svc=0 db=0 tbl=0 rows=0 hash=
+if [ -r "$STATE_FILE" ]; then
+	for k in pkg init svc db tbl rows; do
+		v=$(sed -n "s/^$k=//p" "$STATE_FILE" | head -n 1)
+		[ "$v" = 1 ] && printf -v "$k" '%s' 1
+	done
+fi
+
+save_state() {
+	mkdir -p "$STATE_DIR"
+	cat > "$STATE_FILE" <<STATE
+pkg=$pkg
+init=$init
+svc=$svc
+db=$db
+tbl=$tbl
+rows=$rows
+hash=$hash
+STATE
+	chmod 644 "$STATE_FILE"
+}
+
+pg() {
+	local d=$1 q=$2
+	(cd /tmp && runuser -u postgres -- psql -X -At -v ON_ERROR_STOP=1 -d "$d" -c "$q")
+}
+
+# Package, cluster and service
+if ! rpm -q postgresql-server > /dev/null 2>&1; then
+	dnf -y -q install postgresql-server > /dev/null
+	pkg=1
+	save_state
+fi
+if [ ! -f "$DATA_DIR/PG_VERSION" ]; then
+	postgresql-setup --initdb > /dev/null
+	init=1
+	save_state
+fi
+if ! systemctl is-active --quiet postgresql; then
+	systemctl start postgresql
+	svc=1
+	save_state
+fi
+ready=0
+for _ in $(seq 1 30); do
+	if pg postgres 'SELECT 1' > /dev/null 2>&1; then
+		ready=1
+		break
+	fi
+	sleep 1
+done
+if [ "$ready" -ne 1 ]; then
+	echo "postgres-03: PostgreSQL does not accept connections" >&2
+	exit 1
+fi
+
+# Starting state of the lab: no backup, no restore database
+pg postgres 'DROP DATABASE IF EXISTS labdb_restore' > /dev/null
 rm -f /tmp/labdb_backup.sql
 
-# Print task description
-cat <<'EOF'
+# labdb: recreate it when this lab made it, otherwise keep what exists
+if [ "$db" = 1 ]; then
+	pg postgres 'DROP DATABASE IF EXISTS labdb' > /dev/null
+fi
+if [ "$(pg postgres "SELECT count(*) FROM pg_database WHERE datname = 'labdb'")" = 0 ]; then
+	pg postgres 'CREATE DATABASE labdb' > /dev/null
+	db=1
+	save_state
+fi
 
-====================================================
-LAB: PostgreSQL - Backup and Restore (postgres-03)
-====================================================
+# users table and rows (only touched when this lab owns them)
+if [ "$db" = 0 ]; then
+	if [ "$tbl" = 1 ]; then
+		pg labdb 'DROP TABLE IF EXISTS public.users' > /dev/null
+	fi
+	if [ "$rows" = 1 ]; then
+		pg labdb 'DELETE FROM public.users' > /dev/null 2>&1 || true
+	fi
+fi
+if [ "$(pg labdb "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'")" = 0 ]; then
+	pg labdb 'CREATE TABLE public.users (id serial PRIMARY KEY, name text NOT NULL, email text NOT NULL)' > /dev/null
+	[ "$db" = 1 ] || tbl=1
+	save_state
+fi
+if [ "$(pg labdb 'SELECT count(*) FROM public.users')" = 0 ]; then
+	pg labdb "INSERT INTO public.users (name, email) VALUES
+		('Alice Novak', 'alice@example.com'),
+		('Bruno Horvat', 'bruno@example.com'),
+		('Cecilia Kovac', 'cecilia@example.com'),
+		('David Babic', 'david@example.com'),
+		('Eva Maric', 'eva@example.com')" > /dev/null
+	[ "$db" = 1 ] || rows=1
+	save_state
+fi
 
-OBJECTIVE:
-Create a PostgreSQL database backup using pg_dump
-and restore from backup to verify data integrity.
-
-REQUIREMENTS:
-- PostgreSQL Server must be installed and running
-- Password authentication must be configured
-- Database labdb must exist with sample data
-- Create a backup: /tmp/labdb_backup.sql
-- Create restore database: labdb_restore
-- Restore backup to labdb_restore
-- Verify all tables and data are restored
-- Verify row count matches original
-
-NOTES:
-- Use pg_dump for backup creation
-- Use psql to restore from backup
-- Backup file must be readable and valid SQL
-- The grading script checks only the final state
-- Command history is NOT evaluated
-
-When ready, run:
-  sudo labctl grade postgres-03
-
-====================================================
-
-EOF
-
+# Checksum of the original data for the grader
+hash=$(pg labdb 'COPY (SELECT * FROM public.users) TO STDOUT' | sort | md5sum | cut -d' ' -f1)
+save_state

@@ -1,0 +1,48 @@
+OBJECTIVE
+  Build a loopback-backed LVM volume group, snapshot a logical volume
+  and show that the snapshot keeps the earlier state.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - Use only the lab's own image file. Do not touch the existing rl
+    volume group or the disk that holds it.
+
+TASKS
+  1. Create the file /tmp/snap.img with a size of at least 150 MiB
+     and attach it to a loop device.
+  2. Make the loop device an LVM physical volume and create the
+     volume group snapvg on it. The group uses no other device.
+  3. Create the logical volume original in snapvg with a size of
+     exactly 100 MiB. Format it with an ext4 file system and mount
+     it on /mnt/original.
+  4. Create the file /mnt/original/before.txt. Its only content is
+     the line "before snapshot". Create it before the snapshot.
+  5. Create the snapshot logical volume snap1 of original, with a
+     size of at least 20 MiB, and mount it on /mnt/snap1.
+  6. After the snapshot exists, create the file
+     /mnt/original/testfile.txt. Its only content is the line
+     "after snapshot". The snapshot must not contain this file, and
+     it must still contain before.txt.
+
+EXPECTED RESULT
+  /mnt/original shows before.txt and testfile.txt. /mnt/snap1 shows
+  only before.txt, the state of the volume when the snapshot was
+  taken. The snapshot is active and not full.
+
+PRACTICE (not graded)
+  - Write more data to original and watch how the snapshot fills up.
+  - Merge snap1 back into original to roll the volume back. A merge
+    removes the snapshot, so do it only after grading and finish
+    with labctl reset.
+
+NOTES
+  - The loop device does not survive a reboot, so no persistent
+    mounts are required. If you add entries to /etc/fstab for this
+    lab, they must use the nofail option, or the system may fail to
+    boot when the loop device is missing.
+  - labctl reset removes the volume group, the loop device, the
+    image file, the mount points and any fstab entries of this lab.
+  - Reference: man lvm, man lvcreate, man lvconvert and man losetup.
+
+GRADING
+  labctl grade storage-03

@@ -1,0 +1,38 @@
+OBJECTIVE
+  Configure firewalld masquerading, port forwarding and a custom
+  service definition, and make the settings permanent.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with firewalld installed.
+  - Root access through sudo.
+
+TASKS
+  1. firewalld is enabled and running.
+  2. Masquerading is enabled in the internal zone.
+  3. The public zone forwards TCP port 8443 to port 443 on the same
+     host. The rule has no destination address.
+  4. A custom firewalld service named custom-app is defined in the
+     file /etc/firewalld/services/custom-app.xml:
+
+       description   Sample Custom Application Service
+       ports         9090/tcp and 9090/udp
+
+  5. The public zone allows the custom-app service.
+  6. The public zone allows the http service.
+  7. All of the above is stored in the permanent configuration and
+     is also active in the running firewall.
+
+EXPECTED RESULT
+  After a firewalld reload the internal zone still masquerades, the
+  public zone still forwards port 8443 and still allows http and
+  custom-app, and the service definition is loaded.
+
+NOTES
+  - Do not remove the ssh service from the zone of the network
+    interface that carries your SSH session. Keeping SSH reachable
+    is not graded, but you would lose access to the machine.
+  - Reference: man firewall-cmd, man firewalld.zones and
+    man firewalld.service.
+
+GRADING
+  labctl grade firewall-03

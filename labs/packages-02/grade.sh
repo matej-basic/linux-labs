@@ -1,25 +1,30 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# packages-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+STATE_FILE=/opt/linux-labs/state/packages-02
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin packages-02
+grade_require_state packages-02 "$STATE_FILE"
 
-dnf repolist | grep -qi "epel" && pass "EPEL repository is enabled" || { fail "EPEL repository not found"; rc=1; }
-rpm -q htop &>/dev/null && pass "htop package is installed" || { fail "htop package not installed"; rc=1; }
-which htop &>/dev/null && pass "htop command is available" || { fail "htop command not found"; rc=1; }
+# A [epel] section with enabled=1 (the default when the key is absent)
+epel_enabled() {
+	cat /etc/yum.repos.d/*.repo 2>/dev/null | awk '
+		/^\[/ { if (in_epel && en) found = 1; in_epel = ($0 == "[epel]"); en = 1; next }
+		in_epel && /^[[:space:]]*enabled[[:space:]]*=/ {
+			v = $0; sub(/^[^=]*=[[:space:]]*/, "", v); en = (v == "1")
+		}
+		END { if (in_epel && en) found = 1; exit !found }'
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+# dnf records the repository a package was installed from
+htop_from_epel() {
+	LC_ALL=C dnf -q info installed htop 2>/dev/null |
+		awk -F: '/^From repo/ { gsub(/[[:space:]]/, "", $2); r = $2 } END { exit !(r == "epel") }'
+}
 
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+criterion "Repository epel is enabled" epel_enabled
+criterion "Package htop is installed" rpm -q htop
+criterion "Package htop was installed from the epel repository" htop_from_epel
+criterion "Command htop runs" htop --version
+grade_end

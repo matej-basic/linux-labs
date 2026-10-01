@@ -1,6 +1,4 @@
+title: Basic three-node Pacemaker cluster
 category: High Availability Clustering
 complexity: Beginner
-objective: Set up a basic Pacemaker/Corosync HA cluster across 3 nodes
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, Pacemaker and Corosync installed
-estimated_time: 40 minutes
-skills: Pacemaker basics, Corosync cluster communication, cluster initialization, resource management, node status monitoring
+objective: Build a three-node Pacemaker/Corosync cluster and run an Apache resource on it.

@@ -1,45 +1,71 @@
 #!/bin/bash
+# logging-01 setup: writes eight tagged test entries to the journal and
+# creates an empty ~/journal-lab for the lab user. The run id and the
+# owner go into the state file for the grader. Prints nothing on success.
+set -eu
 
-# Logging Lab 01: Journalctl Basics (Beginner)
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/logging-01"
+TAG=labjournal
 
-cat <<'EOF'
+if ! systemctl is-active --quiet systemd-journald; then
+	echo "Error: systemd-journald is not running" >&2
+	exit 1
+fi
+if ! command -v systemd-cat >/dev/null 2>&1; then
+	echo "Error: systemd-cat is not installed" >&2
+	exit 1
+fi
 
-LAB: Logging 01 - Journalctl Basics
+# Lab owner: the user who ran sudo, else "student". If that user does not
+# exist, use the first regular user (UID >= 1000), else root.
+owner="${SUDO_USER:-student}"
+if ! id "$owner" &>/dev/null; then
+	owner=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
+	owner="${owner:-root}"
+fi
+home=$(getent passwd "$owner" | cut -d: -f6)
+dir="$home/journal-lab"
 
-OBJECTIVE
-Learn to view and filter systemd journal logs.
+# Reset the working directory
+rm -rf "$dir"
+mkdir -p "$dir"
+chown "$owner": "$dir"
+chmod 755 "$dir"
 
-TASKS
-1) Show entries from systemd-logind:
-  journalctl -u systemd-logind
-2) Filter by priority (errors, warnings):
-  journalctl -p err
-  journalctl -p warning
-  journalctl -p err,warning
-3) Filter last 10 minutes:
-  journalctl -S '10 minutes ago'
-4) Combine filters (service + priority + time):
-  journalctl -u systemd-logind -p warning -S '10 minutes ago'
-5) Last 20 entries, oldest first:
-  journalctl -n 20 -r
-6) Follow in real time:
-  journalctl -f    # Ctrl+C to exit
+# Write the test entries; the run id makes this run's messages unique.
+# The journal keeps entries of earlier runs, the grader tells them apart.
+rid=$(date +%s)
+emit() {
+	printf '%s\n' "level=$2 $rid $3" | systemd-cat -t "$TAG" -p "$1"
+}
+emit info info "user session opened"
+emit warning warning "certificate expires in 14 days"
+emit err err "backup job failed"
+emit notice notice "configuration reloaded"
+emit crit crit "power supply redundancy lost"
+emit warning warning "disk usage above 80 percent"
+emit err err "mail queue is not draining"
+emit info info "health check completed"
 
-COMMON PRIORITIES
-  emerg (0), alert (1), crit (2), err (3), warning (4), notice (5), info (6), debug (7)
+# Wait until the last entry is readable
+journalctl --sync >/dev/null 2>&1 || true
+for _ in $(seq 1 20); do
+	if journalctl -t "$TAG" -o cat --no-pager 2>/dev/null | grep -qF "level=info $rid health check completed"; then
+		break
+	fi
+	sleep 0.5
+done
+if ! journalctl -t "$TAG" -o cat --no-pager 2>/dev/null | grep -qF "level=info $rid health check completed"; then
+	echo "Error: the test entries did not reach the journal" >&2
+	exit 1
+fi
 
-COMMON FLAGS
-  -u UNIT     filter by unit
-  -p LEVEL    filter by priority
-  -S DATE     since
-  -U DATE     until
-  -n NUM      last N lines
-  -f          follow
-  -r          reverse order
-
-NOTES
-- Some queries may need sudo.
-- Journal may be non-persistent unless configured.
-- For persistent journal, see logging-03.
-
-EOF
+# Record owner, directory and run id for the grader
+mkdir -p "$STATE_DIR"
+{
+	echo "OWNER=$owner"
+	echo "DIR=$dir"
+	echo "RID=$rid"
+} > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

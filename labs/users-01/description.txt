@@ -1,3 +1,4 @@
+title: Users, groups and shared directories
 category: Users
 complexity: Beginner
 objective: Create users and groups with proper home directories, shells, and group memberships.

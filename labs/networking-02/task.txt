@@ -1,0 +1,34 @@
+OBJECTIVE
+  Create a persistent VLAN interface on a free network interface and
+  configure the system hostname and its fully qualified name.
+
+PREREQUISITES
+  The lab uses a free ethernet interface: the first ethernet
+  interface, in name order, that does not carry the default route.
+  Its name is the first line of /opt/linux-labs/state/networking-02.
+  Do not change the interface that carries the default route or its
+  connection profile, because that is your SSH connection.
+
+TASKS
+  1. Create a VLAN interface named vlan10 with VLAN ID 10 on the free
+     interface. Its NetworkManager connection is also named vlan10.
+  2. Give vlan10 the static IPv4 address 192.168.10.1/24 and no other
+     IPv4 address. The configuration must survive a reboot, and the
+     interface must be up now.
+  3. Set the static hostname of the system to labhost.
+  4. Make the name labhost.example.com resolve through /etc/hosts,
+     with labhost as an alias of the same entry.
+
+EXPECTED RESULT
+  The free interface carries VLAN 10 as vlan10 with 192.168.10.1/24,
+  the system is called labhost, and labhost.example.com resolves
+  locally.
+
+NOTES
+  - Use any valid Linux tools. Only the final state is graded.
+  - Reference: man nm-settings (section vlan), man nmcli,
+    man hostnamectl and man hosts.
+  - labctl reset restores the original hostname and removes vlan10.
+
+GRADING
+  labctl grade networking-02

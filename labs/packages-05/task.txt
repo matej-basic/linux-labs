@@ -1,0 +1,49 @@
+OBJECTIVE
+  Install the joe text editor, version 4.6, from its source tarball
+  instead of from a package.
+
+PREREQUISITES
+  - Internet access, and sudo rights for {{LAB_USER}}.
+  - A C compiler and the usual build tools may not be installed on
+    this system. Install what you need.
+  - Works on Rocky Linux 8 and 9.
+
+TASKS
+  1. Download the source tarball joe-4.6.tar.gz from:
+
+       https://sourceforge.net/projects/joe-editor/files/JOE%20sources/joe-4.6/joe-4.6.tar.gz/download
+
+     The link redirects to a mirror.
+  2. Unpack the tarball into a directory of your own, separate from
+     other files, and build joe from there. Where you build is not
+     graded.
+  3. Install joe so that its program files are under the /usr prefix
+     and its configuration files are under /etc. Installing needs
+     root. Compiling does not.
+  4. Verify the result:
+
+       /usr/bin/joe is an executable file that does not belong to
+       any RPM package
+       /etc/joe/joerc exists
+       /usr/local/bin/joe does not exist
+       joe starts and keeps running in a terminal
+
+EXPECTED RESULT
+  joe 4.6 is installed from source in /usr/bin with its
+  configuration in /etc/joe. Nothing of it is installed under
+  /usr/local.
+
+PRACTICE (not graded)
+  - Find out which installation prefix the build uses by default.
+  - Explain what the x, v and f options of tar mean when unpacking
+    an archive.
+
+NOTES
+  - Setup removes the joe RPM package if it is installed, because it
+    would conflict with the source install.
+  - You should read the help text of the configure script of the
+    tarball. This is not graded.
+  - Reference: man tar and man make.
+
+GRADING
+  labctl grade packages-05

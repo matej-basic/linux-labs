@@ -1,4 +1,4 @@
+title: DNS forward zone with A, CNAME and MX records
 category: DNS
 complexity: Intermediate
 objective: Configure a BIND forward zone for a domain, create DNS records (A, CNAME, MX), and verify DNS resolution.
-

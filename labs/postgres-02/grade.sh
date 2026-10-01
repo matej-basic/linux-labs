@@ -1,71 +1,77 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# postgres-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+STATE_FILE=/opt/linux-labs/state/postgres-02/state
+PASSWORD=userpass123
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+# Query as the postgres superuser over the local socket
+q() {
+	(cd /tmp && runuser -u postgres -- psql -X -qAt -d "$1" -c "$2" 2>/dev/null)
+}
 
-# Check if PostgreSQL is running
-if systemctl is-active --quiet postgresql; then
-	pass "PostgreSQL service is running"
-else
-	fail "PostgreSQL service is not running"
-fi
+# Query as labuser over TCP with the given password
+qu() {
+	PGPASSWORD="$1" PGPASSFILE=/dev/null PGCONNECT_TIMEOUT=5 \
+		psql -X -qAt -h 127.0.0.1 -U labuser -d labdb -c "$2" 2>/dev/null
+}
 
-# Check if database labdb exists
-if cd /tmp && sudo -u postgres psql -d labdb -c "SELECT 1;" > /dev/null 2>&1; then
-	pass "Database labdb exists"
-else
-	fail "Database labdb does not exist"
-fi
+role_can_login() {
+	[ "$(q postgres "SELECT 1 FROM pg_roles WHERE rolname = 'labuser' AND rolcanlogin")" = 1 ]
+}
 
-# Check if role labuser exists
-if cd /tmp && sudo -u postgres psql -d postgres -c "SELECT usename FROM pg_user WHERE usename='labuser';" | grep -q labuser; then
-	pass "Role labuser exists"
-else
-	fail "Role labuser does not exist"
-fi
+role_not_admin() {
+	[ "$(q postgres "SELECT 1 FROM pg_roles WHERE rolname = 'labuser' AND NOT rolsuper AND NOT rolcreatedb AND NOT rolcreaterole AND NOT rolreplication AND NOT rolbypassrls")" = 1 ]
+}
 
-# Check if user can connect with correct password
-if cd /tmp && PGPASSWORD=userpass123 psql -U labuser -d labdb -h localhost -c "SELECT 1;" > /dev/null 2>&1; then
-	pass "User labuser can connect with correct password"
-else
-	fail "User labuser cannot connect or password is incorrect"
-fi
+db_exists() {
+	[ "$(q postgres "SELECT 1 FROM pg_database WHERE datname = 'labdb'")" = 1 ]
+}
 
-# Check if users table exists
-if cd /tmp && sudo -u postgres psql -d labdb -c "\dt users" | grep -q users; then
-	pass "users table exists in labdb"
-else
-	fail "users table does not exist"
-fi
+login_ok() {
+	[ "$(qu "$PASSWORD" "SELECT 1")" = 1 ]
+}
 
-# Check if table has at least 2 records
-record_count=$(cd /tmp && PGPASSWORD=userpass123 psql -U labuser -d labdb -h localhost -t -c "SELECT COUNT(*) FROM users;" | xargs)
-if [ "$record_count" -ge 2 ] > /dev/null 2>&1; then
-	pass "At least 2 sample records in users table"
-else
-	fail "Insufficient sample records in users table"
-fi
+# A wrong password is rejected (only meaningful when the right one works)
+wrong_password_rejected() {
+	login_ok || return 1
+	[ "$(qu "wrongpass-$$" "SELECT 1")" != 1 ]
+}
 
-# Check if user has SELECT privilege on users table
-if sudo -u postgres psql -d labdb -c "\dp users" 2>/dev/null | grep -q labuser; then
-	pass "User has privileges on users table"
-else
-	fail "User does not have privileges on users table"
-fi
+can_connect_labdb() {
+	[ "$(q postgres "SELECT has_database_privilege('labuser', 'labdb', 'CONNECT')")" = t ]
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+can_use_schema() {
+	[ "$(q labdb "SELECT has_schema_privilege('labuser', 'public', 'USAGE')")" = t ]
+}
 
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
+table_has_columns() {
+	[ "$(q labdb "SELECT count(DISTINCT column_name) FROM information_schema.columns WHERE table_schema = 'public' AND table_name = 'users' AND column_name IN ('id', 'name', 'email')")" = 3 ]
+}
 
+table_privileges() {
+	[ "$(q labdb "SELECT bool_and(has_table_privilege('labuser', 'public.users', p)) FROM unnest(ARRAY['SELECT','INSERT','UPDATE','DELETE']) AS p")" = t ]
+}
+
+table_has_rows() {
+	local n
+	n=$(q labdb "SELECT count(*) FROM public.users")
+	[[ "$n" =~ ^[0-9]+$ ]] && [ "$n" -ge 2 ]
+}
+
+grade_begin postgres-02
+grade_require_state postgres-02 "$STATE_FILE"
+
+criterion "PostgreSQL service is running" systemctl is-active --quiet postgresql
+criterion "labuser logs in over TCP with the password $PASSWORD" login_ok
+criterion "A wrong password for labuser is rejected over TCP" wrong_password_rejected
+criterion "Role labuser exists and can log in" role_can_login
+criterion "Role labuser has no administrative privileges" role_not_admin
+criterion "Database labdb exists" db_exists
+criterion "labuser may connect to labdb" can_connect_labdb
+criterion "labuser may use the public schema in labdb" can_use_schema
+criterion "Table users in labdb has the columns id, name and email" table_has_columns
+criterion "labuser has SELECT, INSERT, UPDATE and DELETE on users" table_privileges
+criterion "Table users contains at least 2 rows" table_has_rows
+grade_end

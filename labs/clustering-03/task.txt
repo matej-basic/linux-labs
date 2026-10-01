@@ -1,0 +1,67 @@
+OBJECTIVE
+  Protect the three-node Pacemaker/Corosync cluster against
+  split-brain: tune the votequorum options, make a partition without
+  quorum stop its resources, and keep fencing and the web resource
+  intact.
+
+TOPOLOGY
+  The cluster nodes are managed over SSH from this workstation
+  ({{HOSTNAME}}):
+
+                          workstation
+                               |
+            +------------------+------------------+
+            |                  |                  |
+         node 1             node 2             node 3
+       {{NODE1_IP}}       {{NODE2_IP}}       {{NODE3_IP}}
+        corosync           corosync           corosync
+        pacemaker          pacemaker          pacemaker
+
+PREREQUISITES
+  - NODE_COUNT is {{NODE_COUNT}} and multi-node labs are enabled in
+    the lab configuration.
+  - The cluster from clustering-01 and clustering-02 is running: all
+    three nodes are members, STONITH is enabled, and the resource
+    apache_web is started.
+  - Cluster configuration is changed with root privileges on each
+    node (sudo). Nodes cannot log in to each other as root.
+
+TASKS
+  1. Keep the cluster healthy: all three nodes are members, corosync
+     and pacemaker are active on each of them, and the cluster has
+     quorum with 3 expected votes.
+  2. The quorum provider is corosync_votequorum and two_node mode is
+     not enabled.
+  3. On every node, corosync.conf and the running corosync both use
+     these votequorum settings:
+
+       wait_for_all                 1
+       last_man_standing            1
+       last_man_standing_window     10000
+
+  4. A cluster partition that has lost quorum stops all resources it
+     runs. The cluster property that controls this has the value
+     stop.
+  5. STONITH stays enabled.
+  6. The resource apache_web is started on one of the nodes.
+  7. Each node sees the same cluster of 3 members, so there is no
+     partitioned view of the membership.
+
+PRACTICE (not graded)
+  - Take one node out of the cluster, then two, and note when the
+    remaining partition keeps or loses quorum and what happens to
+    apache_web. Bring all nodes back before you grade.
+  - Compare the votes and flags the quorum tool reports before and
+    after your changes.
+
+NOTES
+  - Only the final state is graded. The nodes must be members again
+    when you run the grader, and their settings must survive a
+    restart of corosync.
+  - Reference: man votequorum, man corosync.conf, man pcs
+    (sections quorum and property).
+  - The nodes have no GUI. Use the SSH user configured in the lab
+    configuration (labctl configure).
+
+GRADING
+  labctl grade clustering-03

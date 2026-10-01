@@ -1,0 +1,57 @@
+OBJECTIVE
+  Configure PostgreSQL streaming replication with WAL archiving from a
+  primary on node 1 to a standby on node 2.
+
+TOPOLOGY
+  Node 1 is the primary and node 2 is the standby. Node 3, if
+  configured, is not used.
+
+       +--------------------+  WAL stream  +--------------------+
+       | node 1 (primary)   |  TCP 5432    | node 2 (standby)   |
+       | {{NODE1_IP}}       |  to node 2   | {{NODE2_IP}}       |
+       +--------------------+              +--------------------+
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes, and the
+    workstation reaches the nodes over SSH (labctl configure).
+  - Rocky Linux 8 and 9 are both supported. The PostgreSQL release
+    differs (10 on 8, 13 on 9) and the lab works with either.
+
+TASKS
+  1. On node 1 ({{NODE1_IP}}), PostgreSQL is running and accepts
+     replication connections from node 2 on TCP port 5432.
+  2. Enable WAL archiving on node 1. Completed WAL segments are
+     copied to the directory /var/lib/pgsql/wal_archive, which is
+     owned by the postgres user.
+  3. Create the database role repl on node 1 with the password
+     replpassword. The role can log in and has the REPLICATION
+     attribute.
+  4. On node 2 ({{NODE2_IP}}), PostgreSQL runs as a hot standby in
+     the default data directory /var/lib/pgsql/data, built as a copy
+     of the primary and connected to node 1 as the role repl. Node 2
+     is in recovery and receives WAL from node 1 by streaming.
+  5. Changes made on node 1 become visible on node 2.
+
+EXPECTED RESULT
+  Node 1 lists one streaming client in its replication status and
+  has archived WAL segments in /var/lib/pgsql/wal_archive. Node 2
+  rejects writes and shows the rows that are written on node 1.
+
+PRACTICE (not graded)
+  - Check the lag between the nodes on node 1.
+  - Change to synchronous replication, then back to asynchronous.
+  - Promote node 2 to a primary. Do this after grading: a promoted
+    node 2 no longer meets task 4.
+
+NOTES
+  - PostgreSQL is installed on both nodes with the default packaged
+    paths and service name (postgresql). The cluster on node 1 is
+    initialised and running. The setup stopped PostgreSQL on node 2
+    and left its data directory empty.
+  - Grading creates a temporary table on node 1, waits for it on
+    node 2 and drops it again.
+  - Reference: man pg_basebackup, and the PostgreSQL documentation
+    chapter "High Availability, Load Balancing, and Replication".
+
+GRADING
+  labctl grade replication-02

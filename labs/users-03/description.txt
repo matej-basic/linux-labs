@@ -1,3 +1,4 @@
+title: Users, groups and ACLs for shared directories
 category: Users
 complexity: Advanced
-objective: Configure advanced user and group settings including ACLs and default permissions for shared directories.
+objective: Create users and groups with fixed IDs and protect shared directories with permissions, default ACLs and user ACLs.

@@ -1,130 +1,136 @@
 #!/bin/bash
-# lb-01 - HAProxy Basic Load Balancing Grading Script
+# lb-01 grader
+source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/grading.sh
+load_lab_config
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+grade_begin lb-01
 
-PASS_COUNT=0
-FAIL_COUNT=0
+[ "$NODES_ENABLED" = "true" ] || grade_abort "Multi-node labs are enabled in the configuration"
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null || grade_abort "The configuration defines at least 3 nodes"
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
-
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    fail "Lab requires at least 3 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
-
-# Get node IPs
 NODE1_IP=$(get_node_ip 1)
 NODE2_IP=$(get_node_ip 2)
 NODE3_IP=$(get_node_ip 3)
+CFG=/etc/haproxy/haproxy.cfg
 
-echo "Load Balancer (HAProxy): $NODE1_IP"
-echo "Backend Server 1: $NODE1_IP:8080"
-echo "Backend Server 2: $NODE2_IP:8080"
-echo "Backend Server 3: $NODE3_IP:8080"
-echo ""
+for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+	test_node_connectivity "$ip" >/dev/null 2>&1 || grade_abort "All three nodes are reachable over SSH"
+done
 
-# Check 1: HAProxy service running
-echo -n "1. Checking HAProxy service on Node 1... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active haproxy > /dev/null 2>&1"; then
-    pass "HAProxy service running"
-    ((PASS_COUNT++))
-else
-    fail "HAProxy service not running"
-    ((FAIL_COUNT++))
-fi
+# service_ok <ip> <unit>: unit is enabled and active
+service_ok() {
+	run_on_node "$1" "sudo systemctl is-enabled $2 && sudo systemctl is-active $2"
+}
 
-# Check 2: Apache running on Node 1
-echo -n "2. Checking Apache on Node 1 (port 8080)... "
-if run_on_node "$NODE1_IP" "sudo ss -tlnp | grep :8080 | grep -q httpd"; then
-    pass "Apache listening on port 8080"
-    ((PASS_COUNT++))
-else
-    fail "Apache not listening on port 8080"
-    ((FAIL_COUNT++))
-fi
+# listens <ip> <port> <process>: the process owns a listening TCP socket
+listens() {
+	run_on_node "$1" "sudo ss -tlnp 'sport = :$2'" | grep -q "\"$3\""
+}
 
-# Check 3: Apache running on Node 2
-echo -n "3. Checking Apache on Node 2 (port 8080)... "
-if run_on_node "$NODE2_IP" "sudo systemctl is-active httpd > /dev/null 2>&1 && sudo ss -tlnp | grep :8080 | grep -q httpd"; then
-    pass "Apache running on Node 2:8080"
-    ((PASS_COUNT++))
-else
-    fail "Apache not running on Node 2:8080"
-    ((FAIL_COUNT++))
-fi
+# backend_body <ip>: the page of a backend, fetched from node 1 as HAProxy
+# would fetch it. Fails unless the answer is HTTP 200 with a body.
+backend_body() {
+	local body
+	body=$(run_on_node "$NODE1_IP" "curl -fs --max-time 5 http://$1:8080/") || return 1
+	[ -n "$body" ] || return 1
+	printf '%s' "$body"
+}
 
-# Check 4: Apache running on Node 3
-echo -n "4. Checking Apache on Node 3 (port 8080)... "
-if run_on_node "$NODE3_IP" "sudo systemctl is-active httpd > /dev/null 2>&1 && sudo ss -tlnp | grep :8080 | grep -q httpd"; then
-    pass "Apache running on Node 3:8080"
-    ((PASS_COUNT++))
-else
-    fail "Apache not running on Node 3:8080"
-    ((FAIL_COUNT++))
-fi
+serves_page() {
+	backend_body "$1" >/dev/null
+}
 
-# Check 5: HAProxy listening on port 80
-echo -n "5. Checking HAProxy listening on port 80... "
-if run_on_node "$NODE1_IP" "sudo ss -tlnp | grep :80 | grep -q haproxy"; then
-    pass "HAProxy listening on port 80"
-    ((PASS_COUNT++))
-else
-    fail "HAProxy not listening on port 80"
-    ((FAIL_COUNT++))
-fi
+pages_differ() {
+	local b1 b2 b3
+	b1=$(backend_body "$NODE1_IP") || return 1
+	b2=$(backend_body "$NODE2_IP") || return 1
+	b3=$(backend_body "$NODE3_IP") || return 1
+	[ "$b1" != "$b2" ] && [ "$b1" != "$b3" ] && [ "$b2" != "$b3" ]
+}
 
-# Check 6: HAProxy configuration includes all backends
-echo -n "6. Checking HAProxy backend configuration... "
-backend_count=$(run_on_node "$NODE1_IP" "sudo grep -c 'server ' /etc/haproxy/haproxy.cfg 2>/dev/null || echo 0")
-if [[ "$backend_count" -ge 3 ]]; then
-    pass "HAProxy configured with 3+ backend servers"
-    ((PASS_COUNT++))
-else
-    fail "HAProxy not configured with 3 backend servers (found: $backend_count)"
-    ((FAIL_COUNT++))
-fi
+# haproxy.cfg without comment lines
+cfg_active() {
+	run_on_node "$NODE1_IP" "sudo cat $CFG" | grep -v '^[[:space:]]*#'
+}
 
-# Check 7: Test load balancing distribution
-echo -n "7. Testing load balancing distribution... "
-responses=$(run_on_node "$NODE1_IP" "for i in {1..12}; do curl -s http://localhost 2>/dev/null; done" | sort | uniq | wc -l)
-if [[ "$responses" -ge 3 ]]; then
-    pass "Load balancing distributes to multiple backends (found $responses unique responses)"
-    ((PASS_COUNT++))
-else
-    fail "Load balancing not distributing properly (only $responses unique responses)"
-    ((FAIL_COUNT++))
-fi
+cfg_roundrobin() {
+	cfg_active | grep -Eq '^[[:space:]]*balance[[:space:]]+roundrobin([[:space:]]|$)'
+}
 
-# Check 8: Verify roundrobin algorithm
-echo -n "8. Checking roundrobin algorithm configuration... "
-if run_on_node "$NODE1_IP" "sudo grep -q 'balance roundrobin' /etc/haproxy/haproxy.cfg 2>/dev/null"; then
-    pass "Roundrobin algorithm configured"
-    ((PASS_COUNT++))
-else
-    fail "Roundrobin algorithm not configured"
-    ((FAIL_COUNT++))
-fi
+cfg_httpchk() {
+	cfg_active | grep -Eq '^[[:space:]]*option[[:space:]]+httpchk([[:space:]]|$)'
+}
 
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
+cfg_backends() {
+	local cfg ip re
+	cfg=$(cfg_active) || return 1
+	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+		re="${ip//./\\.}"
+		printf '%s\n' "$cfg" | grep -Eq "^[[:space:]]*server[[:space:]]+[^[:space:]]+[[:space:]]+$re:8080([[:space:]]+[^#]*)?[[:space:]]check([[:space:]]|\$)" || return 1
+	done
+}
 
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+# 12 requests from the workstation to node 1 port 80: every backend page
+# comes back exactly 4 times (round-robin with equal weights)
+lb_even() {
+	local b1 b2 b3 r n=0 c1=0 c2=0 c3=0
+	b1=$(backend_body "$NODE1_IP") || return 1
+	b2=$(backend_body "$NODE2_IP") || return 1
+	b3=$(backend_body "$NODE3_IP") || return 1
+	# HAProxy needs a few seconds to mark the backends up
+	for _ in $(seq 15); do
+		curl -fs --max-time 5 "http://$NODE1_IP/" >/dev/null 2>&1 && break
+		sleep 1
+	done
+	for _ in $(seq 12); do
+		r=$(curl -fs --max-time 5 "http://$NODE1_IP/") || return 1
+		case "$r" in
+			"$b1") c1=$((c1 + 1)) ;;
+			"$b2") c2=$((c2 + 1)) ;;
+			"$b3") c3=$((c3 + 1)) ;;
+		esac
+		n=$((n + 1))
+	done
+	[ "$n" -eq 12 ] && [ "$c1" -eq 4 ] && [ "$c2" -eq 4 ] && [ "$c3" -eq 4 ]
+}
+
+# fw_permanent <ip> <service> <port/proto>: opened in the permanent config
+# of the default zone, as a service or as a port
+fw_permanent() {
+	local out
+	out=$(run_on_node "$1" "sudo firewall-cmd --permanent --list-all") || return 1
+	if [ -n "$2" ] && printf '%s\n' "$out" | grep -Eq "^[[:space:]]*services:.*[[:space:]]$2([[:space:]]|\$)"; then
+		return 0
+	fi
+	printf '%s\n' "$out" | grep -Eq "^[[:space:]]*ports:.*[[:space:]]$3([[:space:]]|\$)"
+}
+
+selinux_enforcing() {
+	local ip
+	for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
+		[ "$(run_on_node "$ip" "getenforce")" = "Enforcing" ] || return 1
+	done
+}
+
+criterion "httpd is enabled and running on node 1" service_ok "$NODE1_IP" httpd
+criterion "httpd is enabled and running on node 2" service_ok "$NODE2_IP" httpd
+criterion "httpd is enabled and running on node 3" service_ok "$NODE3_IP" httpd
+criterion "httpd listens on port 8080 on node 1" listens "$NODE1_IP" 8080 httpd
+criterion "httpd listens on port 8080 on node 2" listens "$NODE2_IP" 8080 httpd
+criterion "httpd listens on port 8080 on node 3" listens "$NODE3_IP" 8080 httpd
+criterion "Node 1 serves a page on port 8080" serves_page "$NODE1_IP"
+criterion "Node 2 serves a page on port 8080" serves_page "$NODE2_IP"
+criterion "Node 3 serves a page on port 8080" serves_page "$NODE3_IP"
+criterion "The three backend pages differ from each other" pages_differ
+criterion "haproxy is enabled and running on node 1" service_ok "$NODE1_IP" haproxy
+criterion "haproxy listens on port 80 on node 1" listens "$NODE1_IP" 80 haproxy
+criterion "haproxy.cfg uses balance roundrobin" cfg_roundrobin
+criterion "haproxy.cfg lists all 3 backends on port 8080 with check" cfg_backends
+criterion "haproxy.cfg enables HTTP health checks (option httpchk)" cfg_httpchk
+criterion "Port 80/tcp is open permanently on node 1" fw_permanent "$NODE1_IP" http 80/tcp
+criterion "Port 8080/tcp is open permanently on node 2" fw_permanent "$NODE2_IP" "" 8080/tcp
+criterion "Port 8080/tcp is open permanently on node 3" fw_permanent "$NODE3_IP" "" 8080/tcp
+criterion "SELinux is enforcing on all three nodes" selinux_enforcing
+criterion "12 requests to node 1 port 80 reach each backend 4 times" lb_even
+grade_end

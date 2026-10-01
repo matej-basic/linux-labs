@@ -1,0 +1,47 @@
+OBJECTIVE
+  Build a web application directory tree with the required owners and
+  permissions.
+
+PREREQUISITES
+  - The apache user and group exist on the system.
+  - Creating files with other owners needs root privileges.
+
+TASKS
+  1. Create the directory /tmp/webfiles with the subdirectories app,
+     config and data. Set owner, group and mode as follows:
+
+       directory            owner:group    mode
+       /tmp/webfiles        root:root      755
+       /tmp/webfiles/app    apache:apache  755
+       /tmp/webfiles/config root:root      700
+       /tmp/webfiles/data   apache:apache  755
+
+  2. Create these empty files with the owner, group and mode shown:
+
+       file                            owner:group    mode
+       /tmp/webfiles/app/index.php     apache:apache  644
+       /tmp/webfiles/app/upload.php    apache:apache  644
+       /tmp/webfiles/config/db.conf    root:root      600
+       /tmp/webfiles/data/app.log      apache:apache  640
+       /tmp/webfiles/data/error.log    root:root      644
+
+EXPECTED RESULT
+  The tree looks like this, and the application files are owned by
+  apache except the configuration file and the error log:
+
+    /tmp/webfiles
+    |-- app
+    |   |-- index.php
+    |   `-- upload.php
+    |-- config
+    |   `-- db.conf
+    `-- data
+        |-- app.log
+        `-- error.log
+
+NOTES
+  - The file contents are not graded.
+  - Reference: man chown and man chmod.
+
+GRADING
+  labctl grade files-02

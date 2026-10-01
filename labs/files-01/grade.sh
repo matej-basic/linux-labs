@@ -1,25 +1,13 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# files-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+DIR=/tmp/data
+FILE=/tmp/data/info.txt
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin files-01
 
-[ -d /tmp/data ] && pass "/tmp/data exists" || { fail "/tmp/data missing"; rc=1; }
-[ -f /tmp/data/info.txt ] && pass "info.txt exists" || { fail "info.txt missing"; rc=1; }
-grep -q hello /tmp/data/info.txt 2>/dev/null && pass "contains hello" || { fail "missing hello"; rc=1; }
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+criterion "Directory $DIR exists" test -d "$DIR"
+criterion "File $FILE exists" test -f "$FILE"
+criterion "File $FILE contains the word hello" grep -qw hello "$FILE"
+grade_end

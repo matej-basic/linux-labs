@@ -1,317 +1,154 @@
-# PostgreSQL Streaming Replication Setup (replication-02)
+# replication-02: PostgreSQL streaming replication with WAL archiving
 
-## Overview
+## Solution
 
-PostgreSQL streaming replication continuously streams Write-Ahead Log (WAL) records from the primary server to standby replicas. This provides near-real-time replication with minimal lag, suitable for high-availability deployments.
+Below, <node1-ip> and <node2-ip> are the addresses shown by
+`labctl task`. Steps 2 to 7 run on node 1 (the primary), steps 8 to 11
+on node 2 (the standby). Open an SSH session to each node as a user
+with sudo rights.
 
-## Prerequisites
+1. [user] Open the sessions:
 
-- Multi-node lab enabled: `labctl configure set NODES_ENABLED true`
-- At least 2 nodes configured: `labctl configure set NODE_COUNT 2`
-- SSH key configured: `labctl configure set SSH_KEY_PATH ~/.ssh/id_rsa`
-- PostgreSQL installed and initialized on all nodes
+   ```bash
+   ssh <user>@<node1-ip>
+   ssh <user>@<node2-ip>
+   ```
 
-## Architecture
+### Node 1 (primary)
 
-```
-Primary Server (Node 1)
-    ├─ Generates WAL records
-    ├─ Archives WALs to safe location
-    └─ Streams WALs to standbys
+2. [sudo] Create the WAL archive directory:
 
-Standby 1 (Node 2)
-    ├─ Receives WAL stream
-    ├─ Applies changes to replica
-    └─ Can be promoted to primary
+   ```bash
+   sudo install -d -o postgres -g postgres -m 700 \
+        /var/lib/pgsql/wal_archive
+   ```
 
-Standby 2 (Node 3, optional)
-    ├─ Receives WAL stream
-    ├─ Applies changes to replica
-    └─ Can be promoted to primary
-```
+3. [sudo] Set the replication and archiving parameters (they are
+   written to postgresql.auto.conf):
 
-## Step-by-Step Solution
+   ```bash
+   cd /tmp
+   ARCH=/var/lib/pgsql/wal_archive
+   sudo -u postgres psql \
+        -c "ALTER SYSTEM SET listen_addresses TO '*'" \
+        -c "ALTER SYSTEM SET wal_level TO replica" \
+        -c "ALTER SYSTEM SET max_wal_senders TO 5" \
+        -c "ALTER SYSTEM SET archive_mode TO on" \
+        -c "ALTER SYSTEM SET archive_command TO 'cp %p $ARCH/%f'"
+   ```
 
-### Step 1: Get Node Information
+4. [sudo] Allow the standby to connect as repl for replication:
 
-```bash
-source /opt/linux-labs/lib/load-config.sh
-PRIMARY_IP=$(echo "$(get_all_node_ips)" | awk '{print $1}')
-STANDBY1_IP=$(echo "$(get_all_node_ips)" | awk '{print $2}')
-echo "Primary: $PRIMARY_IP"
-echo "Standby 1: $STANDBY1_IP"
-```
+   ```bash
+   HBA=/var/lib/pgsql/data/pg_hba.conf
+   echo "host replication repl <node2-ip>/32 md5" | sudo tee -a $HBA
+   ```
 
-### Step 2: Configure Primary Server
+5. [sudo] Open the PostgreSQL port if firewalld is running:
 
-On the primary, modify PostgreSQL configuration for replication:
+   ```bash
+   sudo firewall-cmd --permanent --add-service=postgresql
+   sudo firewall-cmd --reload
+   ```
 
-```bash
-ssh -i ~/.ssh/id_rsa root@$PRIMARY_IP << 'PRIMARY_EOF'
-# Backup original configuration to a safe location (not in data directory)
-sudo cp /var/lib/pgsql/data/postgresql.conf /var/lib/pgsql/postgresql.conf.bak
+6. [sudo] Restart PostgreSQL (archive_mode needs a restart) and enable
+   it:
 
-# Configure WAL parameters for replication
-sudo tee -a /var/lib/pgsql/data/postgresql.conf << 'CONFIG'
-# Replication parameters
-max_wal_senders = 5
-wal_keep_segments = 32
-wal_level = replica
-listen_addresses = '*'
-CONFIG
+   ```bash
+   sudo systemctl enable postgresql
+   sudo systemctl restart postgresql
+   ```
 
-# Ensure postgres user can read the config file
-sudo chown postgres:postgres /var/lib/pgsql/data/postgresql.conf
-sudo chmod 644 /var/lib/pgsql/data/postgresql.conf
+7. [sudo] Create the replication role:
 
-# Allow replication connections
-sudo tee -a /var/lib/pgsql/data/pg_hba.conf << 'HBA'
-# Replication connections
-host    replication     repl            0.0.0.0/0               md5
-HBA
+   ```bash
+   cd /tmp
+   sudo -u postgres psql \
+        -c "CREATE ROLE repl LOGIN REPLICATION PASSWORD 'replpassword'"
+   ```
 
-# Ensure postgres user can read pg_hba.conf
-sudo chown postgres:postgres /var/lib/pgsql/data/pg_hba.conf
-sudo chmod 644 /var/lib/pgsql/data/pg_hba.conf
+### Node 2 (standby)
 
-# Restart PostgreSQL
-sudo systemctl restart postgresql
-sudo -u postgres psql -c "SHOW wal_level;"
-PRIMARY_EOF
-```
+8. [sudo] Make sure PostgreSQL is stopped and the data directory is
+   empty:
 
-### Step 3: Create Replication User on Primary
+   ```bash
+   sudo systemctl stop postgresql
+   ls -A /var/lib/pgsql/data
+   ```
 
-```bash
-ssh -i ~/.ssh/id_rsa root@$PRIMARY_IP << 'PRIMARY_EOF'
-sudo -u postgres psql << 'SQL'
--- Create replication user with superuser privileges
-CREATE ROLE repl WITH LOGIN REPLICATION PASSWORD 'replpassword';
+9. [sudo] Store the replication password for the postgres user:
 
--- Verify user was created
-SELECT rolname, rolcanlogin, rolcanconnect FROM pg_roles WHERE rolname = 'repl';
-SQL
-PRIMARY_EOF
-```
+   ```bash
+   PGPASS=/var/lib/pgsql/.pgpass
+   echo '<node1-ip>:5432:*:repl:replpassword' | \
+        sudo -u postgres tee $PGPASS
+   sudo chmod 600 $PGPASS
+   ```
 
-### Step 4: Create Base Backup for Standby
+10. [sudo] Copy the primary with a base backup. The option -R writes
+    the standby configuration, which differs between PostgreSQL 10
+    (recovery.conf) and 12 or later (standby.signal):
 
-On the standby, take a base backup from the primary using the PGPASSWORD environment variable:
+    ```bash
+    cd /tmp
+    sudo -u postgres pg_basebackup -h <node1-ip> -U repl -w -P -R \
+         -X stream -D /var/lib/pgsql/data
+    ```
 
-```bash
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP << STANDBY_EOF
-# Stop PostgreSQL if running
-sudo systemctl stop postgresql 2>/dev/null || true
+11. [sudo] Start the standby and enable it:
 
-# Remove old data directory
-sudo rm -rf /var/lib/pgsql/data
-
-# Create data directory with proper permissions
-sudo mkdir -p /var/lib/pgsql/data
-sudo chown postgres:postgres /var/lib/pgsql/data
-sudo chmod 700 /var/lib/pgsql/data
-
-# Create pg_basebackup from primary with password
-export PGPASSWORD='replpassword'
-sudo -u postgres pg_basebackup \
-    -h $PRIMARY_IP \
-    -U repl \
-    -D /var/lib/pgsql/data \
-    -Fp \
-    -Xs \
-    -P
-
-# Verify backup was created
-ls -la /var/lib/pgsql/data/
-STANDBY_EOF
-```
-
-**Note:** Make sure Step 3 (Create Replication User) has been completed first, otherwise the repl user won't exist and authentication will fail.
-
-### Step 5: Create recovery.conf on Standby
-
-Configure the standby to recover continuously from the primary:
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP << 'STANDBY_EOF'
-sudo tee /var/lib/pgsql/data/recovery.conf << 'RECOVERY'
-# Standby recovery configuration
-standby_mode = 'on'
-primary_conninfo = 'host=10.0.0.150 port=5432 user=repl password=replpassword'
-restore_command = 'test -f /var/lib/pgsql/archive/%f && cat /var/lib/pgsql/archive/%f || exit 1'
-trigger_file = '/var/lib/pgsql/data/failover.trigger'
-RECOVERY
-
-# Fix permissions
-sudo chown postgres:postgres /var/lib/pgsql/data/recovery.conf
-sudo chmod 600 /var/lib/pgsql/data/recovery.conf
-STANDBY_EOF
-```
-
-Replace `PRIMARY_IP` with your actual primary IP.
-
-### Step 6: Start PostgreSQL on Standby
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP << 'STANDBY_EOF'
-# Start PostgreSQL
-sudo systemctl start postgresql
-
-# Check recovery status (should show 't' for true - in recovery)
-cd /tmp && sudo -u postgres psql -c "SELECT pg_is_in_recovery();"
-
-# Check streaming replication status
-cd /tmp && sudo -u postgres psql -c "SELECT * FROM pg_stat_wal_receiver\G"
-STANDBY_EOF
-```
-
-### Step 7: Verify Replication on Primary
-
-On the primary, check connected replicas:
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$PRIMARY_IP << 'PRIMARY_EOF'
-cd /tmp && sudo -u postgres psql << 'SQL'
--- Show connected WAL senders (replication clients)
-SELECT client_addr, state, sync_state, replay_lsn FROM pg_stat_replication;
-
--- Check WAL generation
-SELECT * FROM pg_current_wal_lsn();
-SQL
-PRIMARY_EOF
-```
+    ```bash
+    sudo systemctl enable --now postgresql
+    ```
 
 ## Verification
 
-### Test Data Replication
-
-Create a table on the primary and verify it appears on the standby:
+On node 2, the standby is in recovery and receives WAL:
 
 ```bash
-# On primary: Create test table
-ssh -i ~/.ssh/id_rsa root@$PRIMARY_IP << 'PRIMARY_EOF'
-cd /tmp && sudo -u postgres psql << 'SQL'
-CREATE TABLE replication_test (
-    id SERIAL PRIMARY KEY,
-    name TEXT,
-    created_at TIMESTAMP DEFAULT NOW()
-);
-
-INSERT INTO replication_test (name) VALUES 
-    ('Primary to Standby'),
-    ('Streaming Replication');
-
-SELECT * FROM replication_test;
-SQL
-PRIMARY_EOF
-
-# On standby: Verify table and data
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP << 'STANDBY_EOF'
-cd /tmp && sudo -u postgres psql << 'SQL'
-SELECT * FROM replication_test;
-SQL
-STANDBY_EOF
+cd /tmp
+sudo -u postgres psql -c "SELECT pg_is_in_recovery()"
+sudo -u postgres psql -c "SELECT status FROM pg_stat_wal_receiver"
 ```
 
-Both should show the same data.
-
-### Monitor Replication Progress
-
-On the primary, monitor replication:
+On node 1, the standby is listed as streaming and segments arrive in
+the archive:
 
 ```bash
-ssh -i ~/.ssh/id_rsa root@$PRIMARY_IP << 'PRIMARY_EOF'
-cd /tmp && sudo -u postgres psql << 'SQL'
-SELECT 
-    client_addr,
-    usename,
-    application_name,
-    state,
-    sync_state,
-    write_lag,
-    flush_lag,
-    replay_lag
-FROM pg_stat_replication;
-SQL
-PRIMARY_EOF
+cd /tmp
+sudo -u postgres psql \
+     -c "SELECT client_addr, state FROM pg_stat_replication"
+sudo -u postgres psql -c "SELECT pg_switch_wal()"
+sudo ls /var/lib/pgsql/wal_archive
 ```
 
-Look for:
-- `state`: 'streaming' (actively replicating)
-- `sync_state`: 'async' (asynchronous) or 'sync' (synchronous)
-- `write_lag`, `flush_lag`, `replay_lag`: Should be small (< 1 second)
-
-### Promote Standby to Primary (Optional)
-
-If you want to test failover:
+Then grade from the workstation:
 
 ```bash
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP << 'STANDBY_EOF'
-# Create trigger file to promote standby
-sudo touch /var/lib/pgsql/data/failover.trigger
-
-# Wait a few seconds for promotion
-sleep 3
-
-# Check it's no longer in recovery
-cd /tmp && sudo -u postgres psql -c "SELECT pg_is_in_recovery();"
-# Should return 't' = false, meaning now a primary
-STANDBY_EOF
+labctl grade replication-02
 ```
 
-## Key Concepts
+## Explanation
 
-- **WAL (Write-Ahead Log)**: Records all database changes before they're applied
-- **Streaming Replication**: Continuous real-time transfer of WAL records to standbys
-- **Synchronous Replication**: Primary waits for standby confirmation (guarantees consistency)
-- **Asynchronous Replication**: Primary doesn't wait (faster but potential data loss on failure)
-- **Base Backup**: Complete copy of primary database for standby initialization
-- **Recovery Configuration**: Tells standby how to connect to primary and recover
+The primary ships its write-ahead log to the standby over a normal
+PostgreSQL connection. That connection needs four things on node 1: a
+listening address other than localhost, a pg_hba.conf line of type
+replication for the role, an open port 5432 and a role with the
+REPLICATION attribute. wal_level replica and max_wal_senders above 0
+are the defaults on PostgreSQL 10 and later, so the lines only make
+them explicit.
 
-## Troubleshooting
+WAL archiving is independent of streaming. archive_mode is read at
+server start, so a restart is required; a reload is not enough. The
+archive_command must succeed, otherwise segments pile up in pg_wal.
 
-### Standby Not Connecting
+pg_basebackup refuses a non-empty target directory. With -R it writes
+primary_conninfo and puts the server in standby mode, so the same
+command works on Rocky 8 (PostgreSQL 10) and Rocky 9 (PostgreSQL 13).
+The password goes into ~postgres/.pgpass, because the walreceiver
+process of the standby needs it on every reconnect and pg_basebackup
+may not store it in the generated configuration.
 
-Check the PostgreSQL error log on standby:
-```bash
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP "cd /tmp && sudo -u postgres tail -50 /var/lib/pgsql/data/log/*"
-```
-
-Common issues:
-- Wrong primary IP in recovery.conf
-- Replication user doesn't exist or wrong password
-- Primary firewall blocking port 5432
-- pg_hba.conf not allowing replication connections
-
-### Replication Lag Increasing
-
-Monitor the LSN (Log Sequence Number) positions:
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$PRIMARY_IP << 'PRIMARY_EOF'
-cd /tmp && sudo -u postgres psql -c "SELECT pg_current_wal_lsn();"
-PRIMARY_EOF
-
-ssh -i ~/.ssh/id_rsa root@$STANDBY1_IP << 'STANDBY_EOF'
-cd /tmp && sudo -u postgres psql -c "SELECT pg_last_wal_receive_lsn();"
-STANDBY_EOF
-```
-
-If standby LSN is falling behind, check network and primary load.
-
-## Next Steps
-
-- `replication-03`: Multi-master replication using logical replication
-- Explore pgBackRest for advanced backup and recovery
-- Configure Patroni for automated failover
-
-## Additional Commands
-
-Monitor replication in real-time:
-```bash
-# On primary
-watch -n 1 'cd /tmp && sudo -u postgres psql -c "SELECT client_addr, state, replay_lsn FROM pg_stat_replication;"'
-
-# On standby
-watch -n 1 'cd /tmp && sudo -u postgres psql -c "SELECT status, received_lsn, replayed_lsn FROM pg_stat_wal_receiver;"'
-```
+Promoting the standby (pg_ctl promote or SELECT pg_promote() on 12 and
+later) ends recovery, so do it only after grading.

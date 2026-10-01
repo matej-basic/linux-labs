@@ -1,25 +1,20 @@
 #!/bin/bash
-# Scheduling Lab 01: Cron Jobs Basics (Beginner)
+# scheduling-01 setup: make sure cron is available and remove any entry
+# or log file left by an earlier run. Other root crontab entries stay.
+# Prints nothing on success.
+set -eu
 
-cat <<'EOF'
-====================================================
-LAB: Scheduling 01 - Cron Jobs Basics
-====================================================
+if ! command -v crontab >/dev/null 2>&1; then
+	dnf -y -q install cronie >/dev/null
+fi
+systemctl enable --now crond >/dev/null 2>&1
 
-OBJECTIVE
-Create a cron job for the root user that runs daily at 2 AM.
+current=$(crontab -u root -l 2>/dev/null || true)
+remaining=$(printf '%s\n' "$current" | grep -v -e 'Daily task executed' -e 'daily-task\.log' || true)
+if [ -n "$remaining" ]; then
+	printf '%s\n' "$remaining" | crontab -u root -
+elif [ -n "$current" ]; then
+	crontab -u root -r
+fi
 
-REQUIREMENTS
-1) Create a cron job that executes every day at 2:00 AM.
-2) The job should print 'Daily task executed' to /var/log/daily-task.log.
-
-USEFUL COMMANDS
-- sudo crontab -e        Edit cron table
-- sudo crontab -l        List cron entries
-- sudo crontab -r        Remove all entries
-- cat /etc/crontab       View system-wide cron file
-
-Run grading when done:
-  sudo labctl grade scheduling-01
-====================================================
-EOF
+rm -f /var/log/daily-task.log

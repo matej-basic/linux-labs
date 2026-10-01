@@ -1,3 +1,4 @@
+title: Build joe from source with a custom prefix
 category: Packages
 complexity: Advanced
 objective: Build and install the joe editor from a source tarball with a custom installation prefix.

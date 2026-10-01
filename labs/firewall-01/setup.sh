@@ -1,44 +1,33 @@
 #!/bin/bash
+# firewall-01 setup: firewalld running, http and 8080/tcp not open in the
+# public zone (runtime and permanent). Prints nothing on success.
+set -eu
 
-# Print that we are setting up the lab
-echo "Setting up firewall-01 lab..."
+if ! command -v firewall-cmd >/dev/null 2>&1; then
+	echo "firewall-01: firewalld is not installed (dnf install firewalld)" >&2
+	exit 1
+fi
 
-# Reset lab state - remove any test rules if they exist
-firewall-cmd --remove-service=http --zone=public --permanent >/dev/null 2>&1
-firewall-cmd --remove-port=8080/tcp --zone=public --permanent >/dev/null 2>&1
-firewall-cmd --reload >/dev/null 2>&1
+if ! systemctl is-active --quiet firewalld; then
+	systemctl enable --now firewalld >/dev/null 2>&1 || {
+		echo "firewall-01: cannot start firewalld" >&2
+		exit 1
+	}
+fi
 
-# Print task description
-cat <<'EOF'
+# Firewalld answers on D-Bus a moment after the unit is active
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+	firewall-cmd --state >/dev/null 2>&1 && break
+	sleep 1
+done
+firewall-cmd --state >/dev/null 2>&1 || {
+	echo "firewall-01: firewalld does not respond" >&2
+	exit 1
+}
 
-====================================================
-LAB: Firewalld Basics (firewall-01)
-====================================================
-
-OBJECTIVE:
-Learn firewalld fundamentals by managing services
-and ports in the default public zone.
-
-REQUIREMENTS:
-1. Add HTTP service to the public zone
-
-2. Add custom port 8080/tcp to the public zone
-
-3. Verify the rules are active
-
-4. Verify both are removed
-
-NOTES:
-- All changes must be made without --permanent flag (temporary)
-- Changes apply immediately to the running firewall
-- The grading checks that both http service and port 8080 are active
-- Run 'sudo firewall-cmd --list-all' to see current rules
-- Run 'sudo firewall-cmd --reload' to reload from disk configuration
-
-When ready, run:
-  sudo labctl grade firewall-01
-
-====================================================
-
-EOF
-
+# Start without the lab rules; ssh and everything else stay untouched
+firewall-cmd --permanent --zone=public --remove-service=http >/dev/null 2>&1 || true
+firewall-cmd --permanent --zone=public --remove-port=8080/tcp >/dev/null 2>&1 || true
+firewall-cmd --zone=public --remove-service=http >/dev/null 2>&1 || true
+firewall-cmd --zone=public --remove-port=8080/tcp >/dev/null 2>&1 || true
+exit 0

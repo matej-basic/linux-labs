@@ -1,4 +1,4 @@
+title: PostgreSQL database and role management
 category: Databases
 complexity: Intermediate
-objective: Create a PostgreSQL database and role with specific privileges, configure password authentication for application access.
-
+objective: Create a PostgreSQL database and a role with limited privileges and enable password authentication over TCP.

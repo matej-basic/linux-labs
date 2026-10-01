@@ -1,4 +1,4 @@
+title: MySQL backup and restore
 category: Databases
 complexity: Advanced
-objective: Create a MySQL database backup using mysqldump, and restore from backup to verify data integrity.
-
+objective: Back up a MySQL database to an SQL file and restore it into a new database to verify data integrity.

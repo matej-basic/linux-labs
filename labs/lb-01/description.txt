@@ -1,6 +1,4 @@
+title: HAProxy load balancing for three web servers
 category: Load Balancing
 complexity: Beginner
-objective: Set up HAProxy to load balance HTTP traffic across 3 web servers
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, Apache installed on backend nodes
-estimated_time: 30 minutes
-skills: HAProxy configuration, load balancing algorithms, backend health checks, multi-node HTTP service distribution
+objective: Set up HAProxy on node 1 to balance HTTP traffic round-robin across three Apache servers on port 8080.

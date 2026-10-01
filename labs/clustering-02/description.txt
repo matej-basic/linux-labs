@@ -1,6 +1,4 @@
+title: STONITH fencing for a Pacemaker cluster
 category: High Availability Clustering
 complexity: Intermediate
-objective: Configure STONITH fencing and test automatic failover with node recovery
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, Pacemaker and Corosync running, IPMI or virtual power fence available
-estimated_time: 45 minutes
-skills: STONITH device configuration, fence device setup, failover testing, cluster recovery, resource migration, node fencing
+objective: Add STONITH fence devices for all three nodes to an existing Pacemaker cluster and enable fencing.

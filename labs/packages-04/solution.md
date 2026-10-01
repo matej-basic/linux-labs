@@ -1,94 +1,119 @@
-# Packages 04 Solution
+# packages-04: RPM queries and installing from a file
 
-## Part 1: practice questions (not graded)
+## Solution
+
+1. [user] Find the file name in the EPEL directory and download it. The
+   name changes whenever EPEL publishes a new build, so list the
+   directory first (or open the URL in a browser):
+
+   ```bash
+   MAJOR=$(. /etc/os-release && echo "${VERSION_ID%%.*}")
+   ARCH=$(uname -m)
+   URL=https://dl.fedoraproject.org/pub/epel/$MAJOR/Everything/$ARCH/Packages/j/
+   curl -s $URL | grep -o 'joe-[0-9][^"<]*\.rpm' | sort -uV
+   curl -o joe.rpm ${URL}joe-<version>.<dist>.<arch>.rpm
+   ```
+
+2. [sudo] Install joe from the downloaded file. dnf resolves the
+   dependencies from the enabled repositories:
+
+   ```bash
+   sudo dnf install ./joe.rpm
+   ```
+
+3. [user] Test the editor. Ctrl+C quits (it asks first if you changed
+   something), Ctrl+K then X saves and quits:
+
+   ```bash
+   joe /tmp/test.txt
+   ```
+
+4. [user] Find where the command is installed:
+
+   ```bash
+   command -v joe
+   rpm -ql joe | grep bin
+   ```
+
+5. [sudo] Remove the package and confirm the command is gone:
+
+   ```bash
+   sudo dnf remove joe
+   command -v joe
+   rpm -q joe
+   ```
+
+### Practice questions (not graded)
 
 ```bash
-# 1) Number of installed packages
+#1) Number of installed packages
 rpm -qa | wc -l
 
-# 2) Which package owns /sbin/fdisk, and its information
+#2) Which package owns /sbin/fdisk, and its information
 rpm -qf /sbin/fdisk
 rpm -qi $(rpm -qf /sbin/fdisk)
 
-# 3) Number of files installed by that package
+#3) Number of files installed by that package
 rpm -ql $(rpm -qf /sbin/fdisk) | wc -l
 
-# 4) Documentation files of that package
+#4) Documentation files of that package
 rpm -qd $(rpm -qf /sbin/fdisk)
 
-# 5) Install date of openssh (the Install Date line, or --last, or a query format)
+#5) Install date of openssh
 rpm -qi openssh | grep 'Install Date'
 rpm -q openssh --last
 rpm -q openssh --qf '%{NAME} %{INSTALLTIME:date}\n'
 
-# 6) Capabilities required by bc (works for installed packages)
+#6) Capabilities required by bc
 rpm -qR bc
-# bc may not be installed on a minimal system; ask the repositories instead
+#bc may not be installed on a minimal system; ask the repositories
 dnf repoquery --requires bc
 
-# 7) Verify an installed package
+#7) Verify an installed package
 rpm -V openssh-server
 rpm -V setup
 
-# 8) Repositories used by dnf
+#8) Repositories used by dnf
 dnf repolist
 
-# 9) Header information of a downloaded RPM file (works before installing it)
-rpm -qip joe-*.rpm
+#9) Header information of a downloaded RPM file
+rpm -qip joe.rpm
 ```
 
-What the commands show:
-
-- `rpm -qf FILE` prints the package that owns the file. On EL8 and EL9 that is `util-linux`.
-- `rpm -qi` prints name, version, release, install date, size, license, packager and description.
-- `rpm -ql` lists every file the package installed (hundreds for util-linux), so count with `wc -l`.
-- `rpm -qd` lists only files marked as documentation, mostly under `/usr/share/doc` and `/usr/share/man`.
-- `rpm -qR` prints capabilities such as `libc.so.6(GLIBC_2.14)(64bit)` or `/bin/sh`, not package names. To see which packages provide them, use `dnf repoquery --requires --resolve bc`.
-- `rpm -V` prints nothing when every file still matches the database. Otherwise each line starts with nine characters, one per attribute, where a dot means "unchanged":
-  `S` file size, `M` mode (permissions or type), `5` MD5 digest, `D` device numbers, `L` symlink target, `U` owner, `G` group, `T` modification time, `P` capabilities.
-  After the nine characters comes an optional `c` (configuration file), `d` (documentation), `l` (license) or `g` (ghost), then the path. A line like `missing c /etc/foo.conf` means the file is gone. For example `S.5....T. c /etc/ssh/sshd_config` says a config file changed in size, digest and time, which is normal after editing it.
-- `rpm -qip` on a file reads the header inside the .rpm. `Install Date: (not installed)` confirms it is not installed yet. A `NOKEY` warning only means the EPEL signing key is not imported.
-
-## Part 2: install joe from a downloaded file (graded)
-
-Download the file. The exact name changes whenever EPEL publishes a new build, so look at the directory first: open the URL in a browser, or list it from the shell.
+## Verification
 
 ```bash
-MAJOR=$(. /etc/os-release && echo ${VERSION_ID%%.*})
-ARCH=$(uname -m)
-URL=https://dl.fedoraproject.org/pub/epel/$MAJOR/Everything/$ARCH/Packages/j/
-
-# Find the file name (joe-<version>.<dist>.<arch>.rpm)
-curl -s $URL | grep -o 'joe-[^"]*\.rpm' | sort -u
-
-# Download it into the current directory, using the name found above
-curl -O ${URL}joe-<version>.<dist>.<arch>.rpm
-```
-
-Install from the file (dnf resolves dependencies from the enabled repositories), test, locate and remove:
-
-```bash
-sudo dnf install ./joe-*.rpm
-
-# Test the editor. Ctrl+C quits (it asks first if you changed something).
-# Ctrl+K then X saves and quits.
-joe /tmp/test.txt
-
-# Where is the command installed?
-which joe
-rpm -ql joe | grep bin
-
-# Remove the package and confirm the command is gone
-sudo dnf remove joe
-which joe
 rpm -q joe
+labctl grade packages-04
 ```
 
-`which joe` now prints "no joe in (...)" and `rpm -q joe` prints "package joe is not installed". If the `dnf install` step says the file is not found, run it from the directory where the file was downloaded.
+## Explanation
 
-The grader reads `dnf history`. The install must be recorded from a local file (dnf lists the source as `@commandline`), so installing joe from a repository does not count, and the removal must come after that install.
+Practice answers. `rpm -qf FILE` prints the owning package, on EL8 and
+EL9 `util-linux` for /sbin/fdisk. `rpm -qi` prints name, version,
+install date, size, license and description. `rpm -ql` lists every file
+the package installed (hundreds for util-linux), so count with `wc -l`.
+`rpm -qd` lists only files marked as documentation. `rpm -qR` prints
+capabilities such as `libc.so.6(GLIBC_2.14)(64bit)` or `/bin/sh`, not
+package names; add `--resolve` to `dnf repoquery --requires` to get
+package names.
 
-Grade:
-```bash
-sudo labctl grade packages-04
-```
+`rpm -V` prints nothing when every file still matches the database.
+Otherwise each line starts with nine characters, one per attribute, and
+a dot means unchanged: S size, M mode, 5 digest, D device numbers, L
+symlink target, U owner, G group, T modification time, P capabilities.
+An optional letter follows: c configuration file, d documentation, l
+license, g ghost. A line `S.5....T.  c /etc/ssh/sshd_config` says a
+config file changed in size, digest and time, which is normal after
+editing it. A line starting with `missing` means the file is gone.
+
+`rpm -qip` reads the header inside the .rpm. `Install Date: (not
+installed)` confirms the package is not installed yet. A `NOKEY`
+warning only means the EPEL signing key is not imported.
+
+Graded part. The grader reads `dnf history` for transactions after the
+lab started. dnf records a local file install with the source
+`@commandline`, so installing joe from a repository does not count, and
+the removal must come after that install. Run the install from the
+directory where you saved the file, or give the full path, otherwise dnf
+reports that the file does not exist.

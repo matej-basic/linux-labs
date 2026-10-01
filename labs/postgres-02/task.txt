@@ -1,0 +1,44 @@
+OBJECTIVE
+  Create a PostgreSQL database and a role with limited privileges,
+  and enable password authentication for application access over
+  TCP.
+
+PREREQUISITES
+  - labctl start installs and initialises postgresql-server if it is
+    missing and starts the postgresql service.
+  - The database labdb and the role labuser are removed when the lab
+    starts, so you begin without them. Other databases and roles are
+    left alone.
+  - The cluster configuration is in /var/lib/pgsql/data.
+
+TASKS
+  1. The postgresql service is running.
+  2. A connection to PostgreSQL on 127.0.0.1, port 5432, as the role
+     labuser with the password userpass123 succeeds. The same
+     connection with a wrong password is rejected.
+  3. Create the role labuser. It has the password userpass123 and can
+     log in. It has no administrative privileges: it is not a
+     superuser, cannot create databases or roles and cannot start
+     replication.
+  4. Create the database labdb. The role labuser may connect to it.
+  5. In labdb, the role labuser may use the public schema.
+  6. In the public schema of labdb, create the table users with the
+     columns id, name and email.
+  7. The role labuser may read, insert, update and delete rows in the
+     table users.
+  8. The table users contains at least 2 rows. The values are up to
+     you.
+
+EXPECTED RESULT
+  labuser logs in to labdb over TCP with its password, reads the
+  sample rows in users and changes them, and can do nothing
+  administrative.
+
+NOTES
+  - Use any valid Linux and SQL commands. Only the final state is
+    graded; command history is not evaluated.
+  - Reference: man psql and the PostgreSQL documentation chapters
+    Client Authentication (pg_hba.conf) and Privileges.
+
+GRADING
+  labctl grade postgres-02

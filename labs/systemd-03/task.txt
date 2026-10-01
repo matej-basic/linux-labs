@@ -1,0 +1,45 @@
+OBJECTIVE
+  Create a worker script, oneshot service units and a systemd timer
+  that runs the script on a schedule and survives a reboot.
+
+PREREQUISITES
+  - Root privileges through sudo.
+  - Works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. Create the worker script /opt/lab-worker.sh. It must be
+     executable. Each time it runs it appends one line to the log
+     file /var/lib/lab-worker/execution.log. The line contains the
+     current date and time. The script creates the log directory if
+     it does not exist.
+  2. Create the unit /etc/systemd/system/lab-worker.service. It is a
+     oneshot service that runs /opt/lab-worker.sh.
+  3. Create the unit /etc/systemd/system/lab-timer.service. It is
+     also a oneshot service that runs /opt/lab-worker.sh.
+  4. Create the unit /etc/systemd/system/lab-timer.timer. It starts
+     the service lab-timer.service. It fires 1 minute after boot and
+     then repeatedly 5 minutes after the service last became active.
+     It is installed in timers.target.
+  5. Make systemd load the new units. Enable the timer so that it
+     starts at boot, and start it now.
+  6. Make sure the log file contains at least one line with a date
+     and time. How the line gets there is not graded.
+
+EXPECTED RESULT
+  The timer lab-timer.timer is enabled and active. Every run of the
+  worker script, whether started by the timer or by hand, adds a
+  line to /var/lib/lab-worker/execution.log.
+
+PRACTICE (not graded)
+  - Find the next and the last run of the timer in the list of
+    active timers.
+  - Read the journal entries of the timer and of the service.
+
+NOTES
+  - Only the final state is graded; command history is not
+    evaluated.
+  - Reference: man systemd.timer, man systemd.service and
+    man systemd.unit.
+
+GRADING
+  labctl grade systemd-03

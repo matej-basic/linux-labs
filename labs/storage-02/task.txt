@@ -1,0 +1,39 @@
+OBJECTIVE
+  Build an LVM stack (physical volume, volume group and logical
+  volume) on a loopback disk image, format it with ext4 and mount it.
+
+PREREQUISITES
+  - The lvm2 package is installed. The lab does not touch the disks
+    or the volume group of the operating system.
+  - Commands that change storage need root privileges.
+
+TASKS
+  1. Create a disk image file /tmp/lvm.img of 100 MB (100 MiB is
+     accepted too) and attach it to a loop device.
+  2. Initialise that loop device as an LVM physical volume.
+  3. Create a volume group named datavg that contains this physical
+     volume.
+  4. Create a logical volume named vol0 in datavg. Its size is at
+     least 80 MB.
+  5. Create an ext4 file system on vol0.
+  6. Mount vol0 on /mnt/lvm. The directory /mnt/lvm exists, and the
+     root of the mounted file system has the permissions 755. The
+     mount does not have to survive a reboot.
+
+EXPECTED RESULT
+  The volume group datavg lives on the loop device that backs
+  /tmp/lvm.img, and its logical volume vol0 holds an ext4 file
+  system that is mounted on /mnt/lvm.
+
+PRACTICE (not graded)
+  - Extend vol0 to 90 MB and grow the file system to match.
+  - Compare the output of pvs, vgs, lvs and df for /mnt/lvm.
+
+NOTES
+  - The image lives in /tmp, which is cleared at boot. Treat the
+    volumes as disposable.
+  - Reference: man lvm, man losetup, man pvcreate, man vgcreate,
+    man lvcreate and man mkfs.ext4.
+
+GRADING
+  labctl grade storage-02

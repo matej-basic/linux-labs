@@ -1,66 +1,41 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# users-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+# Field N of the passwd entry of user $1
+pw_field() { getent passwd "$1" | cut -d: -f"$2"; }
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+# Exact (non-prefix) test of group membership
+in_group() { id -nG "$1" 2>/dev/null | tr ' ' '\n' | grep -qx "$2"; }
 
-# group project
-if getent group project >/dev/null; then
-    pass "group project exists"
-else
-    fail "group project missing"
-    rc=1
-fi
+primary_is_project() { [ "$(id -gn "$1" 2>/dev/null)" = project ]; }
+shell_is() { [ "$(pw_field "$1" 7)" = "$2" ]; }
+home_is() { [ "$(pw_field "$1" 6)" = "$2" ]; }
+owned_by() { [ "$(stat -c %U:%G "$1" 2>/dev/null)" = "$2" ]; }
+mode_is() { [ "$(stat -c %a "$1" 2>/dev/null)" = "$2" ]; }
+is_system_uid() { local u; u=$(pw_field "$1" 3); [ -n "$u" ] && [ "$u" -lt 1000 ]; }
+is_dir() { [ -d "$1" ] && [ ! -L "$1" ]; }
 
-# user alice checks
-if getent passwd alice >/dev/null; then
-    pass "user alice exists"
-    [ "$(id -gn alice 2>/dev/null)" = "project" ] && pass "alice primary group project" || { fail "alice primary group incorrect"; rc=1; }
-    id -nG alice 2>/dev/null | tr ' ' '\n' | grep -qx wheel && pass "alice in wheel" || { fail "alice not in wheel"; rc=1; }
-    [ "$(getent passwd alice | cut -d: -f7)" = "/bin/bash" ] && pass "alice shell /bin/bash" || { fail "alice shell wrong"; rc=1; }
-    [ -d /home/alice ] && [ "$(stat -c '%U:%G' /home/alice 2>/dev/null)" = "alice:project" ] && pass "/home/alice owned alice:project" || { fail "/home/alice ownership wrong"; rc=1; }
-else
-    fail "user alice missing"
-    rc=1
-fi
+grade_begin users-01
 
-# user svcapp checks
-if getent passwd svcapp >/dev/null; then
-    pass "user svcapp exists"
-    [ "$(id -gn svcapp 2>/dev/null)" = "project" ] && pass "svcapp primary group project" || { fail "svcapp primary group incorrect"; rc=1; }
-    [ "$(getent passwd svcapp | cut -d: -f7)" = "/usr/sbin/nologin" ] && pass "svcapp shell /usr/sbin/nologin" || { fail "svcapp shell wrong"; rc=1; }
-    if [ -d /srv/svcapp ]; then
-        [ "$(stat -c '%U:%G' /srv/svcapp 2>/dev/null)" = "svcapp:project" ] && pass "/srv/svcapp owned svcapp:project" || { fail "/srv/svcapp ownership wrong"; rc=1; }
-        [ "$(stat -c '%a' /srv/svcapp 2>/dev/null)" = "750" ] && pass "/srv/svcapp mode 750" || { fail "/srv/svcapp mode not 750"; rc=1; }
-    else
-        fail "/srv/svcapp missing"
-        rc=1
-    fi
-else
-    fail "user svcapp missing"
-    rc=1
-fi
+criterion "Group project exists" getent group project
 
-# shared directory /srv/project
-if [ -d /srv/project ]; then
-    [ "$(stat -c '%U:%G' /srv/project 2>/dev/null)" = "root:project" ] && pass "/srv/project owned root:project" || { fail "/srv/project ownership wrong"; rc=1; }
-    [ "$(stat -c '%a' /srv/project 2>/dev/null)" = "2775" ] && pass "/srv/project mode 2775" || { fail "/srv/project mode not 2775"; rc=1; }
-else
-    fail "/srv/project missing"
-    rc=1
-fi
+criterion "User alice exists" getent passwd alice
+criterion "alice has primary group project" primary_is_project alice
+criterion "alice is a member of the group wheel" in_group alice wheel
+criterion "alice has the login shell /bin/bash" shell_is alice /bin/bash
+criterion "alice has the home directory /home/alice" home_is alice /home/alice
+criterion "/home/alice is owned by alice:project" owned_by /home/alice alice:project
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+criterion "User svcapp exists" getent passwd svcapp
+criterion "svcapp is a system account (UID below 1000)" is_system_uid svcapp
+criterion "svcapp has primary group project" primary_is_project svcapp
+criterion "svcapp has the login shell /usr/sbin/nologin" shell_is svcapp /usr/sbin/nologin
+criterion "svcapp has the home directory /srv/svcapp" home_is svcapp /srv/svcapp
+criterion "/srv/svcapp is owned by svcapp:project" owned_by /srv/svcapp svcapp:project
+criterion "/srv/svcapp has permissions 750" mode_is /srv/svcapp 750
 
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+criterion "Directory /srv/project exists" is_dir /srv/project
+criterion "/srv/project is owned by root:project" owned_by /srv/project root:project
+criterion "/srv/project has permissions 2775" mode_is /srv/project 2775
+grade_end

@@ -1,3 +1,4 @@
+title: Filtering the systemd journal with journalctl
 category: Logging
 complexity: Beginner
-objective: Learn to view and filter systemd journal logs using journalctl with various options.
+objective: Filter the systemd journal by identifier, priority, output format and order, and save the results to files.

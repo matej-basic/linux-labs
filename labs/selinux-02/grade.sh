@@ -1,55 +1,72 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# selinux-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+STATE_FILE=/opt/linux-labs/state/selinux-02
+WWW=/webapp/www
+MARKER='selinux-02 web application'
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin selinux-02
+grade_require_state selinux-02 "$STATE_FILE"
 
-# Check if SELinux is available
-if ! command -v getenforce >/dev/null 2>&1; then
-    fail "SELinux not available"
-    rc=1
-fi
+selinux_enforcing() {
+	[ "$(getenforce 2>/dev/null)" = Enforcing ] &&
+		grep -Eq '^SELINUX=enforcing[[:space:]]*$' /etc/selinux/config
+}
 
-# Check /webapp structure
-if [ -d /webapp/www ] && [ -d /webapp/config ] && [ -d /webapp/data ]; then
-    pass "app directories created"
-else
-    fail "app directories missing"
-    rc=1
-fi
+app_files_exist() {
+	[ -f "$WWW/index.html" ] && [ -f /webapp/config/db.conf ] &&
+		[ -f /webapp/data/app.log ] && grep -q "$MARKER" "$WWW/index.html"
+}
 
-# Check files exist
-if [ -f /webapp/www/index.html ] && [ -f /webapp/config/db.conf ] && [ -f /webapp/data/app.log ]; then
-    pass "app files created"
-else
-    fail "app files missing"
-    rc=1
-fi
+httpd_enabled_running() {
+	systemctl is-enabled --quiet httpd && systemctl is-active --quiet httpd
+}
 
-# Check Apache context applied to /tmp/myapp/www
-if command -v getenforce >/dev/null 2>/dev/null; then
-    if [ "$(getenforce 2>/dev/null)" != "Disabled" ]; then
-        www_context=$(ls -Z /webapp/www/index.html 2>/dev/null | awk '{print $1}')
-        if [[ "$www_context" == *"httpd_sys_rw_content_t"* ]]; then
-            pass "/webapp/www has httpd context"
-        else
-            fail "/webapp/www context incorrect: $www_context"
-            rc=1
-        fi
-    fi
-fi
+vhost_configured() {
+	local f=/etc/httpd/conf.d/myapp.conf
+	[ -f "$f" ] &&
+		grep -Eiq '^[[:space:]]*<VirtualHost[[:space:]]+[^>]*:80>' "$f" &&
+		grep -Eiq '^[[:space:]]*ServerName[[:space:]]+localhost[[:space:]]*$' "$f" &&
+		grep -Eiq '^[[:space:]]*DocumentRoot[[:space:]]+"?/webapp/www/?"?[[:space:]]*$' "$f"
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+page_served() {
+	local out
+	out=$(curl -s --max-time 10 --retry 2 -o - -w '\n%{http_code}' http://localhost/ 2>/dev/null) || return 1
+	[ "$(printf '%s\n' "$out" | tail -n 1)" = 200 ] &&
+		printf '%s\n' "$out" | grep -q "$MARKER"
+}
 
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+www_type_set() {
+	local p
+	[ -d "$WWW" ] || return 1
+	while IFS= read -r -d '' p; do
+		[ "$(stat -c %C "$p" 2>/dev/null | cut -d: -f3)" = httpd_sys_rw_content_t ] || return 1
+	done < <(find "$WWW" -print0)
+}
+
+www_label_persistent() {
+	[ -d "$WWW" ] && [ -z "$(restorecon -nvR "$WWW" 2>&1)" ] &&
+		semanage fcontext -l -C 2>/dev/null | grep -q '^/webapp.*httpd_sys_rw_content_t'
+}
+
+private_dirs_unlabelled() {
+	local p
+	[ -d /webapp/config ] && [ -d /webapp/data ] || return 1
+	while IFS= read -r -d '' p; do
+		stat -c %C "$p" 2>/dev/null | cut -d: -f3 | grep -q '^httpd_' && return 1
+	done < <(find /webapp/config /webapp/data -print0)
+	return 0
+}
+
+criterion "SELinux is enforcing now and in /etc/selinux/config" selinux_enforcing
+criterion "Application files in /webapp are in place" app_files_exist
+criterion "Package httpd is installed" rpm -q httpd
+criterion "httpd is enabled and running" httpd_enabled_running
+criterion "Virtual host in myapp.conf serves $WWW on port 80" vhost_configured
+criterion "http://localhost/ returns index.html with status 200" page_served
+criterion "$WWW and its content are httpd_sys_rw_content_t" www_type_set
+criterion "The $WWW label survives a restorecon" www_label_persistent
+criterion "/webapp/config and /webapp/data have no httpd_ type" private_dirs_unlabelled
+grade_end

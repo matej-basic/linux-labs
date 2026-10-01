@@ -1,3 +1,4 @@
+title: Basic service management with systemd
 category: Systemd
 complexity: Beginner
-objective: Learn basic systemd service management with systemctl for enabling and running services.
+objective: Enable a systemd service so it starts at boot and start it with systemctl.

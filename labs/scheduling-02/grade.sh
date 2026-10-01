@@ -1,30 +1,56 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# scheduling-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+SCRIPT=/usr/local/bin/lab-task.sh
+LOG=/var/log/lab-task.log
+SERVICE=lab-task.service
+TIMER=lab-task.timer
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+# Service property "name" equals value
+service_prop() {
+	[ "$(systemctl show -p "$1" --value "$SERVICE" 2>/dev/null)" = "$2" ]
+}
 
-[ -f /etc/systemd/system/lab-task.service ] && pass "lab-task.service exists" || { fail "lab-task.service missing"; rc=1; }
-grep -q "Type=oneshot" /etc/systemd/system/lab-task.service && pass "Service has Type=oneshot" || { fail "Type=oneshot missing"; rc=1; }
-grep -q "ExecStart=/usr/local/bin/lab-task.sh" /etc/systemd/system/lab-task.service && pass "ExecStart correct" || { fail "ExecStart incorrect"; rc=1; }
-[ -f /etc/systemd/system/lab-task.timer ] && pass "lab-task.timer exists" || { fail "lab-task.timer missing"; rc=1; }
-grep -q "OnBootSec=1min" /etc/systemd/system/lab-task.timer && pass "OnBootSec=1min set" || { fail "OnBootSec incorrect"; rc=1; }
-grep -q "OnUnitActiveSec=10min" /etc/systemd/system/lab-task.timer && pass "OnUnitActiveSec=10min set" || { fail "OnUnitActiveSec incorrect"; rc=1; }
-[ -x /usr/local/bin/lab-task.sh ] && pass "lab-task.sh exists and executable" || { fail "lab-task.sh missing/not executable"; rc=1; }
-sudo systemctl is-enabled lab-task.timer &>/dev/null && pass "Timer enabled" || { fail "Timer not enabled"; rc=1; }
-sudo systemctl is-active lab-task.timer &>/dev/null && pass "Timer running" || { fail "Timer not running"; rc=1; }
+# ExecStart of the service runs the script
+service_execstart() {
+	systemctl show -p ExecStart --value "$SERVICE" 2>/dev/null |
+		grep -q "path=$SCRIPT ;"
+}
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
+# The timer has a monotonic trigger with the given name and value
+timer_trigger() {
+	systemctl show -p TimersMonotonic --value "$TIMER" 2>/dev/null |
+		grep -Eq "$1=$2 ;"
+}
 
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+# The timer is wanted by timers.target through an enablement symlink
+timer_installed() {
+	[ -e "/etc/systemd/system/timers.target.wants/$TIMER" ]
+}
+
+# Run the service once: it must succeed and add a timestamped line to the log
+service_logs_run() {
+	local before after line
+	before=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+	systemctl start "$SERVICE" &>/dev/null || return 1
+	after=$(wc -l < "$LOG" 2>/dev/null || echo 0)
+	[ "$after" -gt "$before" ] || return 1
+	line=$(tail -n 1 "$LOG")
+	echo "$line" | grep -Eq '[0-9]{1,2}:[0-9]{2}|20[0-9]{2}'
+}
+
+grade_begin scheduling-02
+
+criterion "Script $SCRIPT exists and is executable" test -x "$SCRIPT"
+criterion "File /etc/systemd/system/$SERVICE exists" test -f "/etc/systemd/system/$SERVICE"
+criterion "Service is of type oneshot" service_prop Type oneshot
+criterion "Service ExecStart runs $SCRIPT" service_execstart
+criterion "File /etc/systemd/system/$TIMER exists" test -f "/etc/systemd/system/$TIMER"
+criterion "Timer has OnBootSec=1min" timer_trigger OnBootUSec 1min
+criterion "Timer has OnUnitActiveSec=10min" timer_trigger OnUnitActiveUSec 10min
+criterion "Timer is installed into timers.target" timer_installed
+criterion "Timer is enabled" systemctl is-enabled --quiet "$TIMER"
+criterion "Timer is active" systemctl is-active --quiet "$TIMER"
+criterion "Service run appends a timestamped line to $LOG" service_logs_run
+grade_end

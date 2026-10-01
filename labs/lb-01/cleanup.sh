@@ -1,48 +1,38 @@
 #!/bin/bash
-# lb-01 - Cleanup script
+# lb-01 cleanup: removes HAProxy and Apache from the nodes together with
+# their configuration, the test page, the firewall rules and the SELinux
+# boolean that the solution sets. Same reset as setup.sh.
+# No "set -u": load-config.sh reads variables that may be unset.
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
+
+rm -f /tmp/haproxy.cfg
+
+# Nothing was started without multi-node support
+[ "$NODES_ENABLED" = "true" ] || exit 0
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null || exit 0
+
+RESET_CMD='
+sudo systemctl disable --now haproxy httpd >/dev/null 2>&1
+sudo dnf -y remove haproxy >/dev/null 2>&1
+sudo dnf -y remove httpd >/dev/null 2>&1
+sudo rm -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.rpmsave /etc/httpd/conf/httpd.conf.rpmsave /var/www/html/index.html
+sudo firewall-cmd --permanent --remove-service=http >/dev/null 2>&1
+sudo firewall-cmd --permanent --remove-port=80/tcp >/dev/null 2>&1
+sudo firewall-cmd --permanent --remove-port=8080/tcp >/dev/null 2>&1
+sudo firewall-cmd --reload >/dev/null 2>&1
+if getsebool haproxy_connect_any 2>/dev/null | grep -q -- "--> on"; then
+	sudo setsebool -P haproxy_connect_any off
 fi
+true'
 
-# Get node IPs
-NODE1_IP=$(get_node_ip 1)
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
-
-echo "Cleaning up lb-01 lab environment..."
-
-# Stop and disable services on all nodes
-echo "  [1/4] Stopping services..."
-for node_ip in $NODE1_IP $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo systemctl stop httpd 2>/dev/null || true" &>/dev/null
-    run_on_node "$node_ip" "sudo systemctl disable httpd 2>/dev/null || true" &>/dev/null
+rc=0
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	run_on_node "$ip" "$RESET_CMD" </dev/null >/dev/null 2>&1 || {
+		echo "Cleanup of node $n ($ip) failed" >&2
+		rc=1
+	}
 done
-run_on_node "$NODE1_IP" "sudo systemctl stop haproxy 2>/dev/null || true" &>/dev/null
-run_on_node "$NODE1_IP" "sudo systemctl disable haproxy 2>/dev/null || true" &>/dev/null
-
-# Remove packages
-echo "  [2/4] Removing packages..."
-run_on_node "$NODE1_IP" "sudo dnf -y remove haproxy httpd &>/dev/null || true"
-for node_ip in $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo dnf -y remove httpd &>/dev/null || true"
-done
-
-# Remove leftover files and configs
-echo "  [3/4] Removing configuration files..."
-run_on_node "$NODE1_IP" "sudo rm -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.rpmsave 2>/dev/null || true"
-for node_ip in $NODE1_IP $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave 2>/dev/null || true"
-done
-
-# Revert firewall rules
-echo "  [4/4] Reverting firewall rules..."
-for node_ip in $NODE1_IP $NODE2_IP $NODE3_IP; do
-    run_on_node "$node_ip" "sudo firewall-cmd --permanent --remove-port=8080/tcp &>/dev/null || true"
-    run_on_node "$node_ip" "sudo firewall-cmd --permanent --remove-service=http &>/dev/null || true"
-    run_on_node "$node_ip" "sudo firewall-cmd --reload &>/dev/null || true"
-done
-
-echo "Cleanup complete."
+exit "$rc"

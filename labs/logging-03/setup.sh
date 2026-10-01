@@ -1,41 +1,31 @@
 #!/bin/bash
-# Logging Lab 03: Persistent Journal and Boot Troubleshooting (Advanced)
+# logging-03 setup: volatile journal only (no /var/log/journal) and no
+# labtest-fail unit. An existing persistent journal is moved aside on the
+# first start and put back by cleanup.sh. Prints nothing on success.
+set -eu
 
-cat <<'EOF'
-====================================================
-LAB: Logging 03 - Persistent Journal & Boot Analysis
-====================================================
+STATE_FILE=/opt/linux-labs/state/logging-03
+BACKUP=/var/log/journal.labctl-backup
 
-OBJECTIVE
-Enable persistent systemd journal storage, query previous boots,
-and analyze boot performance.
+systemctl stop labtest-fail.service 2>/dev/null || true
+systemctl reset-failed labtest-fail.service 2>/dev/null || true
+rm -f /etc/systemd/system/labtest-fail.service
+systemctl daemon-reload
 
-REQUIREMENTS
-1) Create /var/log/journal with mode 755.
-2) Restart systemd-journald to enable persistent storage.
-3) Verify journal is persistent: journalctl --disk-usage
-4) Create test service at /etc/systemd/system/labtest-fail.service with the following settings:
-   - Unit:
-     * Description: Lab Test Fail Service
-   - Service:
-     * Type: simple
-     * ExecStart: /bin/false
-   - Install:
-     * WantedBy: multi-user.target
-5) Reload daemon and start the service (it should fail).
+# Record whether a journal existed, only on the first start, so that a
+# second start never overwrites the backup.
+if [ ! -f "$STATE_FILE" ]; then
+	mkdir -p "$(dirname "$STATE_FILE")"
+	if [ -d /var/log/journal ] && [ ! -e "$BACKUP" ]; then
+		mv /var/log/journal "$BACKUP"
+		echo backup > "$STATE_FILE"
+	else
+		echo none > "$STATE_FILE"
+	fi
+	chmod 644 "$STATE_FILE"
+fi
 
-USEFUL COMMANDS
-- journalctl --list-boots          List all boot sessions
-- journalctl -b -1                 Query previous boot
-- journalctl -b                    Current boot
-- journalctl -u labtest-fail       Query test service logs
-- systemd-analyze time             Show boot time
-- systemd-analyze blame            Show slow services
-- systemd-analyze critical-chain   Show boot dependency chain
-- dmesg                            Kernel ring buffer
-- journalctl -b -g kernel          Kernel messages from journal
-
-Run grading when done:
-  sudo labctl grade logging-03
-====================================================
-EOF
+# Back to volatile storage: journald keeps the old files open until it
+# restarts, so restart it after removing the directory.
+rm -rf /var/log/journal
+systemctl restart systemd-journald

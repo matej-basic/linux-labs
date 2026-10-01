@@ -1,6 +1,4 @@
+title: Highly available load balancer with keepalived
 category: Load Balancing
 complexity: Advanced
-objective: Implement high availability load balancing with keepalived VIP and automatic failover
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, HAProxy and keepalived installed
-estimated_time: 45 minutes
-skills: Keepalived VRRP, Virtual IP management, HAProxy HA configuration, automatic failover, split-brain prevention, priority-based election
+objective: Build an active/passive HAProxy pair with a keepalived virtual IP in front of three Apache backends.

@@ -1,58 +1,61 @@
 #!/bin/bash
+# users-02 setup: no contractors group, no dave and eve, no limits file,
+# and the original login.defs aging values recorded for cleanup.
+# Prints nothing on success.
+set -eu
 
-# Reset lab state
-userdel -r dave >/dev/null 2>&1
-userdel -r eve >/dev/null 2>&1
-groupdel contractors >/dev/null 2>&1
+STATE_FILE=/opt/linux-labs/state/users-02
+LIMITS=/etc/security/limits.d/70-contractors.conf
+KEYS="PASS_MAX_DAYS PASS_MIN_DAYS PASS_WARN_AGE"
 
-# Print task description
-cat <<'EOF'
+# Last active value of a login.defs key (empty if not set)
+get_key() {
+	awk -v k="$1" '$1 == k { v = $2 } END { print v }' /etc/login.defs
+}
 
-====================================================
-LAB: User Management and Password Policies (users-02)
-====================================================
+# Set a login.defs key to a value; an empty value removes the key
+set_key() {
+	local key=$1 val=$2
+	sed -i -E "/^[[:space:]]*${key}[[:space:]]/d" /etc/login.defs
+	if [ -n "$val" ]; then
+		printf '%s\t%s\n' "$key" "$val" >> /etc/login.defs
+	fi
+}
 
-OBJECTIVE:
-Manage user accounts with password policies, expiration,
-resource limits, and account restrictions.
+if [ ! -f "$STATE_FILE" ]; then
+	# First start: refuse to touch accounts that this lab did not create
+	for u in dave eve; do
+		if getent passwd "$u" >/dev/null; then
+			echo "Error: user $u already exists and was not created by this lab." >&2
+			exit 1
+		fi
+	done
+	if getent group contractors >/dev/null; then
+		echo "Error: group contractors already exists." >&2
+		exit 1
+	fi
+	if [ -e "$LIMITS" ]; then
+		echo "Error: $LIMITS already exists." >&2
+		exit 1
+	fi
+	mkdir -p "$(dirname "$STATE_FILE")"
+	for k in $KEYS; do
+		echo "$k=$(get_key "$k")"
+	done > "$STATE_FILE"
+	chmod 644 "$STATE_FILE"
+else
+	# Restart: remove what a previous run or its solution created
+	for u in dave eve; do
+		if getent passwd "$u" >/dev/null; then
+			userdel -r -f "$u" >/dev/null 2>&1 || true
+		fi
+	done
+	groupdel contractors >/dev/null 2>&1 || true
+	rm -f "$LIMITS"
+	# Put the aging defaults back to their recorded original values
+	for k in $KEYS; do
+		set_key "$k" "$(sed -n "s/^$k=//p" "$STATE_FILE")"
+	done
+fi
 
-TASKS:
-
-1. Create a group: contractors
-
-2. Create user dave (contractor account):
-   - Home: /home/dave
-   - Shell: /bin/bash
-   - Group: contractors
-   - Password expiration: 30 days from now
-   - Set password to: "contractor123"
-   
-3. Create user eve (limited account):
-   - Home: /home/eve
-   - Shell: /bin/bash
-   - Primary group: contractors
-   - Account expiration: 2026-01-31 (near future)
-   - Password expires: never (use --expiredate -1)
-   - Set password to: "eve-pass"
-
-4. Apply resource limits to contractors group:
-   - Max open files: 1024
-   - Max processes: 512
-   - Create/edit: /etc/security/limits.d/70-contractors.conf
-
-5. Password policy via /etc/login.defs or PAM:
-   - PASS_MAX_DAYS: 90
-   - PASS_MIN_DAYS: 1
-   - PASS_WARN_AGE: 14
-
-NOTES:
-- Use useradd, chage, passwd commands
-- Verify with: getent passwd, chage -l, cat /etc/security/limits.d/
-- Resource limits require user to log in to take effect
-
-When ready, run:
-  sudo labctl grade users-02
-
-====================================================
-
-EOF
+exit 0

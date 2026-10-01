@@ -1,77 +1,63 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# dns-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+SERVER=127.0.0.1
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+# Query the local named without recursion (so only a loaded zone can
+# answer) and print the short answer. Retries while named starts up.
+q() {
+	local out
+	systemctl is-active --quiet named || return 1
+	for _ in 1 2 3 4 5; do
+		if out=$(cd /tmp && dig @"$SERVER" +norecurse +tries=1 +time=2 +short "$@" 2>/dev/null); then
+			[ -n "$out" ] || return 1
+			printf '%s\n' "$out"
+			return 0
+		fi
+		sleep 1
+	done
+	return 1
+}
 
-# Check if bind package is installed
-if rpm -q bind > /dev/null 2>&1; then
-	pass "bind package installed"
-else
-	fail "bind package not installed"
-fi
+is_authoritative() {
+	local out
+	systemctl is-active --quiet named || return 1
+	out=$(cd /tmp && dig @"$SERVER" +norecurse +tries=1 +time=2 labdomain.com SOA 2>/dev/null) || return 1
+	printf '%s\n' "$out" | grep -Eq 'flags:[^;]* aa[ ;]' || return 1
+	printf '%s\n' "$out" | grep -q 'status: NOERROR'
+}
 
-# Check if zone file exists
-if [[ -f /var/named/labdomain.com.zone ]]; then
-	pass "Zone file exists"
-else
-	fail "Zone file does not exist"
-fi
+has_serial() {
+	[ "$(q labdomain.com SOA | awk 'NR == 1 { print $3 }')" = "2026012501" ]
+}
 
-# Check if zone file contains SOA record
-if grep -q "^@.*IN.*SOA" /var/named/labdomain.com.zone 2>/dev/null; then
-	pass "SOA record found in zone file"
-else
-	fail "SOA record not found in zone file"
-fi
+has_a() {
+	q "$1" A | grep -qx "$2"
+}
 
-# Check if named service is running
-if systemctl is-active --quiet named; then
-	pass "named service is running"
-else
-	fail "named service is not running"
-fi
+has_ns() {
+	q labdomain.com NS | grep -qx 'ns1.labdomain.com.'
+}
 
-# Check if web A record exists
-if cd /tmp && dig @localhost web.labdomain.com A +short 2>/dev/null | grep -q "192.168.1.10"; then
-	pass "A record for web.labdomain.com resolves correctly"
-else
-	fail "A record for web.labdomain.com not found or incorrect"
-fi
+has_cname() {
+	q www.labdomain.com CNAME | grep -qx 'web.labdomain.com.'
+}
 
-# Check if mail A record exists
-if cd /tmp && dig @localhost mail.labdomain.com A +short 2>/dev/null | grep -q "192.168.1.20"; then
-	pass "A record for mail.labdomain.com resolves correctly"
-else
-	fail "A record for mail.labdomain.com not found or incorrect"
-fi
+has_mx() {
+	q labdomain.com MX | grep -qx '10 mail.labdomain.com.'
+}
 
-# Check if CNAME record exists
-if cd /tmp && dig @localhost www.labdomain.com +short 2>/dev/null | grep -q "web.labdomain.com"; then
-	pass "CNAME record for www resolves correctly"
-else
-	fail "CNAME record for www not found or incorrect"
-fi
-
-# Check if MX record exists
-if cd /tmp && dig @localhost labdomain.com MX +short 2>/dev/null | grep -q "mail.labdomain.com"; then
-	pass "MX record found"
-else
-	fail "MX record not found"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+grade_begin dns-02
+criterion "Package bind is installed" rpm -q bind
+criterion "Package bind-utils is installed" rpm -q bind-utils
+criterion "Service named is running" systemctl is-active --quiet named
+criterion "named is authoritative for labdomain.com" is_authoritative
+criterion "SOA serial of labdomain.com is 2026012501" has_serial
+criterion "NS record of labdomain.com is ns1.labdomain.com" has_ns
+criterion "ns1.labdomain.com has address 192.168.1.5" has_a ns1.labdomain.com 192.168.1.5
+criterion "web.labdomain.com has address 192.168.1.10" has_a web.labdomain.com 192.168.1.10
+criterion "mail.labdomain.com has address 192.168.1.20" has_a mail.labdomain.com 192.168.1.20
+criterion "www.labdomain.com is a CNAME for web.labdomain.com" has_cname
+criterion "MX of labdomain.com is mail.labdomain.com, priority 10" has_mx
+grade_end

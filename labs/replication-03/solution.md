@@ -1,382 +1,117 @@
-# MySQL Multi-Master Circular Replication (replication-03)
+# replication-03: MySQL multi-master circular replication
 
-## Overview
+## Solution
 
-Multi-master replication creates a circular topology where each node is both a master and a slave. In this lab, we configure three MySQL servers in a circular loop: Node A → B → C → A. This allows write operations on any node to eventually reach all other nodes.
+1. [user] On the workstation, load the node addresses from the lab
+   configuration and define a helper that runs SQL as MySQL root on a
+   node:
 
-## Prerequisites
+   ```bash
+   source /opt/linux-labs/lib/load-config.sh
+   N1=$(get_node_ip 1); N2=$(get_node_ip 2); N3=$(get_node_ip 3)
+   sql() {
+     printf '%s\n' "$2" | run_on_node "$1" "sudo mysql -u root -N"
+   }
+   ```
 
-- Multi-node lab enabled: `labctl configure set NODES_ENABLED true`
-- At least 3 nodes configured: `labctl configure set NODE_COUNT 3`
-- SSH key configured: `labctl configure set SSH_KEY_PATH ~/.ssh/id_rsa`
-- MySQL installed and initialized on all nodes
+2. [user] Give every node its own server ID in a configuration file
+   (1, 2 and 3), keep binary logging on, and restart mysqld:
 
-## Architecture
+   ```bash
+   i=0
+   for ip in "$N1" "$N2" "$N3"; do
+     i=$((i + 1))
+     CNF=/etc/my.cnf.d/replication.cnf
+     printf '[mysqld]\nserver-id=%s\nlog-bin=mysql-bin\n' "$i" |
+       run_on_node "$ip" "sudo tee $CNF >/dev/null"
+     run_on_node "$ip" "sudo systemctl restart mysqld"
+   done
+   ```
 
-```
-       ┌─────────────┐
-       │   Node A    │
-       │  Master/    │
-       │  Slave (C)  │
-       └──────┬──────┘
-              │ replicates to B
-              │ receives from C
-              ▼
-       ┌─────────────┐
-       │   Node B    │
-       │  Master/    │
-       │  Slave (A)  │
-       └──────┬──────┘
-              │ replicates to C
-              │ receives from A
-              ▼
-       ┌─────────────┐
-       │   Node C    │
-       │  Master/    │
-       │  Slave (B)  │
-       └──────┬──────┘
-              │ replicates to A
-              │ receives from B
-              │
-              └──────────────────┐
-                                 ▼ (back to A)
-```
+3. [user] Open the MySQL port on all three nodes:
 
-## Step-by-Step Solution
+   ```bash
+   for ip in "$N1" "$N2" "$N3"; do
+     FW="sudo firewall-cmd"
+     run_on_node "$ip" "$FW --permanent --add-port=3306/tcp"
+     run_on_node "$ip" "$FW --reload"
+   done
+   ```
 
-### Step 1: Get Node Information
+4. [user] Create the replication account on every node. Every node is
+   the source of one replica, so all three need it:
 
-```bash
-source /opt/linux-labs/lib/load-config.sh
-NODE_A=$(echo "$(get_all_node_ips)" | awk '{print $1}')
-NODE_B=$(echo "$(get_all_node_ips)" | awk '{print $2}')
-NODE_C=$(echo "$(get_all_node_ips)" | awk '{print $3}')
-echo "Node A: $NODE_A"
-echo "Node B: $NODE_B"
-echo "Node C: $NODE_C"
-```
+   ```bash
+   for ip in "$N1" "$N2" "$N3"; do
+     sql "$ip" "CREATE USER IF NOT EXISTS 'repl'@'%'
+       IDENTIFIED BY 'replpassword';
+       GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';"
+   done
+   ```
 
-### Step 2: Configure Binary Logging on All Nodes
+5. [user] Define a helper that reads the current binary log position
+   of a source and points a replica at it, then close the ring. MySQL
+   8.2 and later use SHOW BINARY LOG STATUS, earlier releases SHOW
+   MASTER STATUS:
 
-On each node, enable binary logging with unique server IDs:
+   ```bash
+   link() {   # link <replica ip> <source ip>
+     local file pos
+     read -r file pos _ <<< "$(sql "$2" "SHOW BINARY LOG STATUS" \
+       2>/dev/null || sql "$2" "SHOW MASTER STATUS")"
+     sql "$1" "CHANGE REPLICATION SOURCE TO
+       SOURCE_HOST='$2', SOURCE_USER='repl',
+       SOURCE_PASSWORD='replpassword',
+       SOURCE_LOG_FILE='$file', SOURCE_LOG_POS=$pos,
+       GET_SOURCE_PUBLIC_KEY=1; START REPLICA;"
+   }
+   link "$N2" "$N1"
+   link "$N3" "$N2"
+   link "$N1" "$N3"
+   ```
 
-**Node A (server-id=1):**
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_A << 'NODE_A_EOF'
-# Backup configuration
-sudo cp /etc/my.cnf.d/mysql-server.cnf /etc/my.cnf.d/mysql-server.cnf.bak
+6. [user] Check that every replica runs both threads. Each node
+   should print Source_Host, then Yes for the I/O and the SQL thread:
 
-# Add replication configuration
-sudo tee -a /etc/my.cnf.d/mysql-server.cnf << 'CONFIG'
-
-# Multi-master replication configuration
-server-id=1
-log-bin=mysql-bin
-binlog-format=ROW
-relay-log=mysql-relay-bin
-relay-log-index=mysql-relay-bin.index
-CONFIG
-
-sudo systemctl restart mysqld
-sudo mysql -u root  -e "SHOW VARIABLES LIKE 'server_id';"
-NODE_A_EOF
-```
-
-**Node B (server-id=2):**
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_B << 'NODE_B_EOF'
-sudo cp /etc/my.cnf.d/mysql-server.cnf /etc/my.cnf.d/mysql-server.cnf.bak
-sudo tee -a /etc/my.cnf.d/mysql-server.cnf << 'CONFIG'
-
-server-id=2
-log-bin=mysql-bin
-binlog-format=ROW
-relay-log=mysql-relay-bin
-relay-log-index=mysql-relay-bin.index
-CONFIG
-
-sudo systemctl restart mysqld
-sudo mysql -u root  -e "SHOW VARIABLES LIKE 'server_id';"
-NODE_B_EOF
-```
-
-**Node C (server-id=3):**
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_C << 'NODE_C_EOF'
-sudo cp /etc/my.cnf.d/mysql-server.cnf /etc/my.cnf.d/mysql-server.cnf.bak
-sudo tee -a /etc/my.cnf.d/mysql-server.cnf << 'CONFIG'
-
-server-id=3
-log-bin=mysql-bin
-binlog-format=ROW
-relay-log=mysql-relay-bin
-relay-log-index=mysql-relay-bin.index
-CONFIG
-
-sudo systemctl restart mysqld
-sudo mysql -u root  -e "SHOW VARIABLES LIKE 'server_id';"
-NODE_C_EOF
-```
-
-### Step 3: Create Replication Users on All Nodes
-
-Each node needs to allow replication from its upstream master. Create replication users:
-
-```bash
-for node_ip in $NODE_A $NODE_B $NODE_C; do
-    ssh -i ~/.ssh/id_rsa root@$node_ip << 'EOF'
-sudo mysql -u root  << 'SQL'
-CREATE USER 'repl'@'%' IDENTIFIED BY 'replpassword';
-GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
-FLUSH PRIVILEGES;
-SQL
-EOF
-done
-```
-
-### Step 4: Get Master Positions
-
-Before setting up replication, capture current binary log positions on each node:
-
-```bash
-echo "=== Node A Binary Log Position ==="
-ssh -i ~/.ssh/id_rsa root@$NODE_A "sudo mysql -u root  -e \"SHOW MASTER STATUS\G\""
-
-echo "=== Node B Binary Log Position ==="
-ssh -i ~/.ssh/id_rsa root@$NODE_B "sudo mysql -u root  -e \"SHOW MASTER STATUS\G\""
-
-echo "=== Node C Binary Log Position ==="
-ssh -i ~/.ssh/id_rsa root@$NODE_C "sudo mysql -u root  -e \"SHOW MASTER STATUS\G\""
-```
-
-Note the File and Position for each node.
-
-### Step 5: Configure Node B to Replicate from Node A (A→B)
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_B << 'EOF'
-sudo mysql -u root  << 'SQL'
-CHANGE MASTER TO
-  MASTER_HOST='10.0.0.150',
-  MASTER_USER='repl',
-  MASTER_PASSWORD='replpassword',
-  MASTER_LOG_FILE='mysql-bin.000001',
-  MASTER_LOG_POS=827;
-
-START SLAVE;
-
--- Verify replication is working
-SHOW SLAVE STATUS\G
-SQL
-EOF
-```
-
-Replace `NODE_A_IP` and log file/position from Step 4.
-
-### Step 6: Configure Node C to Replicate from Node B (B→C)
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_C << 'EOF'
-sudo mysql -u root  << 'SQL'
-CHANGE MASTER TO
-  MASTER_HOST='10.0.0.151',
-  MASTER_USER='repl',
-  MASTER_PASSWORD='replpassword',
-  MASTER_LOG_FILE='mysql-bin.000001',
-  MASTER_LOG_POS=827;
-
-START SLAVE;
-
-SHOW SLAVE STATUS\G
-SQL
-EOF
-```
-
-Replace `NODE_B_IP` and log file/position from Step 4.
-
-### Step 7: Configure Node A to Replicate from Node C (C→A)
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_A << 'EOF'
-sudo mysql -u root  << 'SQL'
-CHANGE MASTER TO
-  MASTER_HOST='10.0.0.152',
-  MASTER_USER='repl',
-  MASTER_PASSWORD='replpassword',
-  MASTER_LOG_FILE='mysql-bin.000001',
-  MASTER_LOG_POS=827;
-
-START SLAVE;
-
-SHOW SLAVE STATUS\G
-SQL
-EOF
-```
-
-Replace `NODE_C_IP` and log file/position from Step 4.
+   ```bash
+   for ip in "$N1" "$N2" "$N3"; do
+     sql "$ip" "SHOW REPLICA STATUS\\G" |
+       grep -E 'Source_Host|Replica_(IO|SQL)_Running:'
+   done
+   ```
 
 ## Verification
 
-### Test Circular Replication
-
-Create a database on Node A and verify it reaches B, then C, then back to A:
-
 ```bash
-# Write on Node A
-ssh -i ~/.ssh/id_rsa root@$NODE_A << 'EOF'
-sudo mysql -u root  << 'SQL'
-CREATE DATABASE circular_test;
-USE circular_test;
-CREATE TABLE data (id INT PRIMARY KEY, value TEXT, node INT);
-INSERT INTO data VALUES (1, 'Written on Node A', 1);
-SELECT * FROM data;
-SQL
-EOF
-
-# Check Node B
-sleep 2
-ssh -i ~/.ssh/id_rsa root@$NODE_B << 'EOF'
-sudo mysql -u root  << 'SQL'
-USE circular_test;
-SELECT * FROM data;
--- Add another row on Node B
-INSERT INTO data VALUES (2, 'Written on Node B', 2);
-SQL
-EOF
-
-# Check Node C
-sleep 2
-ssh -i ~/.ssh/id_rsa root@$NODE_C << 'EOF'
-sudo mysql -u root  << 'SQL'
-USE circular_test;
-SELECT * FROM data;
--- Add another row on Node C
-INSERT INTO data VALUES (3, 'Written on Node C', 3);
-SQL
-EOF
-
-# Check back on Node A (complete circle)
-sleep 2
-ssh -i ~/.ssh/id_rsa root@$NODE_A << 'EOF'
-sudo mysql -u root  << 'SQL'
-USE circular_test;
-SELECT * FROM data;
--- Should now have rows from A, B, and C
-SQL
-EOF
+labctl grade replication-03
 ```
 
-All three rows should appear on all nodes.
+## Explanation
 
-### Check Replication Status
+The ring is three ordinary source and replica pairs: node 2 reads the
+binary log of node 1, node 3 reads node 2, and node 1 reads node 3.
+Binary logging is already on by default in MySQL 8.0, but the server
+ID is 1 on every freshly installed node, so each node needs its own
+value in a configuration file (a SET GLOBAL would be lost at the next
+restart).
 
-On each node, verify replication status:
+The unique server ID is also what stops the loop. Every event carries
+the ID of the server where it was first written. A replica skips events
+that carry its own ID, so a change made on node 1 travels through nodes
+2 and 3 and is dropped when it comes back to node 1. Two nodes with the
+same ID would silently discard each other's changes. Nodes 2 and 3 pass
+the events they apply on to the next replica because log_replica_updates
+is on by default.
 
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_A "sudo mysql -u root  -e \"SHOW SLAVE STATUS\G\" | grep -E 'Slave_IO_Running|Slave_SQL_Running|Seconds_Behind'"
+The replication account is created before the log positions are read.
+The CREATE USER statements are then already behind the starting
+position, so no replica tries to create an account that exists. The
+account uses the default caching_sha2_password plugin, and without TLS
+the replica needs GET_SOURCE_PUBLIC_KEY=1 to log in. Port 3306/tcp
+must be open on every node, because every node is a source.
 
-ssh -i ~/.ssh/id_rsa root@$NODE_B "sudo mysql -u root  -e \"SHOW SLAVE STATUS\G\" | grep -E 'Slave_IO_Running|Slave_SQL_Running|Seconds_Behind'"
-
-ssh -i ~/.ssh/id_rsa root@$NODE_C "sudo mysql -u root  -e \"SHOW SLAVE STATUS\G\" | grep -E 'Slave_IO_Running|Slave_SQL_Running|Seconds_Behind'"
-```
-
-All should show:
-```
-Slave_IO_Running: Yes
-Slave_SQL_Running: Yes
-Seconds_Behind_Master: 0
-```
-
-## Important Considerations
-
-### Avoid Infinite Loops
-
-With circular replication, changes could loop infinitely. MySQL prevents this by:
-1. Each node has a unique `server-id`
-2. When a node sees a replication event from itself, it ignores it
-3. Events include the originating `server-id` in their header
-
-### Conflict Resolution
-
-In multi-master, conflicts can occur when the same row is modified on different nodes:
-
-```bash
-# Example of potential conflict:
-# Node A: UPDATE data SET value='A' WHERE id=1;
-# Node B: UPDATE data SET value='B' WHERE id=1; (at same time)
-
-# Resolution strategies:
-# 1. Last-write-wins (default): Later update overwrites earlier
-# 2. Column-based: Custom conflict resolution
-# 3. Application-level: Handle conflicts in code
-```
-
-### Auto-Increment Handling
-
-With multi-master, auto-increment can create duplicates:
-
-```sql
--- Configure safe auto-increment:
--- Node A: auto_increment_offset=1, auto_increment_increment=3
--- Node B: auto_increment_offset=2, auto_increment_increment=3
--- Node C: auto_increment_offset=3, auto_increment_increment=3
-
--- This makes each node generate different IDs:
--- Node A: 1, 4, 7, 10...
--- Node B: 2, 5, 8, 11...
--- Node C: 3, 6, 9, 12...
-```
-
-## Troubleshooting
-
-### Changes Not Replicating
-
-Check replication status:
-```bash
-ssh -i ~/.ssh/id_rsa root@$NODE_B "sudo mysql -u root  -e \"SHOW SLAVE STATUS\G\" | grep -i error"
-```
-
-Common causes:
-- Network connectivity between nodes
-- Firewall blocking MySQL port 3306
-- Binary log position mismatch
-- Duplicate primary key errors
-
-### Infinite Replication Loop
-
-If you see events replaying repeatedly:
-1. Check server-id is unique on each node
-2. Verify SHOW MASTER STATUS shows different binary log files
-3. Check for corrupted relay logs
-
-### Reset Multi-Master Topology
-
-To start over:
-
-```bash
-for node_ip in $NODE_A $NODE_B $NODE_C; do
-    ssh -i ~/.ssh/id_rsa root@$node_ip << 'EOF'
-sudo mysql -u root  << 'SQL'
-STOP SLAVE;
-RESET SLAVE ALL;
-RESET MASTER;
-DROP USER 'repl'@'%';
-SQL
-EOF
-done
-```
-
-## Key Concepts
-
-- **Multi-Master Replication**: Every node is both master and slave
-- **Circular Topology**: Nodes form a ring where changes propagate around the circle
-- **Server ID**: Unique identifier preventing infinite replication loops
-- **Binlog Format**: ROW format recommended for multi-master to reduce conflicts
-- **Replication Lag**: Time delay as changes propagate through the circle
-- **Conflict Resolution**: Handling simultaneous writes to same row on different nodes
-
-## Next Steps
-
-- Explore Percona XtraDB Cluster (PXC) for synchronous multi-master
-- Study Galera Cluster for automatic conflict resolution
-- Investigate MySQL Group Replication for enhanced consistency
+Ring replication has no conflict detection. If two nodes change the same
+row at the same time, the nodes end up with different values and
+replication does not report it. Setting auto_increment_increment to 3
+and a different auto_increment_offset on each node keeps generated keys
+from colliding.

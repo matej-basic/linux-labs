@@ -1,7 +1,5 @@
 #!/bin/bash
-# Package Management Lab 03: Cleanup
-
+# packages-03 cleanup: remove the file list. curl stays installed (it is
+# part of the base system and other tools depend on it).
 rm -f /tmp/curl-files.txt
-
-echo "Cleanup complete. curl package remains installed."
-
+exit 0

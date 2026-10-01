@@ -1,88 +1,97 @@
 #!/bin/bash
-# replication-03 - MySQL Multi-Master Circular Replication Setup
-# Configures MySQL in circular multi-master topology (A -> B -> C -> A)
-
+# replication-03 setup: puts the three nodes into the clean starting state
+# (mysql-server installed and running with its packaged configuration, no
+# replication, no replication account, MySQL port closed). Prints nothing
+# on success.
+# No "set -u": load-config.sh reads variables that may be unset.
 set -e
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
+
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/replication-03"
+
+if [ "$NODES_ENABLED" != "true" ]; then
+	echo "replication-03 needs multi-node labs: run 'sudo labctl configure interactive' and enable them" >&2
+	exit 1
+fi
+if [ "$NODE_COUNT" -lt 3 ] 2>/dev/null; then
+	echo "replication-03 needs 3 nodes, NODE_COUNT is $NODE_COUNT: run 'sudo labctl configure set NODE_COUNT 3'" >&2
+	exit 1
 fi
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	if ! test_node_connectivity "$ip" >/dev/null; then
+		echo "Cannot reach node $n ($ip) over SSH as $SSH_USER" >&2
+		exit 1
+	fi
+done
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+# Remote reset, run as root on every node. The marker file records that
+# the lab installed mysql-server, so that cleanup.sh removes it again. The
+# backup holds the packaged mysql-server.cnf, which the reset restores.
+cat > "$tmp/node.sh" <<'REMOTE'
+cnf=/etc/my.cnf.d/mysql-server.cnf
+bak=/var/tmp/replication-03.mysql-server.cnf
+marker=/var/tmp/replication-03.installed
+
+if ! rpm -q mysql-server >/dev/null 2>&1; then
+	dnf -y install mysql-server </dev/null >/dev/null || exit 1
+	touch "$marker"
 fi
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    echo "ERROR: This lab requires at least 3 nodes for multi-master topology"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 3"
-    exit 1
+if [ -f "$bak" ]; then
+	cp -p "$bak" "$cnf"
+elif [ -f "$cnf" ]; then
+	cp -p "$cnf" "$bak"
+fi
+rm -f /etc/my.cnf.d/replication.cnf
+
+if systemctl is-active --quiet mysqld; then
+	for q in "STOP REPLICA" "RESET REPLICA ALL" "DROP USER IF EXISTS 'repl'@'%'"; do
+		printf '%s;\n' "$q" | mysql -u root >/dev/null 2>&1 || true
+	done
 fi
 
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║    MySQL Multi-Master Replication Lab (replication-03)         ║
-╚════════════════════════════════════════════════════════════════╝
+firewall-cmd --permanent --remove-service=mysql >/dev/null 2>&1
+firewall-cmd --permanent --remove-port=3306/tcp >/dev/null 2>&1
+firewall-cmd --reload >/dev/null 2>&1
 
-OBJECTIVE:
-Configure MySQL multi-master replication in circular topology:
-1. Node A → Node B (A replicates to B)
-2. Node B → Node C (B replicates to C)
-3. Node C → Node A (C replicates to A)
+systemctl enable mysqld </dev/null >/dev/null 2>&1 || exit 1
+systemctl restart mysqld </dev/null || exit 1
+for _ in $(seq 30); do
+	echo "SELECT 1;" | mysql -u root >/dev/null 2>&1 && exit 0
+	sleep 1
+done
+echo "mysqld does not answer on the local socket" >&2
+exit 1
+REMOTE
 
-This creates a loop: changes made on any node eventually reach all nodes.
+# All three nodes in parallel; dnf may take a while on a fresh node
+pids=""
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	run_on_node "$ip" "sudo bash -s" < "$tmp/node.sh" > /dev/null 2> "$tmp/err.$n" &
+	pids="$pids $!"
+done
 
-TOPOLOGY:
-   ┌──────────┐
-   │  Node A  │◄─────┐
-   │ (Master1)│      │
-   └────┬─────┘      │
-        │            │
-        ▼            │
-   ┌──────────┐      │
-   │  Node B  │      │
-   │ (Master2)├──────┘
-   └────┬─────┘
-        │
-        ▼
-   ┌──────────┐
-   │  Node C  │
-   │ (Master3)│
-   └──────────┘
+rc=0
+n=0
+for pid in $pids; do
+	n=$((n + 1))
+	if ! wait "$pid"; then
+		echo "Preparing node $n ($(get_node_ip "$n")) failed:" >&2
+		cat "$tmp/err.$n" >&2
+		rc=1
+	fi
+done
+[ "$rc" -eq 0 ] || exit 1
 
-REQUIREMENTS:
-✓ Multi-node lab enabled (3+ nodes)
-✓ SSH access between all nodes configured
-✓ MySQL installed and running on all nodes
-
-TASKS TO COMPLETE:
-1. Configure binary logging on all nodes
-2. Set unique server-id for each node
-3. Create replication users on all nodes
-4. Set up replication: A→B, B→C, C→A
-5. Test circular replication
-6. Demonstrate conflict handling
-7. Verify all nodes stay synchronized
-
-VERIFICATION:
-The grading script will:
-- Verify binary logging on all nodes
-- Check replication is active (A→B→C→A)
-- Confirm data written to any node reaches all nodes
-- Test that the circular topology is working
-
-CHALLENGES:
-- Circular replication can cause infinite loops
-- Automatic conflict resolution is limited
-- Careful about auto_increment handling
-- Monitor for replication loops
-
-Begin working on the lab now. Use 'labctl solution replication-03' if you need help.
-EOF
+mkdir -p "$STATE_DIR"
+get_all_node_ips | awk '{ print $1, $2, $3 }' > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

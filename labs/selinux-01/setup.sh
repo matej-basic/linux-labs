@@ -1,34 +1,25 @@
 #!/bin/bash
+# selinux-01 setup: put SELinux into permissive mode, at runtime and in
+# the configuration file. Prints nothing on success.
+set -eu
 
-# Set SELinux to permissive mode for the lab to start
-sudo setenforce 0 2>/dev/null || true
-sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config 2>/dev/null || true
+CONF=/etc/selinux/config
 
-cat <<'EOF'
-====================================================
-LAB: SELinux 01 - Enforcing Mode
-====================================================
+if ! command -v getenforce >/dev/null 2>&1 || ! command -v setenforce >/dev/null 2>&1; then
+	echo "SELinux tools are not installed (package policycoreutils)." >&2
+	exit 1
+fi
 
-OBJECTIVE
-Configure SELinux to run in enforcing mode.
+if [ "$(getenforce)" = "Disabled" ] || [ ! -f "$CONF" ]; then
+	echo "SELinux is disabled on this system. This lab needs it enabled" >&2
+	echo "(permissive or enforcing). Enable it and reboot first." >&2
+	exit 1
+fi
 
-REQUIREMENTS
-1) Set SELinux to enforcing mode immediately
+if grep -Eq '^SELINUX=disabled' "$CONF"; then
+	echo "SELINUX=disabled in $CONF. Set it to enforcing and reboot first." >&2
+	exit 1
+fi
 
-2) Make the enforcing mode persistent
-
-3) Understand SELinux modes:
-   - enforcing: Policy enforced, violations blocked and logged
-   - permissive: Policy not enforced, violations only logged
-   - disabled: SELinux completely disabled
-
-USEFUL COMMANDS
-- getenforce (check current mode)
-- setenforce 0|1 (set permissive|enforcing temporarily)
-- sestatus (detailed SELinux status)
-- /etc/selinux/config (persistent configuration)
-
-Run grading when done:
-  sudo labctl grade selinux-01
-====================================================
-EOF
+setenforce 0
+sed -i -E 's/^SELINUX=.*/SELINUX=permissive/' "$CONF"

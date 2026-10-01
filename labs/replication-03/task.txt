@@ -1,0 +1,76 @@
+OBJECTIVE
+  Connect three MySQL servers in a replication ring (node 1 to node 2
+  to node 3 to node 1), so that a change made on any node reaches all
+  three nodes.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH. The
+  drawing shows which node each node replicates from.
+
+          node 1  {{NODE1_IP}}
+            |                  ^
+            | node 2 reads     | node 1 reads
+            | from node 1      | from node 3
+            v                  |
+          node 2             node 3
+          {{NODE2_IP}}       {{NODE3_IP}}
+            |                  ^
+            +------------------+
+              node 3 reads from node 2
+
+PREREQUISITES
+  - Multi-node labs are enabled with NODE_COUNT=3 (configured:
+    {{NODE_COUNT}}). The workstation reaches all three nodes over SSH
+    with the configured user and key, and that user can use sudo on
+    the nodes.
+  - The nodes run Rocky Linux or RHEL 8 or 9 and reach the package
+    repositories.
+  - When the lab starts, the MySQL 8.0 server (package mysql-server,
+    release 8.0.23 or later) is installed and running on all three
+    nodes with its default configuration and no replication. Where
+    it is missing, labctl start installs it, which takes a few
+    minutes.
+  - The MySQL root account on each node has no password and is
+    available through the local socket.
+
+TASKS
+  1. Work as {{LAB_USER}} on the workstation and do the work on node 1
+     ({{NODE1_IP}}), node 2 ({{NODE2_IP}}) and node 3 ({{NODE3_IP}}).
+  2. mysqld is enabled at boot and running on all three nodes.
+  3. Binary logging is enabled on all three nodes.
+  4. Every node has its own server ID. The three IDs are different,
+     and each ID is set in a MySQL configuration file, so it
+     survives a restart of mysqld.
+  5. The nodes replicate in a ring. Node 2 replicates from node 1,
+     node 3 from node 2 and node 1 from node 3. Each replica
+     addresses its source by the IP address of the source node. On
+     every node the replication I/O thread and the replication SQL
+     thread are running.
+  6. A change made on any one node reaches the other two nodes. A
+     database created on node 1, on node 2 or on node 3 appears on
+     the other two nodes within seconds.
+
+EXPECTED RESULT
+  The three servers have three different server IDs and form the
+  ring node 1, node 2, node 3. After a database is created on any
+  node, it exists on all three nodes.
+
+PRACTICE (not graded)
+  - Change the same row on two nodes at nearly the same time and
+    look at the copies on all three nodes.
+  - Configure the nodes so that the auto-increment values they hand
+    out never collide.
+
+NOTES
+  - Replication needs an account on each source node. Its name and
+    password are not graded.
+  - The firewalls on the nodes must let the MySQL port 3306/tcp
+    through, or the replicas cannot connect. This is not graded
+    separately.
+  - Only the final state is graded. Use any valid Linux and MySQL
+    commands.
+  - Reference: man mysql and the replication chapter of the MySQL 8.0
+    Reference Manual.
+
+GRADING
+  labctl grade replication-03

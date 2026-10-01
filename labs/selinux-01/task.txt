@@ -1,0 +1,37 @@
+OBJECTIVE
+  Switch SELinux to enforcing mode, immediately and persistently, and
+  confirm the targeted policy is loaded.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with SELinux enabled in the kernel. The lab
+    starts with SELinux in permissive mode, at runtime and in the
+    configuration file.
+  - Run the privileged steps with sudo.
+
+TASKS
+  1. Put SELinux into enforcing mode on the running system, without
+     a reboot.
+  2. Make enforcing mode persistent: the configuration file
+     /etc/selinux/config sets SELINUX to enforcing, so the system
+     boots in enforcing mode.
+  3. Confirm that SELinux is enabled and that the loaded policy is
+     the targeted policy. Leave SELINUXTYPE at targeted.
+
+EXPECTED RESULT
+  The running system reports Enforcing, /etc/selinux/config contains
+  SELINUX=enforcing, and the loaded policy is targeted.
+
+PRACTICE (not graded)
+  - Explain the difference between the modes enforcing, permissive
+    and disabled.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Do not set the mode to disabled. Switching from disabled to
+    enforcing needs a full filesystem relabel and a reboot.
+  - Reference: man selinux, man selinux_config, man setenforce and
+    man sestatus.
+
+GRADING
+  labctl grade selinux-01

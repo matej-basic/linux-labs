@@ -1,0 +1,39 @@
+OBJECTIVE
+  Create a MySQL database and a user with limited privileges for
+  application access.
+
+PREREQUISITES
+  - A MySQL server (mysqld, or MariaDB) is installed and running.
+    labctl start installs and starts it if needed.
+  - The database root password is labpassword. labctl start sets it
+    if it is different.
+
+TASKS
+  1. Keep the database server running.
+  2. Create a database named labdb.
+  3. Create a user labuser that may connect from localhost only,
+     with the password userpass123.
+  4. Give labuser the privileges SELECT, INSERT, UPDATE and DELETE on
+     all tables in labdb. labuser has no other privileges on labdb,
+     none on any other database, no administrative privileges and no
+     right to grant privileges to others.
+  5. In labdb, create a table named users with the columns id, name
+     and email.
+  6. Add at least 2 sample records to the table users.
+  7. Make sure that labuser can log in to labdb with its password
+     and read the table users.
+
+EXPECTED RESULT
+  Logged in as labuser with the password userpass123, the table
+  labdb.users is readable and holds at least 2 rows. The only grant
+  of labuser, apart from the default USAGE, is the four privileges
+  above on labdb.
+
+NOTES
+  - Use any valid Linux and SQL commands. Only the final state is
+    graded; command history is not evaluated.
+  - Reference: man mysql and the MySQL reference manual, sections
+    CREATE USER and GRANT.
+
+GRADING
+  labctl grade mysql-02

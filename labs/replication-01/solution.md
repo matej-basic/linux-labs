@@ -1,260 +1,116 @@
-# MySQL Master-Slave Replication Setup (replication-01)
+# replication-01: MySQL source-replica replication
 
-## Overview
+## Solution
 
-MySQL master-slave replication allows you to replicate data from a master database server to one or more slave servers. The master server generates binary logs, and slave servers read these logs to stay synchronized.
+1. [user] On the workstation, load the node addresses from the lab
+   configuration and define a helper that runs SQL as MySQL root on a
+   node. Node 1 is the source, node 2 the replica:
 
-## Prerequisites
+   ```bash
+   source /opt/linux-labs/lib/load-config.sh
+   N1=$(get_node_ip 1); N2=$(get_node_ip 2)
+   sql() { echo "$2" | run_on_node "$1" "sudo mysql"; }
+   ```
 
-- Multi-node lab enabled: `labctl configure set NODES_ENABLED true`
-- At least 2 nodes configured: `labctl configure set NODE_COUNT 2`
-- SSH key configured: `labctl configure set SSH_KEY_PATH ~/.ssh/id_rsa`
-- MySQL installed and running on both nodes
+2. [user] Configure the source. MySQL 8 already writes a binary log,
+   but set it and the server ID explicitly, then restart mysqld:
 
-## Step-by-Step Solution
+   ```bash
+   CNF='[mysqld]\nlog-bin=mysql-bin\nserver-id=1\n'
+   printf '%b' "$CNF" | run_on_node "$N1" \
+     "sudo tee /etc/my.cnf.d/replication.cnf"
+   run_on_node "$N1" "sudo systemctl restart mysqld"
+   ```
 
-### Step 1: Get Node Information
+3. [user] Allow connections to port 3306 in the firewall of node 1:
 
-First, load the configuration and identify your master and slave nodes:
+   ```bash
+   run_on_node "$N1" "sudo firewall-cmd --permanent --add-service=mysql"
+   run_on_node "$N1" "sudo firewall-cmd --reload"
+   ```
 
-```bash
-source /opt/linux-labs/lib/load-config.sh
-MASTER_IP=$(echo "$(get_all_node_ips)" | awk '{print $1}')
-SLAVE_IP=$(echo "$(get_all_node_ips)" | awk '{print $2}')
-echo "Master: $MASTER_IP"
-echo "Slave: $SLAVE_IP"
-```
+4. [user] Create the replication account on node 1:
 
-### Step 2: Configure Master for Replication
+   ```bash
+   sql "$N1" "CREATE USER 'repl'@'%' IDENTIFIED BY 'replpassword';
+   GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';"
+   ```
 
-On the master node, enable binary logging by modifying MySQL configuration:
+5. [user] Read the binary log file and position of node 1. MySQL 8.2
+   and later know the first statement, older 8.0 releases the second:
 
-```bash
-ssh -i ~/.ssh/id_rsa root@$MASTER_IP << 'MASTER_EOF'
-# Add binary logging to MySQL configuration
-sudo tee -a /etc/my.cnf.d/mysql-server.cnf << 'CONFIG'
+   ```bash
+   STATUS=$(sql "$N1" "SHOW BINARY LOG STATUS" 2>/dev/null ||
+     sql "$N1" "SHOW MASTER STATUS")
+   LOGFILE=$(echo "$STATUS" | awk 'NR == 2 { print $1 }')
+   LOGPOS=$(echo "$STATUS" | awk 'NR == 2 { print $2 }')
+   echo "$LOGFILE $LOGPOS"
+   ```
 
-# Binary logging for replication
-log-bin=mysql-bin
-server-id=1
-binlog-format=ROW
-CONFIG
+6. [user] Give node 2 its own server ID and a relay log name, then
+   restart mysqld:
 
-# Restart MySQL to apply changes
-sudo systemctl restart mysqld
+   ```bash
+   CNF='[mysqld]\nserver-id=2\nrelay-log=relay-bin\n'
+   printf '%b' "$CNF" | run_on_node "$N2" \
+     "sudo tee /etc/my.cnf.d/replication.cnf"
+   run_on_node "$N2" "sudo systemctl restart mysqld"
+   ```
 
-# Verify binary logging is enabled
-sudo mysql -u root -e "SHOW VARIABLES LIKE 'log_bin';"
-MASTER_EOF
-```
+7. [user] Point node 2 at node 1 and start replication. The public
+   key option lets the replica log in with the default password
+   plugin over an unencrypted connection:
 
-### Step 3: Create Replication User on Master
-
-Create a dedicated user for replication on the master:
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$MASTER_IP << 'MASTER_EOF'
-sudo mysql -u root << 'SQL'
--- Create replication user
-CREATE USER 'repl'@'%' IDENTIFIED BY 'replpassword';
-GRANT REPLICATION SLAVE ON *.* TO 'repl'@'%';
-FLUSH PRIVILEGES;
-
--- Verify user was created
-SELECT User, Host FROM mysql.user WHERE User='repl';
-SQL
-MASTER_EOF
-```
-
-### Step 4: Get Master Binary Log Position
-
-Capture the current binary log file and position on the master:
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$MASTER_IP << 'MASTER_EOF'
-sudo mysql -u root -e "SHOW MASTER STATUS\G" | tee /tmp/master_status.txt
-MASTER_EOF
-```
-
-This will show output like:
-```
-File: mysql-bin.000001
-Position: 154
-```
-
-Save these values - you'll need them for the slave configuration.
-
-### Step 5: Configure Slave for Replication
-
-On the slave node, configure it to replicate from the master:
-
-```bash
-# First, set the slave configuration
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP << 'SLAVE_EOF'
-# Add server-id to MySQL configuration
-sudo tee -a /etc/my.cnf.d/mysql-server.cnf << 'CONFIG'
-
-# Replication slave configuration
-server-id=2
-relay-log=mysql-relay-bin
-CONFIG
-
-# Restart MySQL
-sudo systemctl restart mysqld
-SLAVE_EOF
-```
-
-### Step 6: Configure Slave Connection to Master
-
-Set up the slave to connect to the master. Replace FILE and POSITION with values from Step 4:
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP << 'SLAVE_EOF'
-MASTER_IP="YOUR_MASTER_IP"
-
-sudo mysql -u root << 'SQL'
-CHANGE MASTER TO
-  MASTER_HOST='10.0.0.150',
-  MASTER_USER='repl',
-  MASTER_PASSWORD='replpassword',
-  MASTER_LOG_FILE='mysql-bin.000002',
-  MASTER_LOG_POS=827;
-
--- Verify configuration
-SHOW SLAVE STATUS\G
-SQL
-SLAVE_EOF
-```
-
-Replace:
-- `MASTER_IP` with your actual master IP (from `get_all_node_ips`)
-- `mysql-bin.000001` with the FILE from Step 4
-- `154` with the POSITION from Step 4
-
-### Step 7: Start Replication on Slave
-
-```bash
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP << 'SLAVE_EOF'
-sudo mysql -u root  << 'SQL'
-START SLAVE;
-
--- Check replication status
-SHOW SLAVE STATUS\G
-SQL
-SLAVE_EOF
-```
-
-Look for:
-- `Slave_IO_Running: Yes`
-- `Slave_SQL_Running: Yes`
-
-If either is "No", check the error with `SHOW SLAVE STATUS\G`
+   ```bash
+   sql "$N2" "CHANGE REPLICATION SOURCE TO SOURCE_HOST='$N1',
+   SOURCE_USER='repl', SOURCE_PASSWORD='replpassword',
+   SOURCE_LOG_FILE='$LOGFILE', SOURCE_LOG_POS=$LOGPOS,
+   GET_SOURCE_PUBLIC_KEY=1;
+   START REPLICA;"
+   ```
 
 ## Verification
 
-### Test Data Replication
-
-Create a test database on the master and verify it appears on the slave:
+Both threads must say Yes and the error fields must be empty:
 
 ```bash
-# On master: Create test database
-ssh -i ~/.ssh/id_rsa root@$MASTER_IP << 'MASTER_EOF'
-sudo mysql -u root << 'SQL'
-CREATE DATABASE replication_test;
-USE replication_test;
-CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(100));
-INSERT INTO users VALUES (1, 'Alice'), (2, 'Bob');
-SELECT * FROM users;
-SQL
-MASTER_EOF
-
-# On slave: Verify database exists and has same data
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP << 'SLAVE_EOF'
-sudo mysql -u root << 'SQL'
-USE replication_test;
-SELECT * FROM users;
-SQL
-SLAVE_EOF
+sql "$N2" 'SHOW REPLICA STATUS\G' | grep -E 'Running:|Error:'
 ```
 
-Both should show:
-```
-id | name
-1  | Alice
-2  | Bob
-```
-
-### Monitor Replication Status
-
-On the slave, check replication is working:
+Write on node 1 and read on node 2:
 
 ```bash
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP << 'SLAVE_EOF'
-sudo mysql -u root -e "SHOW SLAVE STATUS\G" | grep -E "Slave_IO_Running|Slave_SQL_Running|Seconds_Behind_Master"
-SLAVE_EOF
+sql "$N1" "CREATE DATABASE replication_test;
+CREATE TABLE replication_test.users (id INT PRIMARY KEY, name TEXT);
+INSERT INTO replication_test.users VALUES (1, 'Alice');"
+sleep 2
+sql "$N2" "SELECT * FROM replication_test.users;"
 ```
 
-Expected output:
-```
-Slave_IO_Running: Yes
-Slave_SQL_Running: Yes
-Seconds_Behind_Master: 0
-```
-
-## Troubleshooting
-
-### Slave Not Connecting
-
-Check the slave error log:
-```bash
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP "sudo tail -50 /var/log/mysql/error.log"
-```
-
-Common issues:
-- Wrong master IP or credentials
-- Master firewall blocking port 3306
-- Binary log file/position mismatch
-
-### Replication Lag
-
-If `Seconds_Behind_Master` is increasing, the slave is falling behind:
-```bash
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP "sudo mysql -u root -e \"SHOW SLAVE STATUS\G\" | grep Seconds_Behind"
-```
-
-Check master binary log size and I/O between nodes.
-
-### Reset Replication
-
-To completely reset and start over:
+Then grade:
 
 ```bash
-ssh -i ~/.ssh/id_rsa root@$SLAVE_IP << 'SLAVE_EOF'
-sudo mysql -u root << 'SQL'
-STOP SLAVE;
-RESET SLAVE ALL;
-RESET MASTER;
-SQL
-SLAVE_EOF
-
-ssh -i ~/.ssh/id_rsa root@$MASTER_IP << 'MASTER_EOF'
-sudo mysql -u root << 'SQL'
-RESET MASTER;
-DROP USER 'repl'@'%';
-SQL
-MASTER_EOF
+labctl grade replication-01
 ```
 
-## Key Concepts
+## Explanation
 
-- **Binary Log**: A record of all write operations on the master
-- **Relay Log**: Temporary storage of binary log events on the slave
-- **Slave IO Thread**: Reads binary logs from master
-- **Slave SQL Thread**: Applies relay log events to slave database
-- **Replication Lag**: Delay between master write and slave application
+The source writes every change to its binary log. The I/O thread of
+the replica copies those events into its relay log and the SQL thread
+applies them. The replica needs a starting point, which is why step 5
+reads the log file and position before step 7 uses them.
 
-## Next Steps
+Both nodes start with server ID 1, the MySQL 8 default. A replica
+refuses a source that has its own ID, so node 2 needs a different one.
+It must be written to an option file (or persisted), or it is lost at
+the next restart. The repl account uses the default plugin
+caching_sha2_password, which needs TLS or the RSA public key of the
+server on the first login. Without GET_SOURCE_PUBLIC_KEY=1 the I/O
+thread stays in the Connecting state. A closed port 3306 on node 1
+gives the same symptom, and Last_IO_Error in SHOW REPLICA STATUS tells
+the two apart.
 
-After completing this lab, check out:
-- `replication-02`: PostgreSQL streaming replication
-- `replication-03`: Multi-master circular replication
+The statements use the REPLICA and SOURCE keywords. MySQL 8.0.22 and
+later accept them, and MySQL 8.4 removed the older MASTER and SLAVE
+forms. If you set a MySQL root password, keep it in /root/.my.cnf on
+the node, or grading and labctl reset cannot log in.

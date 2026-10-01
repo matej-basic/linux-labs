@@ -1,42 +1,60 @@
-# Firewall 03 Solution
+# firewall-03: Masquerading, port forwarding and custom services
 
-Masquerade internal, forward 8443->443, add custom service and http to public:
+## Solution
+
+1. [sudo] Make sure firewalld is enabled and running:
+
+   ```bash
+   sudo systemctl enable --now firewalld
+   ```
+
+2. [sudo] Enable masquerading in the internal zone and add the port
+   forward and the http service to the public zone (permanent):
+
+   ```bash
+   sudo firewall-cmd --permanent --zone=internal --add-masquerade
+   sudo firewall-cmd --permanent --zone=public \
+     --add-forward-port=port=8443:proto=tcp:toport=443
+   sudo firewall-cmd --permanent --zone=public --add-service=http
+   ```
+
+3. [sudo] Define the custom service. This creates
+   /etc/firewalld/services/custom-app.xml:
+
+   ```bash
+   sudo firewall-cmd --permanent --new-service=custom-app
+   sudo firewall-cmd --permanent --service=custom-app \
+     --set-description="Sample Custom Application Service"
+   sudo firewall-cmd --permanent --service=custom-app \
+     --add-port=9090/tcp
+   sudo firewall-cmd --permanent --service=custom-app \
+     --add-port=9090/udp
+   ```
+
+4. [sudo] Allow the service in the public zone and reload:
+
+   ```bash
+   sudo firewall-cmd --permanent --zone=public --add-service=custom-app
+   sudo firewall-cmd --reload
+   ```
+
+## Verification
 
 ```bash
-sudo systemctl start firewalld
-
-# Enable masquerade on internal
-sudo firewall-cmd --zone=internal --add-masquerade --permanent
-
-# Port forward 8443 -> 443 on public
-sudo firewall-cmd --zone=public --add-forward-port=port=8443:proto=tcp:toport=443 --permanent
-
-# Custom service definition
-sudo tee /etc/firewalld/services/custom-app.xml >/dev/null <<'EOF'
-<?xml version="1.0" encoding="utf-8"?>
-<service>
-  <short>custom-app</short>
-  <description>Sample Custom Application Service</description>
-  <port protocol="tcp" port="9090"/>
-  <port protocol="udp" port="9090"/>
-</service>
-EOF
-
-# Load service and add to public
-sudo firewall-cmd --reload
-sudo firewall-cmd --permanent --zone=public --add-service=custom-app
-
-# Add http to public
-sudo firewall-cmd --permanent --zone=public --add-service=http
-
-# Reload to apply
-sudo firewall-cmd --reload
-
-# Checks
-sudo firewall-cmd --permanent --zone=internal --query-masquerade
-sudo firewall-cmd --permanent --zone=public --list-forward-ports
-sudo firewall-cmd --permanent --zone=public --list-services
-
-# Grade
-sudo labctl grade firewall-03
+sudo firewall-cmd --zone=internal --query-masquerade
+sudo firewall-cmd --zone=public --list-all
+sudo firewall-cmd --info-service=custom-app
+labctl grade firewall-03
 ```
+
+## Explanation
+
+With --permanent the changes go to the configuration on disk and the
+running firewall is not touched until the reload, which is why step 4
+ends with it. A service must exist in the permanent configuration
+before it can be added to a zone, so the definition comes first.
+
+The grader reads both the permanent configuration and the running
+firewall. A forgotten reload fails the last criterion, and a rule added
+only at runtime fails the permanent ones. The forward rule must have no
+destination address, so it applies to the local host.

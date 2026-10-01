@@ -1,0 +1,30 @@
+OBJECTIVE
+  Install the BIND DNS server, run the named service and make sure it
+  answers on port 53.
+
+PREREQUISITES
+  - Run the lab on Rocky Linux 8 or 9 with internet access to the
+    package repositories.
+  - Root privileges through sudo are needed for the installation.
+
+TASKS
+  1. Install the packages bind and bind-utils.
+  2. Run the named service now.
+  3. Make the named service start at boot.
+  4. Make BIND listen on port 53 for both UDP and TCP.
+
+EXPECTED RESULT
+  Both packages are installed, named is enabled and running, and the
+  system has listeners on port 53 for UDP and for TCP.
+
+PRACTICE (not graded)
+  - Look up the name localhost on the local server with a DNS client
+    tool from bind-utils.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man named.
+
+GRADING
+  labctl grade dns-01

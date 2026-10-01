@@ -1,37 +1,50 @@
 #!/bin/bash
+# selinux-03 grader
+source /opt/linux-labs/lib/grading.sh
 
-source /opt/linux-labs/lib/colors.sh
+CONTENT=/webapp/porttest
 
-err()  { fail "$*"; exit 1; }
-ok()   { pass "$*"; }
-info() { echo "[INFO] $*"; }
+port_labeled() {
+	semanage port -l | awk '$1 == "http_port_t" && $2 == "tcp" {
+		$1 = ""; $2 = ""; gsub(",", " "); print
+	}' | tr -s ' ' '\n' | grep -qx 8081
+}
 
-# 1) Ensure SELinux is enabled and enforcing/permissive (not disabled)
-if ! sestatus >/dev/null 2>&1; then err "SELinux not available"; fi
-SESTATUS=$(getenforce)
-if [[ "$SESTATUS" != "Enforcing" && "$SESTATUS" != "Permissive" ]]; then err "SELinux not active (status: $SESTATUS)"; fi
-ok "SELinux active: $SESTATUS"
+# Type of the path in the policy, and the type it has right now
+policy_type_ok() {
+	[ "$(matchpathcon -n "$1" 2>/dev/null | cut -d: -f3)" = httpd_sys_content_t ]
+}
+current_type_ok() {
+	[ "$(stat -c %C "$1" 2>/dev/null | cut -d: -f3)" = httpd_sys_content_t ]
+}
+content_policy_ok() {
+	policy_type_ok "$CONTENT" && policy_type_ok "$CONTENT/index.html"
+}
+content_current_ok() {
+	current_type_ok "$CONTENT" && current_type_ok "$CONTENT/index.html"
+}
 
-# 2) Verify port 8081 labeled for httpd
-if ! command -v semanage >/dev/null 2>&1; then err "semanage not available (install policycoreutils-python-utils)"; fi
-if ! semanage port -l | awk '$1=="http_port_t" {print $3}' | tr -d ',' | grep -qx 8081; then
-	err "Port 8081 not labeled http_port_t"
-fi
-ok "Port 8081 labeled as http_port_t"
+not_permissive() {
+	! semanage permissive -l 2>/dev/null | grep -qw httpd_t
+}
 
-# 3) Verify content labeled for httpd
-CTX=$(ls -Z /webapp/porttest/index.html | awk '{print $1}')
-TYPE=$(echo "$CTX" | cut -d: -f3)
-if [[ "$TYPE" != "httpd_sys_content_t" ]]; then err "Content not labeled httpd_sys_content_t (got $CTX)"; fi
-ok "Content labeled httpd_sys_content_t"
+listening() {
+	ss -H -ltn 'sport = :8081' | grep -q .
+}
 
-# 4) Verify httpd is running
-if ! systemctl is-active --quiet httpd; then err "httpd service not active"; fi
-ok "httpd service active"
+page_served() {
+	curl -sf --max-time 10 http://localhost:8081/ | grep -q "Custom port test page"
+}
 
-# 5) Verify content served on 8081
-if ! curl -sSf http://localhost:8081/ >/tmp/selinux03.out; then err "Failed to fetch page on 8081"; fi
-if ! grep -q "Custom port test page" /tmp/selinux03.out; then err "Unexpected page content on 8081"; fi
-ok "Page reachable on 8081"
+grade_begin selinux-03
+grade_require_state selinux-03
 
-ok "All checks passed"
+criterion "SELinux is in enforcing mode" test "$(getenforce)" = Enforcing
+criterion "Domain httpd_t is not a permissive domain" not_permissive
+criterion "Port 8081/tcp is labeled http_port_t" port_labeled
+criterion "Policy labels $CONTENT content httpd_sys_content_t" content_policy_ok
+criterion "$CONTENT content has type httpd_sys_content_t" content_current_ok
+criterion "httpd is running" systemctl is-active --quiet httpd
+criterion "httpd listens on TCP port 8081" listening
+criterion "Page on port 8081 contains \"Custom port test page\"" page_served
+grade_end

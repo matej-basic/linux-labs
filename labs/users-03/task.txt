@@ -1,0 +1,53 @@
+OBJECTIVE
+  Create two groups and two users with fixed IDs, then protect a
+  shared directory tree with owner, group and ACL settings.
+
+PREREQUISITES
+  Run the lab with root privileges through sudo. The ACL tools
+  getfacl and setfacl must be installed. Rocky Linux 8 and 9 behave
+  the same.
+
+TASKS
+  1. Create the groups devops with GID 2000 and analytics with GID
+     2001.
+  2. Create the user bob:
+       - UID 1010
+       - primary group devops
+       - supplementary groups wheel and analytics
+       - login shell /bin/bash
+       - home directory /home/bob, owned by bob:devops, mode 750
+  3. Create the user charlie:
+       - UID 1011
+       - primary group analytics
+       - supplementary group wheel
+       - login shell /bin/bash
+       - home directory /home/charlie, owned by charlie:analytics,
+         mode 750
+       - account expiry date 2099-12-31
+  4. Create the directory /srv/shared owned by root with group
+     devops. Its base permissions are rwxr-x--- (owner rwx, group
+     r-x, others none). Add a default ACL entry that gives the group
+     devops rwx, so new files and directories inherit it.
+  5. Create the directory /srv/shared/analytics owned by root with
+     group analytics. Its base permissions are rwxr-x---. Add an ACL
+     entry that gives the user charlie rwx on it.
+  6. User charlie must be able to create files in
+     /srv/shared/analytics. Charlie must not become a member of
+     devops, and the owner, group and base permissions of /srv/shared
+     stay as in task 4.
+
+EXPECTED RESULT
+  bob and charlie exist with the IDs, groups, shells and home
+  directories above. /srv/shared belongs to the devops group, and
+  /srv/shared/analytics belongs to the analytics group with an extra
+  ACL entry for charlie.
+
+NOTES
+  - Passwords are not graded.
+  - Members of wheel can use sudo. The lab removes both users when you
+    reset it.
+  - Reference: man useradd, man chage, man acl, man setfacl and
+    man getfacl.
+
+GRADING
+  labctl grade users-03

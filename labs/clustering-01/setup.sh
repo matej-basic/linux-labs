@@ -1,80 +1,90 @@
 #!/bin/bash
-# clustering-01 - Basic HA Cluster Setup with Pacemaker/Corosync
-# Sets up a basic 3-node cluster for high availability
-
+# clustering-01 setup: puts the three cluster nodes into a clean starting
+# state (no cluster, no cluster packages) and records what was installed
+# before, so cleanup.sh removes only what the lab added. Prints nothing
+# on success.
 set -e
+# load-config.sh reads unset variables, so it is sourced before set -u
+source /opt/linux-labs/lib/load-config.sh
+set -u
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+LAB=clustering-01
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/$LAB"
+
+die() {
+	echo "Error: $LAB setup: $*" >&2
+	exit 1
+}
+
+# Run a script on a node as root. The script travels base64-encoded in the
+# command line, so its standard input stays free for the programs in it.
+run_script() {
+	local ip="$1" script="$2" b64
+	shift 2
+	b64=$(printf '%s' "$script" | base64 | tr -d '\n')
+	run_on_node "$ip" "sudo bash -c \"\$(echo $b64 | base64 -d)\" _ $*" </dev/null
+}
+
+[ "$NODES_ENABLED" = true ] ||
+	die "multi-node labs are not enabled. Run: sudo labctl configure interactive"
+[ "$NODE_COUNT" -ge 3 ] ||
+	die "this lab needs 3 nodes (NODE_COUNT is $NODE_COUNT). Run: sudo labctl configure set NODE_COUNT 3"
+
+IPS="$(get_node_ip 1) $(get_node_ip 2) $(get_node_ip 3)"
+
+n=0
+for ip in $IPS; do
+	n=$((n + 1))
+	test_node_connectivity "$ip" >/dev/null ||
+		die "node $n ($ip) is not reachable over SSH as $SSH_USER with key $SSH_KEY_PATH"
+	run_script "$ip" 'true' >/dev/null 2>&1 ||
+		die "user $SSH_USER has no passwordless sudo on node $n ($ip)"
+done
+
+# What the nodes had before the lab (runs on the node as root)
+PROBE='
+if rpm -q httpd >/dev/null 2>&1; then echo httpd=present; else echo httpd=absent; fi
+if command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 2>&1 &&
+	firewall-cmd --permanent --query-service=high-availability >/dev/null 2>&1; then
+	echo hafw=present
+else
+	echo hafw=absent
+fi
+'
+
+# Starting state of a node (runs on the node as root): no cluster, no
+# cluster packages, no leftover cluster configuration or page.
+RESET='
+if command -v pcs >/dev/null 2>&1; then pcs cluster destroy >/dev/null 2>&1 || true; fi
+systemctl disable --now pacemaker corosync pcsd >/dev/null 2>&1 || true
+if grep -qs "HA Cluster" /var/www/html/index.html; then rm -f /var/www/html/index.html; fi
+dnf -y -q remove pacemaker corosync pcs >/dev/null 2>&1 || true
+rm -f /etc/corosync/corosync.conf /etc/corosync/authkey
+rm -f /var/lib/pcsd/known-hosts /var/lib/pcsd/tokens /var/lib/pcsd/pcs_settings.conf
+rm -rf /var/lib/pacemaker/cib/* /var/lib/pacemaker/pengine/* /var/lib/corosync/*
+if id hacluster >/dev/null 2>&1; then passwd -l hacluster >/dev/null 2>&1 || true; fi
+exit 0
+'
+
+# Record the starting state once; a second start keeps the first record
+if [ ! -f "$STATE_FILE" ]; then
+	tmp=$(mktemp)
+	n=0
+	for ip in $IPS; do
+		n=$((n + 1))
+		out=$(run_script "$ip" "$PROBE" 2>/dev/null) ||
+			die "cannot inspect node $n ($ip)"
+		printf '%s\n' "$out" | sed "s/^/node${n}_/" >> "$tmp"
+	done
+	mkdir -p "$STATE_DIR"
+	mv "$tmp" "$STATE_FILE"
+	chmod 644 "$STATE_FILE"
 fi
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
-fi
-
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    echo "ERROR: This lab requires at least 3 nodes"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 3"
-    exit 1
-fi
-
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║         Basic HA Cluster Setup Lab (clustering-01)             ║
-╚════════════════════════════════════════════════════════════════╝
-
-OBJECTIVE:
-Set up a basic 3-node Pacemaker/Corosync HA cluster:
-1. Install Pacemaker and Corosync on all 3 nodes
-2. Configure cluster communication between nodes
-3. Initialize the cluster with basic quorum (2 nodes)
-4. Add a simple resource (Apache web server)
-5. Configure resource constraints
-6. Test cluster communication and status
-
-TOPOLOGY:
-   ┌─────────────┬─────────────┬─────────────┐
-   │   Node 1    │   Node 2    │   Node 3    │
-   │ Pacemaker   │ Pacemaker   │ Pacemaker   │
-   │ Corosync    │ Corosync    │ Corosync    │
-   │ (Apache)    │             │             │
-   └─────────────┴─────────────┴─────────────┘
-         ↓             ↓             ↓
-    Cluster Communication (Corosync rings)
-
-REQUIREMENTS:
-✓ Multi-node lab enabled (3+ nodes)
-✓ SSH access between nodes configured
-✓ Pacemaker installed on all 3 nodes
-✓ Corosync installed on all 3 nodes
-✓ Cluster communication enabled
-
-TASKS TO COMPLETE:
-1. Install Pacemaker and Corosync on all 3 nodes
-2. Configure Corosync cluster communication
-3. Set cluster authentication key
-4. Synchronize configuration across nodes
-5. Enable and start cluster services
-6. Verify cluster is healthy and all nodes are present
-7. Configure a managed resource (Apache)
-8. Verify resource is running on one of the nodes
-
-VERIFICATION:
-The grading script will:
-- Check Pacemaker and Corosync running on all nodes
-- Verify cluster has 3 members
-- Check cluster quorum is set
-- Verify Apache resource is running
-- Test cluster command execution
-- Verify cluster status shows all nodes online
-
-Begin working on the lab now. Use 'labctl solution clustering-01' if you need help.
-EOF
+n=0
+for ip in $IPS; do
+	n=$((n + 1))
+	run_script "$ip" "$RESET" >/dev/null 2>&1 ||
+		die "cannot reset node $n ($ip)"
+done

@@ -1,0 +1,34 @@
+OBJECTIVE
+  Create a loopback disk image, format it as ext4 and mount it
+  persistently.
+
+TASKS
+  1. Create a disk image file /srv/disk.img of 100 MiB. The file size
+     is graded with a tolerance of 5 MiB.
+  2. Format the image with an ext4 filesystem.
+  3. Create the directory /mnt/data and attach the image to it through
+     a loop device, so that /mnt/data shows the ext4 filesystem from
+     the image. The root of the mounted filesystem has mode 755.
+  4. Make the mount persistent in /etc/fstab. The entry identifies the
+     image by its path /srv/disk.img, uses /mnt/data as the mount
+     point, ext4 as the type and the option nofail, so that a problem
+     with the image cannot stop the system from booting.
+
+EXPECTED RESULT
+  /mnt/data is mounted from a loop device backed by /srv/disk.img and
+  the mount is listed in /etc/fstab, so it returns after a reboot.
+
+PRACTICE (not graded)
+  - Compare the output of df -h, lsblk and findmnt for /mnt/data.
+  - Unmount /mnt/data and mount it again using only its fstab entry.
+
+NOTES
+  - The image is kept in /srv and not in /tmp, because /tmp is emptied
+    at boot.
+  - A filesystem inside an image file has no device that exists
+    before it is attached, so an fstab entry must not depend on a
+    device name or UUID that appears only after the attach.
+  - Reference: man fstab, man mount (loop devices), man mkfs.ext4.
+
+GRADING
+  labctl grade storage-01

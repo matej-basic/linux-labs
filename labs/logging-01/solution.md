@@ -1,22 +1,60 @@
-# Logging 01 Solution
+# logging-01: Filtering the systemd journal with journalctl
 
-Run these journalctl examples (sudo if needed):
+## Solution
+
+1. [sudo] Save all entries of the identifier labjournal. The
+   redirection runs as your user, so the file belongs to you:
+
+   ```bash
+   cd ~/journal-lab
+   sudo journalctl -t labjournal > all.txt
+   ```
+
+2. [sudo] Save the entries of priority err and more severe (crit,
+   alert and emerg are included by `-p err`):
+
+   ```bash
+   sudo journalctl -t labjournal -p err > errors.txt
+   ```
+
+3. [sudo] Save the entries of priority warning and more severe:
+
+   ```bash
+   sudo journalctl -t labjournal -p warning > warnings.txt
+   ```
+
+4. [sudo] Save the 3 newest entries, newest first:
+
+   ```bash
+   sudo journalctl -t labjournal -n 3 -r > latest.txt
+   ```
+
+5. [sudo] Save the err and worse entries as JSON, one object per
+   line:
+
+   ```bash
+   sudo journalctl -t labjournal -p err -o json > errors.json
+   ```
+
+## Verification
 
 ```bash
-journalctl -u systemd-logind -n 5
-journalctl -p err -n 5
-journalctl -S '1 hour ago' -n 5
-journalctl -u systemd-logind -p err -n 5
-journalctl -b -n 20
-journalctl -p err,warning -n 5
+wc -l ~/journal-lab/*.txt
+head -n 2 ~/journal-lab/errors.json
+labctl grade logging-01
 ```
 
-Follow live if desired:
-```bash
-journalctl -f
-```
+## Explanation
 
-Grade:
-```bash
-sudo labctl grade logging-01
-```
+`-t` selects by syslog identifier. `-p LEVEL` shows the level and
+everything more severe, so `-p err` returns crit and err entries and
+`-p warning` adds the warnings. `-n 3` limits the output to the last
+three entries and `-r` reverses the order, newest first. `-o json`
+prints one JSON object per line; `-o json-pretty` spreads one entry
+over many lines and does not meet the task.
+
+The default output of older systemd versions starts with a
+`-- Logs begin at ...` line. That line is part of the normal output.
+
+Related options not graded here: `-u UNIT` filters by unit, `-b` by
+boot, `-S` and `-U` by time, `-f` follows the journal.

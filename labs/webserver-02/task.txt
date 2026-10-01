@@ -1,0 +1,37 @@
+OBJECTIVE
+  Configure an Apache name-based virtual host that serves the content
+  in /var/www/lab2/html for the name lab2.local.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with SELinux enforcing and internet access.
+  - Run the administrative steps as {{LAB_USER}} with sudo.
+
+TASKS
+  1. Install the Apache web server (package httpd). The service is
+     enabled to start at boot and is running.
+  2. Create the directory /var/www/lab2/html. It contains a file
+     index.html with the text Welcome to Lab 2.
+  3. The name lab2.local resolves to 127.0.0.1 through the local
+     hosts file, /etc/hosts.
+  4. Apache has a name-based virtual host with the ServerName
+     lab2.local and the DocumentRoot /var/www/lab2/html. The
+     configuration passes the Apache syntax check and the running
+     service uses it.
+  5. A request for http://lab2.local/ made on this system returns the
+     content of /var/www/lab2/html/index.html with HTTP status 200.
+
+EXPECTED RESULT
+  Opening http://lab2.local/ on this system shows the page
+  Welcome to Lab 2. The firewall is not involved because the request
+  does not leave the machine.
+
+NOTES
+  - SELinux should stay in enforcing mode. This is not graded
+    directly, but the page must be served with it enabled.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man httpd, man hosts and the Apache documentation for
+    name-based virtual hosts.
+
+GRADING
+  labctl grade webserver-02

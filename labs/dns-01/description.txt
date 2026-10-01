@@ -1,4 +1,4 @@
+title: Install and start the BIND DNS server
 category: DNS
 complexity: Beginner
-objective: Install BIND DNS server and start the named service, verify it is running and listening on port 53.
-
+objective: Install BIND and start the named service, then verify it listens on port 53.

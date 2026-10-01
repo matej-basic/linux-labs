@@ -1,12 +1,14 @@
 #!/bin/bash
+# dns-02 cleanup: stop named, remove BIND and everything the lab created.
+systemctl stop named >/dev/null 2>&1 || true
+systemctl disable named >/dev/null 2>&1 || true
 
-# Print information about cleanup
-echo "Cleaning up DNS - Zone Configuration (dns-02) lab environment..."
+if rpm -q bind >/dev/null 2>&1 || rpm -q bind-utils >/dev/null 2>&1; then
+	dnf -y -q remove bind bind-utils >/dev/null 2>&1 || true
+fi
 
-systemctl stop named > /dev/null 2>&1
-systemctl disable named > /dev/null 2>&1
-dnf remove -y bind bind-utils > /dev/null 2>&1
-rm -rf /var/named/labdomain.com.zone > /dev/null 2>&1
-
-# End of cleanup message
-echo "Cleanup completed."
+rm -f /var/named/labdomain.com.zone /var/named/labdomain.com.zone.jnl
+if ! rpm -q bind >/dev/null 2>&1; then
+	rm -f /etc/named.conf /etc/named.conf.rpmsave
+fi
+exit 0

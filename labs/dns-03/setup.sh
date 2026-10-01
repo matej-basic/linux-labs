@@ -1,46 +1,26 @@
 #!/bin/bash
+# dns-03 setup: start without BIND and without any labsecure.com zone
+# data. Prints nothing on success.
+set -eu
 
-# Reset lab state
-systemctl stop named > /dev/null 2>&1
-dnf remove -y bind bind-utils > /dev/null 2>&1
-rm -rf /var/named/labsecure.com.zone /var/named/labsecure.com.zone.signed /var/named/K* > /dev/null 2>&1
+# Stop and remove a previous run or solution
+systemctl stop named >/dev/null 2>&1 || true
+systemctl disable named >/dev/null 2>&1 || true
+systemctl reset-failed named >/dev/null 2>&1 || true
 
-# Print task description
-cat <<'EOF'
+pkgs=()
+for p in bind bind-utils bind-dnssec-utils; do
+	if rpm -q "$p" >/dev/null 2>&1; then
+		pkgs+=("$p")
+	fi
+done
+if [ "${#pkgs[@]}" -gt 0 ]; then
+	dnf -y remove "${pkgs[@]}" >/dev/null 2>&1 || true
+fi
 
-====================================================
-LAB: DNS - DNSSEC & Replication (dns-03)
-====================================================
-
-OBJECTIVE:
-Configure DNSSEC for a zone with KSK and ZSK keys,
-enable zone transfers to a secondary server, and
-verify DNSSEC validation and zone replication.
-
-REQUIREMENTS:
-- Install BIND DNS server (bind and bind-utils)
-- Create a zone file for labsecure.com with A records
-- Generate DNSSEC KSK (Key Signing Key)
-- Generate DNSSEC ZSK (Zone Signing Key)
-- Sign the zone with dnssec-signzone
-- Configure DNSSEC validation in named.conf
-- Enable zone transfers with proper ACLs
-- Create secondary zone configuration for replication
-- Start the named service
-- Verify DNSSEC signatures with dig +dnssec
-- Verify zone transfer to secondary with dig axfr
-
-NOTES:
-- You may use any valid Linux commands and text editors
-- Primary zone file: /var/named/labsecure.com.zone
-- Signed zone file: /var/named/labsecure.com.zone.signed
-- DNSSEC keys will be created in /var/named/
-- The grading script checks DNS signatures and transfers
-
-When ready, run:
-  sudo labctl grade dns-03
-
-====================================================
-
-EOF
-
+# With the package gone, nothing else owns these paths
+if ! rpm -q bind >/dev/null 2>&1; then
+	rm -f /etc/named.conf /etc/named.conf.rpmsave
+	rm -rf /var/named
+fi
+exit 0

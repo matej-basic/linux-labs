@@ -1,0 +1,27 @@
+OBJECTIVE
+  Use package management tools to query and install packages from
+  enabled repositories.
+
+PREREQUISITES
+  The system has internet access and the standard Rocky Linux
+  repositories are enabled. The lab works on Rocky Linux 8 and 9.
+
+TASKS
+  1. Install the package git from the enabled repositories. It is
+     not installed when the lab starts.
+  2. Make sure the git command is available to every user through
+     the default PATH and runs without errors.
+
+PRACTICE (not graded)
+  - Search the repository metadata for packages related to git
+    before installing.
+  - Check which package provides the git command and which
+    repository the package came from.
+
+NOTES
+  - Installing packages needs root privileges. Use sudo as
+    {{LAB_USER}}.
+  - Reference: man dnf and man rpm.
+
+GRADING
+  labctl grade packages-01

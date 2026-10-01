@@ -1,26 +1,36 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# networking-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+STATE_FILE=/opt/linux-labs/state/networking-01
+CON=labnet-static
+ADDR=192.168.1.100/24
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); }
+grade_begin networking-01
+grade_require_state networking-01 "$STATE_FILE"
+iface=$(sed -n 1p "$STATE_FILE")
+orig=$(sed -n 2p "$STATE_FILE")
 
-nmcli connection show labnet-static &>/dev/null && pass "Connection 'labnet-static' exists" || { fail "Connection 'labnet-static' missing"; rc=1; }
-ip addr show | grep -q "192.168.1.100" && pass "IP 192.168.1.100 configured" || { fail "IP 192.168.1.100 not found"; rc=1; }
-ip addr show | grep "192.168.1.100" | grep -q "/24" && pass "Netmask /24 configured" || { fail "Netmask /24 not found"; rc=1; }
-nmcli connection show labnet-static | grep -q "192.168.1.1" && pass "Gateway 192.168.1.1 configured" || { fail "Gateway 192.168.1.1 not found"; rc=1; }
-nmcli connection show labnet-static | grep -q "8.8.8.8" && pass "DNS 8.8.8.8 configured" || { fail "DNS 8.8.8.8 not found"; rc=1; }
+# Print the values of a profile setting, one per line
+con_values() {
+	nmcli -g "$1" connection show "$CON" 2>/dev/null | tr ' |,;' '\n' | grep -v '^$'
+}
+con_value_is() { [ "$(nmcli -g "$1" connection show "$CON" 2>/dev/null)" = "$2" ]; }
+has_value() { con_values "$1" | grep -Fxq "$2"; }
+has_address() { ip -4 -o addr show dev "$iface" | awk '{ print $4 }' | grep -Fxq "$ADDR"; }
+no_gateway() { [ -z "$(nmcli -g ipv4.gateway connection show "$CON" 2>/dev/null)" ]; }
+no_default_on_iface() { [ -z "$(ip -o route show default dev "$iface" 2>/dev/null)" ]; }
+orig_default() { ip -o route show default dev "$orig" | grep -q .; }
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
+criterion "Connection $CON exists" nmcli connection show "$CON"
+criterion "Connection $CON is bound to interface $iface" con_value_is connection.interface-name "$iface"
+criterion "Connection $CON uses the manual IPv4 method" con_value_is ipv4.method manual
+criterion "Connection $CON has address $ADDR" has_value ipv4.addresses "$ADDR"
+criterion "Connection $CON has DNS server 8.8.8.8" has_value ipv4.dns 8.8.8.8
+criterion "Connection $CON defines no gateway" no_gateway
+criterion "Connection $CON never installs a default route" con_value_is ipv4.never-default yes
+criterion "Connection $CON is active" con_value_is GENERAL.STATE activated
+criterion "Interface $iface has address $ADDR" has_address
+criterion "No default route uses interface $iface" no_default_on_iface
+criterion "Default route still uses interface $orig" orig_default
+grade_end

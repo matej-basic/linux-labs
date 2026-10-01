@@ -1,0 +1,37 @@
+OBJECTIVE
+  Make Apache serve a website on the non-standard TCP port 8081 while
+  SELinux stays in enforcing mode, using SELinux labels and not by
+  weakening the policy.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with SELinux enforcing.
+  - The httpd and policycoreutils-python-utils packages are installed
+    by the lab.
+
+TASKS
+  1. Apache is configured in /etc/httpd/conf.d/lab-port.conf with a
+     virtual host on TCP port 8081 that serves /webapp/porttest.
+     Do not change this configuration file.
+  2. Make SELinux allow the Apache process type httpd_t to bind to TCP
+     port 8081. Port 8081 must carry the type http_port_t. The
+     setting must be part of the persistent SELinux policy.
+  3. Give /webapp/porttest and the file index.html in it the type
+     httpd_sys_content_t. The setting must be part of the persistent
+     SELinux policy, so that it survives a relabel of the file system.
+  4. Run the httpd service so that it listens on TCP port 8081 and
+     serves the page /webapp/porttest/index.html.
+  5. Keep SELinux in enforcing mode. The domain httpd_t must not be
+     made a permissive domain.
+
+EXPECTED RESULT
+  A request to http://localhost:8081/ returns the page that contains
+  the text "Custom port test page".
+
+NOTES
+  - Port 8081 may already be assigned to another SELinux type in the
+    default policy.
+  - Reference: man semanage-port, man semanage-fcontext and
+    man httpd_selinux.
+
+GRADING
+  labctl grade selinux-03

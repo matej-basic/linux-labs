@@ -1,39 +1,34 @@
 #!/bin/bash
+# postgres-01 setup: refuses to start if PostgreSQL data or a server
+# already exists, so no existing database is ever destroyed. Records
+# whether the client package was there before the lab. Prints nothing
+# on success.
+set -eu
 
-# Reset lab state
-systemctl stop postgresql postgresql-* > /dev/null 2>&1
-systemctl disable postgresql postgresql-* > /dev/null 2>&1
-dnf remove -y postgresql postgresql-server postgresql-contrib > /dev/null 2>&1
-rm -rf /var/lib/pgsql/data
+STATE_FILE=/opt/linux-labs/state/postgres-01
+LAB_DIR=$(dirname "$0")
 
-# Print task description
-cat <<'EOF'
+# A previous run of this lab: undo it first (idempotent start)
+if [ -f "$STATE_FILE" ] && [ -x "$LAB_DIR/cleanup.sh" ]; then
+	"$LAB_DIR/cleanup.sh" >/dev/null 2>&1 || true
+fi
 
-====================================================
-LAB: PostgreSQL - Installation and Setup (postgres-01)
-====================================================
+if rpm -q postgresql-server >/dev/null 2>&1; then
+	echo "postgres-01: postgresql-server is already installed; remove it first (this lab needs a clean system)." >&2
+	exit 1
+fi
+if [ -n "$(ls -A /var/lib/pgsql/data 2>/dev/null)" ]; then
+	echo "postgres-01: /var/lib/pgsql/data is not empty; move it away first (this lab will not touch existing databases)." >&2
+	exit 1
+fi
+if ss -H -tln 'sport = :5432' 2>/dev/null | grep -q .; then
+	echo "postgres-01: something already listens on TCP port 5432." >&2
+	exit 1
+fi
 
-OBJECTIVE:
-Install PostgreSQL Server, start the service, and
-verify basic connectivity.
+client=no
+rpm -q postgresql >/dev/null 2>&1 && client=yes
 
-REQUIREMENTS:
-- Install PostgreSQL Server package
-- Initialize the database cluster (initdb)
-- Start the postgresql service
-- Enable postgresql to start on boot
-- Verify connection to PostgreSQL CLI
-- Verify PostgreSQL is listening on port 5432
-
-NOTES:
-- You may use any valid Linux commands
-- The grading script checks only the final state
-- Command history is NOT evaluated
-
-When ready, run:
-  sudo labctl grade postgres-01
-
-====================================================
-
-EOF
-
+mkdir -p "$(dirname "$STATE_FILE")"
+echo "client=$client" > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

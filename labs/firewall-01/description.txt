@@ -1,3 +1,4 @@
+title: Firewalld services and ports
 category: Firewall
 complexity: Beginner
-objective: Learn firewalld fundamentals by managing services and ports in the default public zone.
+objective: Open a service and a custom port in the public zone of the running firewalld.

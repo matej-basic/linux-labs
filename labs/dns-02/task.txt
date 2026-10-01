@@ -1,0 +1,48 @@
+OBJECTIVE
+  Configure a BIND forward zone for labdomain.com with A, CNAME, MX,
+  NS and SOA records, and make the local named service answer for it.
+
+PREREQUISITES
+  - Work as {{LAB_USER}} and use sudo where root is needed.
+  - The BIND packages are not installed when the lab starts.
+
+TASKS
+  1. Install the packages bind and bind-utils.
+  2. Create a master forward zone for labdomain.com. Keep the zone
+     file at /var/named/labdomain.com.zone. The location is not
+     graded, but the grader reads the zone only through named.
+  3. Put these records in the zone:
+
+       SOA  serial number 2026012501
+       NS   ns1.labdomain.com.
+       A    ns1.labdomain.com.   192.168.1.5
+       A    web.labdomain.com.   192.168.1.10
+       A    mail.labdomain.com.  192.168.1.20
+       CNAME www.labdomain.com.  points to web.labdomain.com.
+       MX   labdomain.com.       priority 10, mail.labdomain.com.
+
+     The zone needs the NS record and its address record to load.
+  4. Make the named service load the zone from its main
+     configuration and run.
+  5. The local named service must answer queries for all records
+     above on 127.0.0.1 as the authority for labdomain.com.
+
+EXPECTED RESULT
+  Querying 127.0.0.1 for web.labdomain.com returns 192.168.1.10,
+  www.labdomain.com is an alias of web.labdomain.com, and the MX
+  record of labdomain.com is mail.labdomain.com with priority 10.
+
+PRACTICE (not graded)
+  - Check the zone file syntax before starting the service.
+  - Enable named at boot.
+  - Query each record from the local server and compare the answers
+    with the table above.
+
+NOTES
+  - Use any valid Linux commands and text editors. Only the final
+    state is graded.
+  - Names in a zone file that end with a dot are absolute.
+  - Reference: man named.conf, man named-checkzone and man dig.
+
+GRADING
+  labctl grade dns-02

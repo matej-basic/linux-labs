@@ -1,66 +1,100 @@
 #!/bin/bash
-# replication-01 - MySQL Master-Slave Replication Setup
-# Sets up MySQL replication on multiple nodes
-
+# replication-01 setup: puts nodes 1 and 2 into the starting state (MySQL
+# installed and running, no replication account or settings, port 3306
+# closed). Prints nothing on success. Nothing on the workstation changes.
+# No "set -u": load-config.sh reads variables that may be unset.
 set -e
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
+
+if [ "$NODES_ENABLED" != "true" ]; then
+	echo "replication-01 needs multi-node labs: run 'sudo labctl configure interactive' and enable them" >&2
+	exit 1
+fi
+if [ "$NODE_COUNT" -lt 2 ] 2>/dev/null; then
+	echo "replication-01 needs 2 nodes, NODE_COUNT is $NODE_COUNT: run 'sudo labctl configure set NODE_COUNT 2'" >&2
+	exit 1
 fi
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
+# Remote script, run as root on each node. It installs and starts MySQL,
+# then removes what the lab and its solution create: replication settings,
+# the repl account, replication_test* databases, the option file lines for
+# binary log, server ID and relay log, and the firewall rules for MySQL.
+# The MySQL root login must work without a password prompt (socket
+# authentication or /root/.my.cnf).
+read -r -d '' PREP <<'REMOTE' || true
+wait_mysql() {
+	local i
+	for i in $(seq 60); do
+		mysql -e 'SELECT 1' </dev/null >/dev/null 2>&1 && return 0
+		sleep 1
+	done
+	return 1
+}
+
+if ! rpm -q mysql-server >/dev/null 2>&1; then
+	dnf -y install mysql-server </dev/null >/dev/null 2>&1 || {
+		echo "installing mysql-server failed (is mariadb-server installed?)" >&2
+		exit 1
+	}
+fi
+systemctl enable --now mysqld </dev/null >/dev/null 2>&1 || {
+	echo "mysqld does not start" >&2
+	exit 1
+}
+wait_mysql || {
+	echo "cannot log in to MySQL as root without a password (use /root/.my.cnf)" >&2
+	exit 1
+}
+
+mysql --force >/dev/null 2>&1 <<'SQL'
+STOP REPLICA;
+RESET REPLICA ALL;
+RESET PERSIST IF EXISTS server_id;
+RESET PERSIST IF EXISTS log_bin;
+RESET PERSIST IF EXISTS relay_log;
+RESET PERSIST IF EXISTS binlog_format;
+SQL
+mysql -N -B 2>/dev/null <<'SQL' | mysql --force >/dev/null 2>&1
+SELECT CONCAT('DROP USER ', QUOTE(User), '@', QUOTE(Host), ';') FROM mysql.user WHERE User = 'repl';
+SELECT CONCAT('DROP DATABASE `', schema_name, '`;') FROM information_schema.schemata WHERE schema_name LIKE 'replication\_test%';
+SQL
+
+rm -f /etc/my.cnf.d/replication.cnf
+for f in /etc/my.cnf /etc/my.cnf.d/*.cnf; do
+	[ -f "$f" ] || continue
+	sed -i -E '/^[[:space:]]*(log[-_]bin|skip[-_]log[-_]bin|disable[-_]log[-_]bin|server[-_]id|relay[-_]log|binlog[-_]format|gtid[-_]mode|enforce[-_]gtid[-_]consistency|log[-_](slave|replica)[-_]updates)[[:space:]]*(=.*)?$/d' "$f"
+done
+
+if systemctl is-active --quiet firewalld; then
+	firewall-cmd --permanent --remove-service=mysql >/dev/null 2>&1 || true
+	firewall-cmd --permanent --remove-port=3306/tcp >/dev/null 2>&1 || true
+	firewall-cmd --reload >/dev/null 2>&1 || true
 fi
 
-if [[ "$NODE_COUNT" -lt 2 ]]; then
-    echo "ERROR: This lab requires at least 2 nodes"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 2"
-    exit 1
-fi
+systemctl restart mysqld </dev/null >/dev/null 2>&1
+wait_mysql || {
+	echo "mysqld does not come back after the restart" >&2
+	exit 1
+}
+REMOTE
 
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║         MySQL Master-Slave Replication Lab (replication-01)    ║
-╚════════════════════════════════════════════════════════════════╝
+B64=$(printf '%s\n' "$PREP" | base64 | tr -d '\n')
 
-OBJECTIVE:
-Configure MySQL master-slave replication where:
-1. Master node accepts writes and generates binary logs
-2. Slave node replicates changes from master
-3. Data automatically syncs from master to slave
+for n in 1 2; do
+	ip=$(get_node_ip "$n")
+	if ! test_node_connectivity "$ip" >/dev/null; then
+		echo "Cannot reach node $n ($ip) over SSH as $SSH_USER" >&2
+		exit 1
+	fi
+done
 
-TOPOLOGY:
-   Master (Node 1)
-       ↓ (binary logs)
-   Slave (Node 2)
-
-REQUIREMENTS:
-✓ Multi-node lab enabled (2+ nodes)
-✓ SSH access between nodes configured
-✓ MySQL installed and running on both nodes
-
-TASKS TO COMPLETE:
-1. Configure master with binary logging enabled
-2. Create replication user on master
-3. Get binary log position from master
-4. Configure slave to connect to master
-5. Start replication on slave
-6. Verify data replication works
-
-VERIFICATION:
-The grading script will:
-- Check master has binary logging enabled
-- Verify slave is connected to master
-- Test that writes on master appear on slave
-- Confirm replication is synchronized
-
-Begin working on the lab now. Use 'labctl solution replication-01' if you need help.
-EOF
+# Replica first, so that cleaning node 1 cannot reach node 2
+for n in 2 1; do
+	ip=$(get_node_ip "$n")
+	out=$(run_on_node "$ip" "sudo -n bash -c \"\$(echo $B64 | base64 -d)\"" </dev/null 2>&1) || {
+		echo "Preparing node $n ($ip) failed: $out" >&2
+		exit 1
+	}
+done

@@ -1,0 +1,59 @@
+OBJECTIVE
+  Build a three-node Pacemaker/Corosync cluster and run an Apache
+  web server as a cluster resource on it.
+
+TOPOLOGY
+    workstation (labctl, SSH to the nodes)
+         |
+         +------------------+------------------+
+         |                  |                  |
+       node 1             node 2             node 3
+    {{NODE1_IP}}       {{NODE2_IP}}       {{NODE3_IP}}
+
+PREREQUISITES
+  - Multi-node labs are enabled with NODE_COUNT=3 (configured:
+    {{NODE_COUNT}}) and the workstation can log in to all three
+    nodes over SSH with the configured user and key.
+  - That user has passwordless sudo on the nodes.
+  - The nodes run Rocky Linux or RHEL 8 or 9 and have internet access.
+  - The nodes cannot log in to each other as root.
+
+TASKS
+  1. Work as {{LAB_USER}} on the workstation and do the work on the
+     nodes {{NODE1_IP}}, {{NODE2_IP}} and {{NODE3_IP}}.
+  2. Install Pacemaker, the pcs management tool and the Apache web
+     server (httpd) on all three nodes. Pacemaker and pcs come from
+     the High Availability repository, which is disabled by default.
+     Its repository id is ha on release 8 and highavailability on
+     release 9.
+  3. Create one cluster named ha_cluster from the three nodes. Use the
+     host name of each node as its cluster node name. The cluster
+     services corosync and pacemaker are enabled at boot and running
+     on all three nodes.
+  4. All three nodes are online members of the cluster. The cluster
+     has quorum, with 3 votes and a quorum of 2.
+  5. STONITH is disabled in the cluster, because the nodes have no
+     fence devices.
+  6. On every node, /var/www/html/index.html contains the text
+     "HA Cluster" followed by the host name of that node. httpd is
+     installed on every node but not enabled at boot, because the
+     cluster starts it.
+  7. Create a cluster resource named apache_web that uses the resource
+     agent ocf:heartbeat:apache with the default Apache configuration
+     file. The resource is started on exactly one node, and httpd
+     runs on that node only.
+
+EXPECTED RESULT
+  A three-node cluster ha_cluster with quorum, in which apache_web is
+  started on one of the nodes.
+
+NOTES
+  - Cluster traffic and the pcs daemon must pass the firewall on
+    every node. This is not graded separately, but the cluster does
+    not form without it.
+  - The nodes need a password for the hacluster account to be
+    authenticated by pcs. The password is not graded.
+  - Reference: man pcs, man corosync.conf, man ocf_heartbeat_apache.
+
+GRADING
+  labctl grade clustering-01

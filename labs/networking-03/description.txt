@@ -1,3 +1,4 @@
+title: Network bonding with failover
 category: Networking
 complexity: Advanced
-objective: Configure network bonding or teaming for redundancy with multiple slave interfaces.
+objective: Configure an active-backup network bond from two free interfaces with a static address.

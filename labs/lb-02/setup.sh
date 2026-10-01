@@ -1,76 +1,58 @@
 #!/bin/bash
-# lb-02 - Nginx Reverse Proxy with Health Checks
-# Sets up Nginx as a reverse proxy with advanced health monitoring
+# lb-02 setup: put Nodes 1 to 3 into a clean starting state.
+source /opt/linux-labs/lib/load-config.sh
+set -eu
 
-set -e
-
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+if [ "$NODES_ENABLED" != true ]; then
+	echo "lb-02 needs multi-node labs: run 'sudo labctl configure interactive'." >&2
+	exit 1
+fi
+if [ "$NODE_COUNT" -lt 3 ]; then
+	echo "lb-02 needs at least 3 nodes (NODE_COUNT is $NODE_COUNT)." >&2
+	exit 1
 fi
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
+# Runs on every node: removes nginx and httpd with their lab configuration,
+# the firewall openings and the SELinux booleans a previous run left behind.
+reset_script() {
+	cat <<'REMOTE'
+S=
+[ "$(id -u)" -eq 0 ] || S="sudo -n"
+for u in nginx httpd; do
+	$S systemctl disable --now "$u" >/dev/null 2>&1
+done
+for p in nginx httpd; do
+	rpm -q "$p" >/dev/null 2>&1 && $S dnf -y remove "$p" >/dev/null 2>&1
+done
+$S rm -f /etc/nginx/conf.d/lb.conf /etc/nginx/nginx.conf.rpmsave \
+	/etc/httpd/conf/httpd.conf.rpmsave /var/log/nginx/lb_access.log \
+	/var/log/nginx/lb_error.log /var/www/html/index.html /var/www/html/health
+if $S systemctl is-active firewalld >/dev/null 2>&1; then
+	$S firewall-cmd --permanent --remove-port=8080/tcp >/dev/null 2>&1
+	$S firewall-cmd --permanent --remove-service=http >/dev/null 2>&1
+	$S firewall-cmd --reload >/dev/null 2>&1
 fi
+for b in httpd_can_network_connect httpd_can_network_relay; do
+	if getsebool "$b" 2>/dev/null | grep -q ' on$'; then
+		$S setsebool -P "$b" 0
+	fi
+done
+exit 0
+REMOTE
+}
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    echo "ERROR: This lab requires at least 3 nodes"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 3"
-    exit 1
-fi
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	if ! test_node_connectivity "$ip" >/dev/null 2>&1; then
+		echo "lb-02: Node $n ($ip) is not reachable over SSH." >&2
+		exit 1
+	fi
+done
 
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║     Nginx Reverse Proxy with Health Checks Lab (lb-02)         ║
-╚════════════════════════════════════════════════════════════════╝
-
-OBJECTIVE:
-Configure Nginx as a reverse proxy with advanced health monitoring:
-1. Install and configure Nginx on Node 1 (reverse proxy)
-2. Configure Apache web servers on Nodes 2 and 3 (backends)
-3. Implement health checks with automatic backend failover
-4. Configure proper proxy headers
-5. Enable connection keepalive to backends
-
-TOPOLOGY:
-        Nginx Reverse Proxy (Node 1:80)
-                    ↓
-            ┌───────┴────────┐
-            ↓                ↓
-        Node 2:8080      Node 3:8080
-       (Apache)         (Apache)
-
-REQUIREMENTS:
-✓ Multi-node lab enabled (3+ nodes)
-✓ SSH access between nodes configured
-✓ Nginx installed on Node 1
-✓ Apache (httpd) installed on Nodes 2 and 3
-
-TASKS TO COMPLETE:
-1. Install Nginx on Node 1
-2. Install and configure Apache on Nodes 2 and 3 (port 8080)
-3. Create health check endpoint (/health) on each backend
-4. Configure Nginx upstream with health checks
-5. Set up proper proxy headers (X-Forwarded-For, Host, etc.)
-6. Enable passive health checks (max_fails, fail_timeout)
-7. Configure keepalive connections to backends
-8. Test automatic failover when a backend goes down
-
-VERIFICATION:
-The grading script will:
-- Check Nginx service is running
-- Verify Apache backends are running on Nodes 2 and 3
-- Confirm health check endpoints are accessible
-- Test upstream configuration and proxy headers
-- Verify health check parameters are configured
-- Test failover behavior
-
-Begin working on the lab now. Use 'labctl solution lb-02' if you need help.
-EOF
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	if ! reset_script | run_on_node "$ip" "bash -s" >/dev/null 2>&1; then
+		echo "lb-02: could not prepare Node $n ($ip)." >&2
+		exit 1
+	fi
+done

@@ -1,6 +1,4 @@
+title: Quorum and split-brain protection
 category: High Availability Clustering
 complexity: Advanced
-objective: Implement advanced cluster protection against split-brain using quorum and ring topology
-requirements: Multi-node lab enabled (NODES_ENABLED=true, NODE_COUNT=3), SSH access to nodes, Pacemaker and Corosync with STONITH configured
-estimated_time: 50 minutes
-skills: Quorum configuration, split-brain prevention, ring topology, autofencing, cluster recovery after partition, advanced Corosync tuning
+objective: Protect a three-node Pacemaker cluster against split-brain with votequorum options and a stop policy for lost quorum.

@@ -1,3 +1,4 @@
+title: Static IP address and DNS with NetworkManager
 category: Networking
 complexity: Beginner
-objective: Configure static IP addresses and DNS settings for network interfaces using nmcli.
+objective: Configure a static IPv4 address and DNS server on a free network interface using NetworkManager.

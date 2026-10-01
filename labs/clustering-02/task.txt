@@ -1,0 +1,71 @@
+OBJECTIVE
+  Add STONITH fencing to the three-node Pacemaker cluster from
+  clustering-01. Install the fence agent, define one fence device per
+  node and enable fencing in the cluster, without breaking the
+  resource apache_web.
+
+TOPOLOGY
+  Cluster nodes (names as known to Pacemaker, shown by the cluster
+  tools; the IP addresses are the ones from the lab configuration):
+
+     node 1  {{NODE1_IP}}  runs apache_web at the start
+     node 2  {{NODE2_IP}}
+     node 3  {{NODE3_IP}}
+
+       node 1            node 2            node 3
+     +-----------+     +-----------+     +-----------+
+     | corosync  |-----| corosync  |-----| corosync  |
+     | pacemaker |     | pacemaker |     | pacemaker |
+     +-----------+     +-----------+     +-----------+
+           |                 |                 |
+     stonith-node1     stonith-node2     stonith-node3
+     (fences node 1)   (fences node 2)   (fences node 3)
+
+PREREQUISITES
+  - Lab clustering-01 is completed: Pacemaker and Corosync run on all
+    three nodes, the cluster has quorum, the resource apache_web is
+    started and fencing is disabled.
+  - Root privileges (sudo) on the three nodes. The nodes are reached
+    with the SSH settings of the lab configuration.
+  - The fence agent packages are in the ha repository, which is
+    disabled by default.
+
+TASKS
+  1. The fence agent fence_virsh is installed on all three nodes.
+  2. Three fence devices exist in the cluster: stonith-node1,
+     stonith-node2 and stonith-node3. Each one uses the fence agent
+     fence_virsh.
+  3. Each fence device is restricted to one node: stonith-node1 to
+     node 1, stonith-node2 to node 2 and stonith-node3 to node 3.
+     The host list of a device holds only the name of its node as
+     known to Pacemaker.
+  4. Fencing is enabled in the cluster properties.
+  5. The cluster has quorum and all three nodes are online.
+  6. The resource apache_web is started.
+  7. The cluster lists no failed actions for any resource other than
+     the three fence devices.
+
+EXPECTED RESULT
+  The cluster shows three fence devices, fencing is on, all nodes are
+  online and apache_web keeps running on one node. The fence devices
+  themselves may be reported as failed or stopped, see NOTES.
+
+PRACTICE (not graded)
+  - Compare how the cluster tools list the fence devices and the
+    ordinary resources.
+  - Stop the cluster on the node that runs apache_web and watch the
+    resource move to another node. Start the cluster on that node
+    again afterwards.
+
+NOTES
+  - No hypervisor is reachable from the nodes, so the fence devices
+    cannot fence anything and may fail their own monitoring. Only the
+    configuration is graded, not whether a device is started.
+  - The address and login of a device are not graded. Any values are
+    accepted; the reference solution uses 127.0.0.1 and root.
+  - Do not power off or crash a node to test fencing. With failing
+    fence devices the cluster cannot recover such a node by itself.
+  - Reference: man pcs (section stonith) and man stonith_admin.
+
+GRADING
+  labctl grade clustering-02

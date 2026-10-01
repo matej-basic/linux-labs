@@ -1,5 +1,5 @@
 #!/bin/bash
-# Package Management Lab 05: Cleanup
+# packages-05 cleanup
 #
 # Removes what "make install" of joe 4.6 writes, for both
 #   ./configure --prefix=/usr --sysconfdir=/etc   (the lab's target)
@@ -9,7 +9,9 @@
 # removed only if no RPM package owns it, so the joe RPM (or any other
 # package) is never damaged. Shared directories (/usr/bin, /usr/share,
 # /usr/share/man/man1, /etc, ...) are never removed.
-# Compilers and build tools are left installed.
+# Also removes the tarball and the unpacked source tree (top level of
+# /tmp, /root and the lab user's home, and ~/src). Compilers and build
+# tools are left installed. Prints nothing.
 
 BIN="jmacs joe jpico jstar rjoe"
 DESKTOP="jmacs.desktop joe.desktop jpico.desktop jstar.desktop"
@@ -82,16 +84,20 @@ for P in /usr /usr/local; do
 done
 rm_dir /usr/etc
 
-# Leftover source tree and tarball, top level only
+# Leftover source tree and tarball: top level of the directory and in its
+# src subdirectory (where solution.md unpacks it)
 LABUSER="${SUDO_USER:-student}"
-LABHOME=$(getent passwd "$LABUSER" | cut -d: -f6)
+LABHOME=$(getent passwd "$LABUSER" | cut -d: -f6 || true)
 for d in /tmp /root "$LABHOME"; do
 	[ -n "$d" ] && [ -d "$d" ] || continue
-	rm -f -- "$d/joe-4.6.tar.gz"
-	if [ -d "$d/joe-4.6" ] && [ ! -L "$d/joe-4.6" ] && [ -f "$d/joe-4.6/joe/main.c" ]; then
-		rm -rf -- "$d/joe-4.6"
-	fi
+	for b in "$d" "$d/src"; do
+		[ -d "$b" ] && [ ! -L "$b" ] || continue
+		rm -f -- "$b/joe-4.6.tar.gz"
+		if [ -d "$b/joe-4.6" ] && [ ! -L "$b/joe-4.6" ] && [ -f "$b/joe-4.6/joe/main.c" ]; then
+			rm -rf -- "$b/joe-4.6"
+		fi
+	done
 done
-
-echo "Cleanup complete. Compiler and build tools remain installed."
+# ~/src is only removed when empty (solution.md creates it)
+[ -n "$LABHOME" ] && [ -d "$LABHOME/src" ] && [ ! -L "$LABHOME/src" ] && rmdir -- "$LABHOME/src" 2>/dev/null
 exit 0

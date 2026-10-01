@@ -1,29 +1,68 @@
 #!/bin/bash
-# Networking Lab 01: Static IP Configuration (Beginner)
+# networking-01 setup: pick the first free ethernet interface, remember
+# it, and take its automatic NetworkManager profiles out of the way.
+# Prints nothing on success.
+set -eu
 
-cat <<'EOF'
-====================================================
-LAB: Networking 01 - Static IP Configuration
-====================================================
+STATE_FILE=/opt/linux-labs/state/networking-01
 
-OBJECTIVE
-Configure static IP using NetworkManager (nmcli).
+# Restore profiles disabled by an earlier run, so a rerun starts clean
+restore_saved() {
+	local uuid
+	[ -r "$STATE_FILE" ] || return 0
+	tail -n +3 "$STATE_FILE" | while read -r uuid; do
+		[ -n "$uuid" ] || continue
+		nmcli connection modify uuid "$uuid" connection.autoconnect yes &>/dev/null || true
+	done
+}
 
-REQUIREMENTS
-1) Create NetworkManager connection named 'labnet-static'.
-    - IP Address: 192.168.1.100/24
-    - Gateway: 192.168.1.1
-    - DNS: 8.8.8.8
-    - Apply to the interface with default route.
+if ! command -v nmcli &>/dev/null || ! systemctl is-active --quiet NetworkManager; then
+	echo "networking-01: NetworkManager is not running." >&2
+	exit 1
+fi
 
-USEFUL COMMANDS
-- nmcli connection add
-- nmcli connection modify 
-- nmcli connection up
-- ip addr show
-- ip route show
+nmcli connection delete labnet-static &>/dev/null || true
+restore_saved
 
-Run grading when done:
-  sudo labctl grade networking-01
-====================================================
-EOF
+orig=$(ip -o route show default | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
+if [ -z "$orig" ]; then
+	echo "networking-01: no default route found; cannot tell which interface is in use." >&2
+	exit 1
+fi
+
+# Free interface: physical ethernet, not the default-route interface,
+# not enslaved to a bond, bridge or team.
+iface=""
+for path in /sys/class/net/*; do
+	dev=${path##*/}
+	[ "$dev" = "$orig" ] && continue
+	[ "$(cat "$path/type" 2>/dev/null)" = 1 ] || continue
+	[ -e "$path/device" ] || continue
+	[ -e "$path/master" ] && continue
+	iface=$dev
+	break
+done
+if [ -z "$iface" ]; then
+	echo "networking-01: no free ethernet interface (all others carry the default route or are in use)." >&2
+	exit 1
+fi
+
+# Take the automatic profiles bound to the free interface out of the way
+saved=()
+while read -r uuid; do
+	[ -n "$uuid" ] || continue
+	bound=$(nmcli -g connection.interface-name connection show uuid "$uuid" 2>/dev/null || true)
+	if [ "$bound" = "$iface" ]; then
+		saved+=("$uuid")
+		nmcli connection modify uuid "$uuid" connection.autoconnect no
+		nmcli connection down uuid "$uuid" &>/dev/null || true
+	fi
+done < <(nmcli -g UUID connection show)
+
+mkdir -p "$(dirname "$STATE_FILE")"
+{
+	echo "$iface"
+	echo "$orig"
+	[ "${#saved[@]}" -eq 0 ] || printf '%s\n' "${saved[@]}"
+} > "$STATE_FILE"
+chmod 644 "$STATE_FILE"

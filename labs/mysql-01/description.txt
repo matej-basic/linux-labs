@@ -1,4 +1,4 @@
+title: MySQL installation and root password
 category: Databases
 complexity: Beginner
-objective: Install MySQL Server, start the service, and verify basic connectivity.
-
+objective: Install MySQL Server, start the service and set the root password.

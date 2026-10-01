@@ -1,8 +1,11 @@
 #!/bin/bash
-# SELinux Lab 01: Cleanup
+# selinux-01 cleanup: return SELinux to enforcing, as on the student VMs.
+CONF=/etc/selinux/config
 
-# Set SELinux back to permissive mode
-sudo setenforce 0 2>/dev/null || true
-sudo sed -i 's/^SELINUX=.*/SELINUX=permissive/' /etc/selinux/config 2>/dev/null || true
-
-echo "Cleanup complete. SELinux set to permissive mode."
+if command -v getenforce >/dev/null 2>&1 && [ "$(getenforce 2>/dev/null)" != "Disabled" ]; then
+	setenforce 1 2>/dev/null || true
+	if [ -f "$CONF" ] && grep -Eq '^SELINUX=permissive' "$CONF"; then
+		sed -i -E 's/^SELINUX=permissive/SELINUX=enforcing/' "$CONF"
+	fi
+fi
+exit 0

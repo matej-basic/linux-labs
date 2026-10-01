@@ -1,0 +1,43 @@
+OBJECTIVE
+  Create two contractor accounts with password aging and account
+  expiry, give their group resource limits, and set the system-wide
+  password aging defaults.
+
+TASKS
+  1. Create the group contractors.
+  2. Create the user dave with the home directory /home/dave, the login
+     shell /bin/bash and the primary group contractors. The password
+     of dave is contractor123. The maximum password age of dave is
+     30 days.
+  3. Create the user eve with the home directory /home/eve, the login
+     shell /bin/bash and the primary group contractors. The password
+     of eve is eve-pass. The account of eve expires on 2030-12-31.
+     The password of eve never expires.
+  4. Limit the members of the group contractors (not a user named
+     contractors) in this file:
+
+       /etc/security/limits.d/70-contractors.conf
+
+     The limits are:
+
+       open files   1024
+       processes    512
+
+     Set both the soft and the hard limit for each item.
+  5. Set the default password aging in /etc/login.defs:
+
+       PASS_MAX_DAYS   90
+       PASS_MIN_DAYS   1
+       PASS_WARN_AGE   14
+
+NOTES
+  - Work with root privileges (sudo). Only the final state is graded.
+  - Reference: man useradd, man chage, man limits.conf and
+    man login.defs.
+  - Resource limits apply at the next login of the user. Whether they
+    are in effect is not graded, only the configuration.
+  - The lab restores the original values in /etc/login.defs when you
+    run labctl reset.
+
+GRADING
+  labctl grade users-02

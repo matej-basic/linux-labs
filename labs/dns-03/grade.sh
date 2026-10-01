@@ -1,91 +1,79 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# dns-03 grader. Runs as the student, who cannot read /etc/named.conf or
+# /var/named, so everything is checked through named on 127.0.0.1.
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+ZONE=labsecure.com
+SERVER=127.0.0.1
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+# dig against the local named, answer section only
+q() {
+	dig +noall +answer +time=3 +tries=2 "@$SERVER" "$@" 2>/dev/null
+}
 
-# Check if bind package is installed
-if rpm -q bind > /dev/null 2>&1; then
-	pass "bind package installed"
-else
-	fail "bind package not installed"
-fi
+# First global IPv4 address of this host (not 127.0.0.1)
+other_address() {
+	ip -4 -o addr show scope global 2>/dev/null |
+		awk '{ split($4, a, "/"); print a[1]; exit }'
+}
 
-# Check if zone file exists
-if [[ -f /var/named/labsecure.com.zone.signed ]]; then
-	pass "Zone file exists"
-else
-	fail "Zone file does not exist"
-fi
+has_a_record() {
+	q "$1.$ZONE" A | awk -v v="$2" '$4 == "A" && $5 == v { f = 1 } END { exit !f }'
+}
 
-# Check if zone is signed
-if [[ -f /var/named/labsecure.com.zone.signed ]]; then
-	pass "Signed zone file exists"
-else
-	fail "Signed zone file does not exist"
-fi
+has_ns_record() {
+	q "$ZONE" NS | awk '$4 == "NS" && tolower($5) == "ns1.labsecure.com." { f = 1 } END { exit !f }'
+}
 
-# Check if KSK exists
-if ls /var/named/Klabsecure.com.+007+*.key >/dev/null 2>&1; then
-	pass "KSK (Key Signing Key) found"
-else
-	fail "KSK not found"
-fi
+zone_is_authoritative() {
+	dig +noall +comments +norec +time=3 +tries=2 "@$SERVER" "$ZONE" SOA 2>/dev/null |
+		grep -Eq '^;; flags:.* aa[ ;]'
+}
 
-# Check if ZSK exists
-if ls /var/named/Klabsecure.com.+007+*.key >/dev/null 2>&1 && [[ $(ls /var/named/Klabsecure.com.+007+*.key 2>/dev/null | wc -l) -ge 2 ]]; then
-	pass "ZSK (Zone Signing Key) found"
-else
-	fail "ZSK not found"
-fi
+# KSK has flag 257, ZSK flag 256; both must use a SHA-2 or newer algorithm
+has_key() {
+	q "$ZONE" DNSKEY | awk -v f="$1" \
+		'$4 == "DNSKEY" && $5 == f && $6 == 3 && $7 ~ /^(8|10|13|14|15|16)$/ { k = 1 } END { exit !k }'
+}
 
-# Check if named service is running
-if systemctl is-active --quiet named; then
-	pass "named service is running"
-else
-	fail "named service is not running"
-fi
+answers_are_signed() {
+	q +dnssec "web.$ZONE" A | awk '$4 == "RRSIG" && $5 == "A" { a = 1 } END { exit !a }' || return 1
+	q +dnssec "$ZONE" DNSKEY | awk '$4 == "RRSIG" && $5 == "DNSKEY" { k = 1 } END { exit !k }'
+}
 
-# Check if DNSSEC validation is enabled
-if grep -q "dnssec-validation auto" /etc/named.conf 2>/dev/null; then
-	pass "DNSSEC validation enabled"
-else
-	fail "DNSSEC validation not enabled"
-fi
+axfr_local_signed() {
+	local out
+	out=$(dig +noall +answer +time=5 +tries=1 "@$SERVER" "$ZONE" AXFR 2>/dev/null) || return 1
+	echo "$out" | awk '$4 == "SOA" { s = 1 } $4 == "RRSIG" { r = 1 } END { exit !(s && r) }'
+}
 
-# Check if zone transfer is configured
-if grep -q "allow-transfer" /etc/named.conf 2>/dev/null; then
-	pass "Zone transfer configured"
-else
-	fail "Zone transfer not configured"
-fi
+# named must answer from the other address (not vacuous), but refuse AXFR
+axfr_other_refused() {
+	local ip out
+	ip=$(other_address)
+	[ -n "$ip" ] || return 1
+	dig +noall +answer +time=3 +tries=2 -b "$ip" "@$SERVER" "$ZONE" SOA 2>/dev/null |
+		awk '$4 == "SOA" { s = 1 } END { exit !s }' || return 1
+	out=$(dig +noall +answer +time=5 +tries=1 -b "$ip" "@$SERVER" "$ZONE" AXFR 2>/dev/null) || true
+	! echo "$out" | awk '$4 == "SOA" { s = 1 } END { exit !s }'
+}
 
-# Check DNSSEC signatures (verify zone file contains RRSIG records)
-if grep -q "RRSIG" /var/named/labsecure.com.zone.signed; then
-	pass "DNSSEC signatures verified (RRSIG records found)"
-else
-	fail "DNSSEC signatures not verified (no RRSIG records found)"
-fi
+named_enabled_and_running() {
+	systemctl is-active --quiet named && systemctl is-enabled --quiet named
+}
 
-# Check zone transfer works
-if cd /tmp && dig @localhost labsecure.com axfr | grep -q "labsecure.com"; then
-	pass "Zone transfer working"
-else
-	fail "Zone transfer not working"
-fi
+grade_begin dns-03
 
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+criterion "Packages bind and bind-utils are installed" rpm -q bind bind-utils
+criterion "named is enabled and running" named_enabled_and_running
+criterion "Server is authoritative for $ZONE" zone_is_authoritative
+criterion "Zone has the NS record ns1.$ZONE" has_ns_record
+criterion "ns1.$ZONE has address 192.168.1.5" has_a_record ns1 192.168.1.5
+criterion "web.$ZONE has address 192.168.1.10" has_a_record web 192.168.1.10
+criterion "api.$ZONE has address 192.168.1.15" has_a_record api 192.168.1.15
+criterion "Zone publishes a KSK using a SHA-2 algorithm" has_key 257
+criterion "Zone publishes a ZSK using a SHA-2 algorithm" has_key 256
+criterion "Zone answers carry RRSIG records" answers_are_signed
+criterion "AXFR from 127.0.0.1 returns the signed zone" axfr_local_signed
+criterion "AXFR from another address of this host is refused" axfr_other_refused
+grade_end

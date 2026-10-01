@@ -1,3 +1,4 @@
+title: Directories and files
 category: Files
 complexity: Beginner
-objective: Create the required directory and file so that the system matches the expected final state.
+objective: Create a directory and a text file with the required content.

@@ -1,4 +1,4 @@
+title: PostgreSQL backup and restore
 category: Databases
 complexity: Advanced
-objective: Create a PostgreSQL database backup using pg_dump, and restore from backup to verify data integrity.
-
+objective: Create a PostgreSQL database backup as plain SQL and restore it into a new database to verify data integrity.

@@ -1,39 +1,44 @@
 #!/bin/bash
+# webserver-02 setup: remove leftovers of an earlier run and record whether
+# httpd was already installed, so cleanup removes only what the lab added.
+# Prints nothing on success.
+set -eu
 
-# Reset lab state
-systemctl stop httpd > /dev/null 2>&1
+STATE_DIR=/opt/linux-labs/state
+STATE_FILE="$STATE_DIR/webserver-02"
+
+mkdir -p "$STATE_DIR"
+
+# Record the original httpd state once; a rerun keeps the first record.
+if [ ! -f "$STATE_FILE" ]; then
+	pre=no
+	act=no
+	ena=no
+	if rpm -q httpd &>/dev/null; then
+		pre=yes
+		systemctl is-active --quiet httpd && act=yes
+		systemctl is-enabled --quiet httpd && ena=yes
+	fi
+	{
+		echo "httpd_installed=$pre"
+		echo "httpd_active=$act"
+		echo "httpd_enabled=$ena"
+	} > "$STATE_FILE"
+	chmod 644 "$STATE_FILE"
+fi
+
+# Remove what an earlier run or the solution left behind
 rm -rf /var/www/lab2
-rm -f /etc/httpd/conf.d/lab2.conf
+for f in /etc/httpd/conf.d/*.conf; do
+	[ -f "$f" ] || continue
+	if grep -qE 'lab2\.local|/var/www/lab2' "$f"; then
+		rm -f "$f"
+	fi
+done
+sed -i '/lab2\.local/d' /etc/hosts
 
-# Print task description
-cat <<'EOF'
-
-====================================================
-LAB: Web Servers - Virtual Hosts (webserver-02)
-====================================================
-
-OBJECTIVE:
-Configure an Apache virtual host to serve content
-from /var/www/lab2/html for domain lab2.local.
-
-REQUIREMENTS:
-- Apache httpd must be installed and running
-- Create directory: /var/www/lab2/html
-- Create index.html with content "Welcome to Lab 2"
-- Configure virtual host for lab2.local
-- Add lab2.local entry to /etc/hosts
-- Virtual host should serve from /var/www/lab2/html
-- Apache must be restarted to apply changes
-
-NOTES:
-- You may use any valid Linux commands
-- The grading script checks only the final state
-- Command history is NOT evaluated
-
-When ready, run:
-  sudo labctl grade webserver-02
-
-====================================================
-
-EOF
-
+# Drop a stale lab2 virtual host from a running server
+if systemctl is-active --quiet httpd; then
+	systemctl restart httpd &>/dev/null || true
+fi
+exit 0

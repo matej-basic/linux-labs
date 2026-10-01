@@ -1,0 +1,46 @@
+OBJECTIVE
+  Serve a site over HTTPS with Apache and a self-signed certificate,
+  and redirect HTTP requests to HTTPS.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with SELinux enforcing and internet access.
+  - Run the steps as {{LAB_USER}} with sudo where root is needed.
+
+TASKS
+  1. Install the Apache web server (httpd) and its TLS module
+     (mod_ssl). httpd must be running.
+  2. Make the name lab3.local resolve to 127.0.0.1 through
+     /etc/hosts.
+  3. Create the document root /var/www/lab3/html with an index.html
+     file that contains the text "Lab 3 HTTPS".
+  4. Create a self-signed certificate for lab3.local (common name
+     lab3.local), stored as:
+
+       certificate  /etc/pki/tls/certs/lab3.crt
+       private key  /etc/pki/tls/private/lab3.key
+
+  5. Define the virtual hosts for lab3.local in the file
+     /etc/httpd/conf.d/lab3.conf:
+
+       port 80    permanently redirects every request to
+                  https://lab3.local/
+       port 443   serves /var/www/lab3/html over TLS with the
+                  certificate and key from task 4
+
+  6. The Apache configuration must pass its syntax check, and httpd
+     must listen on port 443.
+
+EXPECTED RESULT
+  A request to http://lab3.local/ is answered with a permanent
+  redirect to https://lab3.local/, and https://lab3.local/ returns
+  the page with "Lab 3 HTTPS", presented with your certificate.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Opening the firewall for ports 80 and 443 is not graded.
+  - Reference: man httpd, man openssl-req, man hosts, and the
+    mod_ssl documentation.
+
+GRADING
+  labctl grade webserver-03

@@ -1,57 +1,70 @@
-# Web Server 02 Solution
+# webserver-02: Apache name-based virtual host
 
-Configure Apache virtual hosts and serve content from /var/www/lab2/html.
+## Solution
 
-## Commands to reach the expected state:
+1. [sudo] Install Apache, enable it and start it:
+
+   ```bash
+   sudo dnf -y install httpd
+   sudo systemctl enable --now httpd
+   ```
+
+2. [sudo] Create the document root and the page:
+
+   ```bash
+   sudo mkdir -p /var/www/lab2/html
+   echo "Welcome to Lab 2" | sudo tee /var/www/lab2/html/index.html
+   ```
+
+3. [sudo] Make lab2.local resolve to the local machine:
+
+   ```bash
+   echo "127.0.0.1 lab2.local" | sudo tee -a /etc/hosts
+   ```
+
+4. [sudo] Create the virtual host:
+
+   ```bash
+   sudo tee /etc/httpd/conf.d/lab2.conf > /dev/null <<'CONF'
+   <VirtualHost *:80>
+       ServerName lab2.local
+       DocumentRoot /var/www/lab2/html
+       <Directory /var/www/lab2/html>
+           Require all granted
+       </Directory>
+   </VirtualHost>
+   CONF
+   ```
+
+5. [sudo] Check the syntax and restart Apache:
+
+   ```bash
+   sudo httpd -t
+   sudo systemctl restart httpd
+   ```
+
+## Verification
 
 ```bash
-# Create the web directory
-sudo mkdir -p /var/www/lab2/html
-
-# Create index.html
-sudo tee /var/www/lab2/html/index.html > /dev/null <<EOF
-Welcome to Lab 2
-EOF
-
-# Add lab2.local to /etc/hosts
-echo "127.0.0.1 lab2.local" | sudo tee -a /etc/hosts
-
-# Create virtual host configuration
-sudo tee /etc/httpd/conf.d/lab2.conf > /dev/null <<EOF
-<VirtualHost *:80>
-    ServerName lab2.local
-    ServerAdmin admin@lab2.local
-    DocumentRoot /var/www/lab2/html
-    
-    <Directory /var/www/lab2/html>
-        Require all granted
-    </Directory>
-</VirtualHost>
-EOF
-
-# Test Apache configuration
-sudo httpd -t
-
-# Restart Apache to apply changes
-sudo systemctl restart httpd
+curl -i http://lab2.local/
+sudo httpd -S
+labctl grade webserver-02
 ```
 
-## Verify:
+## Explanation
 
-```bash
-# Check directory and files
-ls -l /var/www/lab2/html/
+Apache picks a virtual host by the Host header of the request. The
+name lab2.local is not in DNS, so the hosts file maps it to 127.0.0.1,
+and the ServerName in the virtual host makes Apache answer that name
+with the lab2 directory instead of the default /var/www/html.
 
-# Check /etc/hosts
-grep lab2.local /etc/hosts
+The new directory is created under /var/www, so it inherits the SELinux
+type httpd_sys_content_t and Apache can read it with SELinux enforcing.
+Files copied in from another location would keep their old label and
+cause a 403 error. Outside /var/www and /srv, Require all granted is
+also needed, because Apache denies access to other directories by
+default.
 
-# Check virtual host config
-sudo cat /etc/httpd/conf.d/lab2.conf
-
-# Test connectivity
-curl http://lab2.local
-
-# Run the grading script
-sudo labctl grade webserver-02
-```
-
+A configuration change takes effect only after Apache is restarted or
+reloaded, which is why the grader requests the page from the running
+service.

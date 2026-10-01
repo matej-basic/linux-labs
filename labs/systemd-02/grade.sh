@@ -1,41 +1,34 @@
 #!/bin/bash
+# systemd-02 grader
+source /opt/linux-labs/lib/grading.sh
 
-source /opt/linux-labs/lib/colors.sh
+UNIT=custom-app.service
+SCRIPT=/opt/custom-app.sh
+LOG=/var/log/custom-app.log
 
-passcount=0
-failcount=0
+grade_begin systemd-02
 
-ok()   { pass "$*"; ((++passcount)); }
-err()  { fail "$*"; ((++failcount)); }
+# The unit runs the script in the foreground (Type=simple)
+unit_runs_script() {
+	[ "$(systemctl show -p Type --value "$UNIT" 2>/dev/null)" = simple ] || return 1
+	systemctl show -p ExecStart "$UNIT" 2>/dev/null | grep -q "path=$SCRIPT ;"
+}
 
-# Check unit file exists
-if [[ -f /etc/systemd/system/custom-app.service ]]; then
-    ok "custom-app.service unit file exists"
-else
-    err "custom-app.service unit file exists"
-fi
+# The unit file has an [Install] section that targets multi-user.target
+unit_in_multi_user() {
+	systemctl show -p WantedBy --value "$UNIT" 2>/dev/null | grep -qw multi-user.target
+}
 
-# Check if enabled
-if systemctl is-enabled custom-app.service >/dev/null 2>&1; then
-    ok "custom-app.service is enabled"
-else
-    err "custom-app.service is enabled"
-fi
+# The log is non-empty and holds text written by the script
+log_has_output() {
+	[ -s "$LOG" ]
+}
 
-# Check if running
-if systemctl is-active custom-app.service >/dev/null 2>&1; then
-    ok "custom-app.service is running"
-else
-    err "custom-app.service is running"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+criterion "Script $SCRIPT exists and is executable" test -x "$SCRIPT"
+criterion "Unit file /etc/systemd/system/$UNIT exists" test -f "/etc/systemd/system/$UNIT"
+criterion "$UNIT is Type=simple and runs $SCRIPT" unit_runs_script
+criterion "$UNIT is installed into multi-user.target" unit_in_multi_user
+criterion "$UNIT is enabled" systemctl is-enabled --quiet "$UNIT"
+criterion "$UNIT is running" systemctl is-active --quiet "$UNIT"
+criterion "Log file $LOG contains output" log_has_output
+grade_end

@@ -1,0 +1,32 @@
+OBJECTIVE
+  Create users and a group with the required home directories, shells
+  and group memberships, and a shared directory for the group.
+
+TASKS
+  1. Create the group project.
+  2. Create the user alice with these properties:
+
+       primary group        project
+       supplementary group  wheel
+       home directory       /home/alice, owned by alice:project
+       login shell          /bin/bash
+
+  3. Create the system account svcapp, with a UID below 1000 and
+     these properties:
+
+       primary group        project
+       home directory       /srv/svcapp, owned by svcapp:project,
+                            permissions 750
+       login shell          /usr/sbin/nologin
+
+  4. Create the shared directory /srv/project. Its owner is root and
+     its group is project. Its permissions are 2775, so that new
+     files inherit the group project.
+
+NOTES
+  - Run the administrative commands with sudo.
+  - Passwords are not graded.
+  - Reference: man useradd and man chmod.
+
+GRADING
+  labctl grade users-01

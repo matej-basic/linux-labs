@@ -1,49 +1,23 @@
 #!/bin/bash
-source /opt/linux-labs/lib/colors.sh
-rc=0
+# webserver-01 grader
+source /opt/linux-labs/lib/grading.sh
 
-passcount=0
-failcount=0
+# httpd itself holds a listening socket on TCP port 80
+httpd_listens_on_80() {
+	ss -H -tlnp 'sport = :80' 2>/dev/null | grep -q '"httpd"'
+}
 
-pass() { echo -e "${GREEN}PASS${RESET}: $*"; ((++passcount)); }
-fail() { echo -e "${RED}NO PASS${RESET}: $*"; ((++failcount)); rc=1; }
+# Apache answers an HTTP request on localhost port 80 (any status code)
+http_answers() {
+	local code
+	code=$(curl -s -o /dev/null -m 5 -w '%{http_code}' http://localhost:80/ 2>/dev/null) || return 1
+	[ -n "$code" ] && [ "$code" != 000 ]
+}
 
-# Check if httpd package is installed
-if rpm -q httpd > /dev/null 2>&1; then
-	pass "httpd package installed"
-else
-	fail "httpd package not installed"
-fi
-
-# Check if httpd service is running
-if systemctl is-active --quiet httpd; then
-	pass "httpd service is running"
-else
-	fail "httpd service is not running"
-fi
-
-# Check if httpd is enabled on boot
-if systemctl is-enabled --quiet httpd; then
-	pass "httpd enabled on boot"
-else
-	fail "httpd not enabled on boot"
-fi
-
-# Check if Apache is listening on port 80
-if ss -tlnp > /dev/null 2>&1 | grep -q ':80 '; then
-	pass "Apache listening on port 80"
-else
-	fail "Apache not listening on port 80"
-fi
-
-echo ""
-echo "Results: $passcount passed, $failcount failed"
-
-if [[ $failcount -eq 0 ]]; then
-	pass "Lab completed successfully"
-	exit 0
-else
-	fail "Lab incomplete"
-	exit 1
-fi
-
+grade_begin webserver-01
+criterion "Package httpd is installed" rpm -q httpd
+criterion "httpd is enabled" systemctl is-enabled --quiet httpd
+criterion "httpd is running" systemctl is-active --quiet httpd
+criterion "httpd listens on TCP port 80" httpd_listens_on_80
+criterion "http://localhost answers on port 80" http_answers
+grade_end

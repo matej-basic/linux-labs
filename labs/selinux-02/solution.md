@@ -1,45 +1,68 @@
-# Solution: selinux-02
+# selinux-02: SELinux contexts for a web application
+
+## Solution
+
+1. [sudo] Install Apache and enable it:
+
+   ```bash
+   sudo dnf -y install httpd
+   sudo systemctl enable httpd
+   ```
+
+2. [sudo] Create the virtual host:
+
+   ```bash
+   sudo tee /etc/httpd/conf.d/myapp.conf >/dev/null <<'EOF'
+   <VirtualHost *:80>
+       ServerName localhost
+       DocumentRoot /webapp/www
+       <Directory /webapp/www>
+           Require all granted
+       </Directory>
+   </VirtualHost>
+   EOF
+   ```
+
+3. [sudo] Start httpd and look at the problem. The request is denied
+   because /webapp/www has the type default_t:
+
+   ```bash
+   sudo systemctl restart httpd
+   curl -sI http://localhost/ | head -n 1
+   ls -dZ /webapp/www
+   sudo ausearch -m avc -ts recent
+   ```
+
+4. [sudo] Add a persistent file context rule for /webapp/www and apply
+   it:
+
+   ```bash
+   sudo semanage fcontext -a -t httpd_sys_rw_content_t \
+     '/webapp/www(/.*)?'
+   sudo restorecon -Rv /webapp/www
+   ```
+
+## Verification
 
 ```bash
-# 1) Create app structure and seed files under /webapp
-sudo mkdir -p /webapp/{www,config,data}
-sudo bash -c 'cat <<"EOF" > /webapp/www/index.html
-<!DOCTYPE html>
-<html><body><h1>MyApp</h1><p>SELinux lab test page.</p></body></html>
-EOF'
-sudo bash -c 'echo "db_host=localhost" > /webapp/config/db.conf'
-sudo bash -c 'echo "test log" > /webapp/data/app.log'
-
-# 2) Install and start Apache
-sudo dnf install -y httpd
-sudo systemctl enable --now httpd
-
-# 3) Configure virtual host pointing to /webapp/www
-sudo tee /etc/httpd/conf.d/myapp.conf > /dev/null <<'EOF'
-<VirtualHost *:80>
-	ServerName localhost
-	DocumentRoot /webapp/www
-    <Directory /webapp/www>
-	DirectoryIndex index.html
-		AllowOverride None
-		Require all granted
-	</Directory>
-	ErrorLog /var/log/httpd/myapp-error.log
-	CustomLog /var/log/httpd/myapp-access.log combined
-</VirtualHost>
-EOF
-sudo systemctl restart httpd  # restart so DocumentRoot exists before Apache loads
-
-# 4) Apply SELinux context for Apache read/write
-sudo chcon -R -t httpd_sys_rw_content_t /webapp/www
-# (Optional persistent mapping)
-sudo semanage fcontext -a -t httpd_sys_rw_content_t "/webapp/www(/.*)?"
-sudo restorecon -R /webapp/www
-
-# 5) Verify context and service
-ls -Z /webapp/www/index.html
-sudo systemctl status httpd --no-pager
-
-# 6) Grade
-sudo labctl grade selinux-02
+ls -dZ /webapp/www /webapp/www/index.html /webapp/config
+curl http://localhost/
+labctl grade selinux-02
 ```
+
+## Explanation
+
+Files created under /webapp get the type default_t, which httpd_t may
+not read, so Apache answers 403 and logs an AVC denial. The fix is to
+label the content with a type httpd may use. chcon changes the label
+only until the next relabel; semanage fcontext stores a rule in the
+policy so restorecon, and a full relabel, give the same result. The
+rule matches /webapp/www and everything below it, and leaves
+/webapp/config and /webapp/data with their default type, so Apache
+cannot read the database configuration.
+
+httpd_sys_content_t would be enough for a read-only site. The lab asks
+for httpd_sys_rw_content_t, which also lets httpd write to the tree.
+Switching SELinux to permissive mode would make the page work as well,
+but it removes the protection for the whole system, and the grader
+checks for enforcing mode.

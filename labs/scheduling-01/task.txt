@@ -1,0 +1,25 @@
+OBJECTIVE
+  Create a cron job for the root user that runs every day at 2:00 and
+  appends a line to a log file.
+
+TASKS
+  1. Add one entry to the crontab of the root user (not to a file in
+     /etc/cron.d and not to the crontab of another user).
+  2. The entry runs every day of every month at 2:00 in the morning,
+     on every day of the week.
+  3. The command of the entry appends the text Daily task executed
+     as a line to /var/log/daily-task.log. The command must append
+     to the file and not overwrite it.
+
+EXPECTED RESULT
+  The root crontab contains an entry scheduled for 02:00 daily. Each
+  run adds the line Daily task executed to the end of
+  /var/log/daily-task.log. The job does not have to run during the
+  lab.
+
+NOTES
+  - The cron daemon crond is installed and running.
+  - Reference: man crontab (sections 1 and 5).
+
+GRADING
+  labctl grade scheduling-01

@@ -1,0 +1,42 @@
+OBJECTIVE
+  Back up the PostgreSQL database labdb as a plain SQL file, restore
+  the backup into a new database and check that the data is intact.
+
+PREREQUISITES
+  The lab start installs and starts the PostgreSQL server if needed
+  and makes sure that database labdb exists with sample data in the
+  table users. This needs internet access on the first start. The
+  administrative database account is postgres. Works on Rocky Linux
+  8 and 9.
+
+TASKS
+  1. Keep the PostgreSQL service running.
+  2. Create a plain-text SQL backup of database labdb in the file
+     /tmp/labdb_backup.sql. The file must not be empty, must contain
+     the definition of the table public.users and must contain every
+     row of that table.
+  3. Create the database labdb_restore.
+  4. Restore the backup into labdb_restore. The database then has
+     the same tables in the public schema as labdb, and the table
+     users has exactly the same rows as in labdb. Every other table
+     of labdb has the same rows as well.
+  5. Leave the content of labdb unchanged.
+
+EXPECTED RESULT
+  Databases labdb and labdb_restore both exist and hold identical
+  data. /tmp/labdb_backup.sql can be read as plain SQL.
+
+PRACTICE (not graded)
+  Compare the rows of users in both databases yourself, and try
+  restoring the backup a second time into another new database.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - You should create the backup with the PostgreSQL dump tool and
+    restore it with the interactive terminal client. Which tools you
+    use is not graded.
+  - Reference: man pg_dump and man psql.
+
+GRADING
+  labctl grade postgres-03

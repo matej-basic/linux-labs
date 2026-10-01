@@ -1,21 +1,14 @@
 #!/bin/bash
-# Package Management Lab 03: Query Installed Files (Advanced)
+# packages-03 setup: make sure curl is installed and remove any file
+# list left over from an earlier run. Prints nothing on success.
+set -eu
 
-cat <<'EOF'
-====================================================
-LAB: Packages 03 - Search Files from Installation
-====================================================
+rm -f /tmp/curl-files.txt
 
-OBJECTIVE
-Search for and locate files installed by packages
-using package query commands.
-
-REQUIREMENTS
-1) Make sure curl package is installed
-2) Save the list of files installed by curl to /tmp/curl-files.txt
-
-Run grading when done:
-  sudo labctl grade packages-03
-====================================================
-EOF
-
+if ! rpm -q curl &>/dev/null; then
+	# Minimal images may ship curl-minimal, which conflicts with curl
+	if ! dnf -y -q install --allowerasing curl >/dev/null 2>&1; then
+		echo "Error: could not install the curl package (check network and repositories)" >&2
+		exit 1
+	fi
+fi

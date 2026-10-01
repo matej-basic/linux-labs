@@ -1,42 +1,79 @@
 #!/bin/bash
+# postgres-02 setup: a running PostgreSQL server without labdb and
+# labuser. Installs and initialises the server only when it is missing.
+# Prints nothing on success.
+set -eu
 
-# Reset lab state
-sudo -u postgres psql -d postgres -c "DROP DATABASE IF EXISTS labdb;" > /dev/null 2>&1
-sudo -u postgres psql -d postgres -c "DROP ROLE IF EXISTS labuser;" > /dev/null 2>&1
+STATE_DIR=/opt/linux-labs/state/postgres-02
+STATE_FILE="$STATE_DIR/state"
+HBA_BACKUP="$STATE_DIR/pg_hba.conf.orig"
+DATA=/var/lib/pgsql/data
+HBA="$DATA/pg_hba.conf"
 
-# Print task description
-cat <<'EOF'
+die() {
+	echo "postgres-02 setup: $*" >&2
+	exit 1
+}
 
-====================================================
-LAB: PostgreSQL - Database and Role Management (postgres-02)
-====================================================
+pgsu() {
+	(cd /tmp && runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 "$@")
+}
 
-OBJECTIVE:
-Create a PostgreSQL database and role with specific
-privileges for application access.
+mkdir -p "$STATE_DIR"
+chmod 755 "$STATE_DIR"
 
-REQUIREMENTS:
-- PostgreSQL Server must be installed and running
-- Configure pg_hba.conf to allow password authentication
-- Create role: labuser with password: userpass123
-- Create database: labdb
-- Grant CONNECT privilege on labdb to labuser
-- Grant USAGE on public schema to labuser
-- Create a sample table: users (id, name, email)
-- Grant SELECT, INSERT, UPDATE, DELETE on users
-- Insert at least 2 sample records
-- Verify user can connect and access data
+# Record the starting state once, so a second run keeps the original
+if [ ! -f "$STATE_FILE" ]; then
+	pkgs=""
+	for p in postgresql-server postgresql; do
+		rpm -q "$p" &>/dev/null || pkgs="$pkgs $p"
+	done
+	initdb=no
+	[ -f "$DATA/PG_VERSION" ] || initdb=yes
+	was_active=no
+	if systemctl is-active --quiet postgresql; then was_active=yes; fi
+	{
+		echo "pkgs=\"${pkgs# }\""
+		echo "initdb=$initdb"
+		echo "was_active=$was_active"
+	} > "$STATE_FILE"
+	chmod 644 "$STATE_FILE"
+fi
 
-NOTES:
-- User should have access to labdb only
-- User should NOT have administrative privileges
-- The grading script checks only the final state
-- Command history is NOT evaluated
+# Install and initialise the server if needed
+if ! rpm -q postgresql-server &>/dev/null; then
+	dnf -y -q install postgresql-server > /dev/null || die "cannot install postgresql-server"
+fi
+if [ ! -f "$DATA/PG_VERSION" ]; then
+	postgresql-setup --initdb > /dev/null || die "cannot initialise the database cluster"
+fi
 
-When ready, run:
-  sudo labctl grade postgres-02
+# Keep the original pg_hba.conf and return to it on a repeated start
+if [ -f "$HBA_BACKUP" ]; then
+	cat "$HBA_BACKUP" > "$HBA"
+else
+	cp -p "$HBA" "$HBA_BACKUP"
+fi
 
-====================================================
+systemctl start postgresql || die "cannot start postgresql"
+systemctl reload postgresql || die "cannot reload postgresql"
 
-EOF
+ready=no
+for _ in $(seq 1 30); do
+	if pgsu -d postgres -c 'SELECT 1' > /dev/null 2>&1; then
+		ready=yes
+		break
+	fi
+	sleep 1
+done
+[ "$ready" = yes ] || die "postgresql does not accept connections"
 
+# Remove what a previous run or the solution left behind
+pgsu -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'labdb'" > /dev/null
+pgsu -d postgres -c "DROP DATABASE IF EXISTS labdb" > /dev/null
+if [ "$(pgsu -d postgres -c "SELECT 1 FROM pg_roles WHERE rolname = 'labuser'")" = 1 ]; then
+	for db in $(pgsu -d postgres -c "SELECT datname FROM pg_database WHERE datallowconn"); do
+		pgsu -d "$db" -c "DROP OWNED BY labuser" > /dev/null
+	done
+	pgsu -d postgres -c "DROP ROLE labuser" > /dev/null
+fi

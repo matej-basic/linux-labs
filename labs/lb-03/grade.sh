@@ -1,192 +1,158 @@
 #!/bin/bash
-# lb-03 - Advanced Load Balancing with Keepalived Grading Script
+# lb-03 grader
+source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/grading.sh
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
-fi
+STATE_FILE=/opt/linux-labs/state/lb-03
 
-PASS_COUNT=0
-FAIL_COUNT=0
+grade_begin lb-03
+grade_require_state lb-03 "$STATE_FILE"
+[ "$NODES_ENABLED" = true ] ||
+	grade_abort "Multi-node labs are enabled in the configuration"
+[ "$NODE_COUNT" -ge 3 ] 2>/dev/null ||
+	grade_abort "At least 3 nodes are configured"
 
-# Check multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    fail "Multi-node labs not enabled"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+VIP=$(head -n 1 "$STATE_FILE")
+N1=$(get_node_ip 1)
+N2=$(get_node_ip 2)
+N3=$(get_node_ip 3)
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    fail "Lab requires at least 3 nodes (current: $NODE_COUNT)"
-    ((FAIL_COUNT++))
-    exit 1
-fi
+# Remote commands run as SSH_USER, with sudo unless that is root
+SUDO=""
+[ "${SSH_USER:-root}" = root ] || SUDO="sudo "
 
-# Get node IPs
-NODE1_IP=$(get_node_ip 1)
-NODE2_IP=$(get_node_ip 2)
-NODE3_IP=$(get_node_ip 3)
+# on_node <ip> <command>: run a command on a node, true if it succeeds
+on_node() {
+	run_on_node "$1" "$2" </dev/null
+}
 
-# VIP should be configured in the keepalived.conf
-VIP="172.25.250.100"
+# service_enabled_running <ip> <unit>
+service_enabled_running() {
+	on_node "$1" "systemctl is-active --quiet $2 && systemctl is-enabled --quiet $2"
+}
 
-echo "HAProxy Master: $NODE1_IP"
-echo "HAProxy Backup: $NODE2_IP"
-echo "Virtual IP: $VIP"
-echo "Backend Servers: $NODE1_IP:8080, $NODE2_IP:8080, $NODE3_IP:8080"
-echo ""
+# httpd_listens_8080 <ip>
+httpd_listens_8080() {
+	on_node "$1" "${SUDO}ss -H -tlnp 'sport = :8080' | grep -q httpd"
+}
 
-# Check 1: HAProxy running on Node 1
-echo -n "1. Checking HAProxy on Node 1... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active haproxy > /dev/null 2>&1"; then
-    pass "HAProxy running on Node 1"
-    ((PASS_COUNT++))
-else
-    fail "HAProxy not running on Node 1"
-    ((FAIL_COUNT++))
-fi
+# Active (non-comment) lines of keepalived.conf on a node
+kconf() {
+	run_on_node "$1" "${SUDO}cat /etc/keepalived/keepalived.conf" </dev/null 2>/dev/null |
+		grep -Ev '^[[:space:]]*[#!]'
+}
 
-# Check 2: HAProxy running on Node 2
-echo -n "2. Checking HAProxy on Node 2... "
-if run_on_node "$NODE2_IP" "sudo systemctl is-active haproxy > /dev/null 2>&1"; then
-    pass "HAProxy running on Node 2"
-    ((PASS_COUNT++))
-else
-    fail "HAProxy not running on Node 2"
-    ((FAIL_COUNT++))
-fi
+# keepalived_has_vip <ip>
+keepalived_has_vip() {
+	kconf "$1" | grep -Fwq "$VIP"
+}
 
-# Check 3: Keepalived running on Node 1
-echo -n "3. Checking keepalived on Node 1... "
-if run_on_node "$NODE1_IP" "sudo systemctl is-active keepalived > /dev/null 2>&1"; then
-    pass "Keepalived running on Node 1"
-    ((PASS_COUNT++))
-else
-    fail "Keepalived not running on Node 1"
-    ((FAIL_COUNT++))
-fi
+# kvalue <ip> <keyword>: the first value of a keyword in keepalived.conf
+kvalue() {
+	kconf "$1" | awk -v k="$2" '$1 == k { print $2; exit }'
+}
 
-# Check 4: Keepalived running on Node 2
-echo -n "4. Checking keepalived on Node 2... "
-if run_on_node "$NODE2_IP" "sudo systemctl is-active keepalived > /dev/null 2>&1"; then
-    pass "Keepalived running on Node 2"
-    ((PASS_COUNT++))
-else
-    fail "Keepalived not running on Node 2"
-    ((FAIL_COUNT++))
-fi
+# auth_enabled <ip>: password authentication with a non-empty password
+auth_enabled() {
+	[ "$(kvalue "$1" auth_type)" = PASS ] && [ -n "$(kvalue "$1" auth_pass)" ]
+}
 
-# Check 5: VIP configured in keepalived
-echo -n "5. Checking VIP configuration... "
-vip_config=$(run_on_node "$NODE1_IP" "sudo grep -r '172.25.250.100' /etc/keepalived/ 2>/dev/null || echo ''")
-if [[ -n "$vip_config" ]]; then
-    pass "VIP configured in keepalived"
-    ((PASS_COUNT++))
-else
-    fail "VIP not configured in keepalived"
-    ((FAIL_COUNT++))
-fi
+auth_both() {
+	auth_enabled "$N1" && auth_enabled "$N2"
+}
 
-# Check 6: VIP is active on one of the nodes
-echo -n "6. Checking VIP is active... "
-vip_node1=$(run_on_node "$NODE1_IP" "ip addr show | grep -c '172.25.250.100' 2>/dev/null || echo 0")
-vip_node2=$(run_on_node "$NODE2_IP" "ip addr show | grep -c '172.25.250.100' 2>/dev/null || echo 0")
-if [[ "$vip_node1" -gt 0 ]] || [[ "$vip_node2" -gt 0 ]]; then
-    if [[ "$vip_node1" -gt 0 ]]; then
-        pass "VIP active on Node 1 (MASTER)"
-    else
-        pass "VIP active on Node 2 (BACKUP)"
-    fi
-    ((PASS_COUNT++))
-else
-    fail "VIP not active on any node"
-    ((FAIL_COUNT++))
-fi
+# same_value <keyword>: the keyword has the same non-empty value on both
+same_value() {
+	local a b
+	a=$(kvalue "$N1" "$1")
+	b=$(kvalue "$N2" "$1")
+	[ -n "$a" ] && [ "$a" = "$b" ]
+}
 
-# Check 7: VRRP priority configured
-echo -n "7. Checking VRRP priority settings... "
-node1_priority=$(run_on_node "$NODE1_IP" "sudo grep 'priority' /etc/keepalived/keepalived.conf 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo 0")
-node2_priority=$(run_on_node "$NODE2_IP" "sudo grep 'priority' /etc/keepalived/keepalived.conf 2>/dev/null | head -1 | grep -oE '[0-9]+' || echo 0")
-if [[ "$node1_priority" -gt "$node2_priority" ]] && [[ "$node1_priority" -ge 100 ]]; then
-    pass "Priority configured correctly (Node 1: $node1_priority, Node 2: $node2_priority)"
-    ((PASS_COUNT++))
-else
-    fail "Priority not configured correctly (Node 1: $node1_priority, Node 2: $node2_priority)"
-    ((FAIL_COUNT++))
-fi
+priority_at_least_100() {
+	local p
+	p=$(kvalue "$N1" priority)
+	[ "${p:-0}" -ge 100 ] 2>/dev/null
+}
 
-# Check 8: Apache running on Node 1
-echo -n "8. Checking Apache on Node 1 (port 8080)... "
-if run_on_node "$NODE1_IP" "sudo ss -tlnp | grep :8080 | grep -q httpd"; then
-    pass "Apache running on Node 1:8080"
-    ((PASS_COUNT++))
-else
-    fail "Apache not running on Node 1:8080"
-    ((FAIL_COUNT++))
-fi
+priority_node2_lower() {
+	local p1 p2
+	p1=$(kvalue "$N1" priority)
+	p2=$(kvalue "$N2" priority)
+	[ -n "$p1" ] && [ -n "$p2" ] && [ "$p2" -lt "$p1" ] 2>/dev/null
+}
 
-# Check 9: Apache running on Node 2
-echo -n "9. Checking Apache on Node 2 (port 8080)... "
-if run_on_node "$NODE2_IP" "sudo ss -tlnp | grep :8080 | grep -q httpd"; then
-    pass "Apache running on Node 2:8080"
-    ((PASS_COUNT++))
-else
-    fail "Apache not running on Node 2:8080"
-    ((FAIL_COUNT++))
-fi
+# holds_vip <ip>: the VIP is assigned to an interface of the node
+holds_vip() {
+	on_node "$1" "ip -o -4 addr show | awk -v v='$VIP/' 'index(\$4, v) == 1 { f = 1 } END { exit !f }'"
+}
 
-# Check 10: Apache running on Node 3
-echo -n "10. Checking Apache on Node 3 (port 8080)... "
-if run_on_node "$NODE3_IP" "sudo systemctl is-active httpd > /dev/null 2>&1 && sudo ss -tlnp | grep :8080 | grep -q httpd"; then
-    pass "Apache running on Node 3:8080"
-    ((PASS_COUNT++))
-else
-    fail "Apache not running on Node 3:8080"
-    ((FAIL_COUNT++))
-fi
+# Exactly one of nodes 1 and 2 holds the VIP. keepalived needs a few
+# seconds after a start, so try for up to 10 seconds.
+vip_on_exactly_one() {
+	local c
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		c=0
+		holds_vip "$N1" && c=$((c + 1))
+		holds_vip "$N2" && c=$((c + 1))
+		[ "$c" -eq 1 ] && return 0
+		sleep 1
+	done
+	return 1
+}
 
-# Check 11: HAProxy backend configuration
-echo -n "11. Checking HAProxy backend configuration... "
-backend_count=$(run_on_node "$NODE1_IP" "sudo grep -c 'server ' /etc/haproxy/haproxy.cfg 2>/dev/null || echo 0")
-if [[ "$backend_count" -ge 3 ]]; then
-    pass "HAProxy configured with 3+ backend servers"
-    ((PASS_COUNT++))
-else
-    fail "HAProxy not configured with 3 backend servers (found: $backend_count)"
-    ((FAIL_COUNT++))
-fi
+# backend_page <from> <backend> <n>: <backend>:8080 answers with the
+# page of node <n> when asked from node <from>
+backend_page() {
+	on_node "$1" "curl -s --max-time 4 http://$2:8080/ | grep -Fq 'Backend Server - Node $3'"
+}
 
-# Check 12: VIP responds to HTTP requests
-echo -n "12. Testing VIP HTTP access... "
-vip_response=$(run_on_node "$NODE1_IP" "curl -s --connect-timeout 5 http://$VIP 2>/dev/null | head -1")
-if [[ -n "$vip_response" ]]; then
-    pass "VIP responds to HTTP requests"
-    ((PASS_COUNT++))
-else
-    fail "VIP does not respond to HTTP requests"
-    ((FAIL_COUNT++))
-fi
+# backend_ok <backend> <n>: reachable from both load balancer nodes
+backend_ok() {
+	backend_page "$N1" "$1" "$2" && backend_page "$N2" "$1" "$2"
+}
 
-# Check 13: VRRP authentication configured
-echo -n "13. Checking VRRP authentication... "
-if run_on_node "$NODE1_IP" "sudo grep -q 'auth_type' /etc/keepalived/keepalived.conf 2>/dev/null"; then
-    pass "VRRP authentication configured"
-    ((PASS_COUNT++))
-else
-    fail "VRRP authentication not configured"
-    ((FAIL_COUNT++))
-fi
+# balanced_via <target>: asked from node 3, <target> port 80 returns the
+# pages of all three backends within 9 requests. HAProxy health checks
+# need a few seconds after a start, so try for up to 10 seconds.
+balanced_via() {
+	for _ in 1 2 3 4 5 6 7 8 9 10; do
+		on_node "$N3" "
+			out=\$(for r in 1 2 3 4 5 6 7 8 9; do
+				curl -s --max-time 3 http://$1/ || true
+			done)
+			for n in 1 2 3; do
+				echo \"\$out\" | grep -Fq \"Backend Server - Node \$n\" || exit 1
+			done" && return 0
+		sleep 1
+	done
+	return 1
+}
 
-echo ""
-echo "════════════════════════════════════════════════"
-echo "Results: $PASS_COUNT passed, $FAIL_COUNT failed"
-echo "════════════════════════════════════════════════"
-
-if [[ $FAIL_COUNT -eq 0 ]]; then
-    pass "Lab completed successfully"
-    exit 0
-else
-    fail "Lab incomplete"
-    exit 1
-fi
+for ip in "$N1" "$N2"; do
+	criterion "HAProxy is enabled and running on $ip" service_enabled_running "$ip" haproxy
+done
+for ip in "$N1" "$N2"; do
+	criterion "keepalived is enabled and running on $ip" service_enabled_running "$ip" keepalived
+done
+for ip in "$N1" "$N2" "$N3"; do
+	criterion "httpd is enabled and running on $ip" service_enabled_running "$ip" httpd
+done
+for ip in "$N1" "$N2" "$N3"; do
+	criterion "httpd listens on port 8080 on $ip" httpd_listens_8080 "$ip"
+done
+criterion "Backend $N1:8080 serves the page of node 1" backend_ok "$N1" 1
+criterion "Backend $N2:8080 serves the page of node 2" backend_ok "$N2" 2
+criterion "Backend $N3:8080 serves the page of node 3" backend_ok "$N3" 3
+criterion "HAProxy on $N1 balances over all three backends" balanced_via "$N1"
+criterion "HAProxy on $N2 balances over all three backends" balanced_via "$N2"
+criterion "keepalived on $N1 lists the VIP $VIP" keepalived_has_vip "$N1"
+criterion "keepalived on $N2 lists the VIP $VIP" keepalived_has_vip "$N2"
+criterion "VRRP password authentication is enabled on both nodes" auth_both
+criterion "Both nodes use the same VRRP password" same_value auth_pass
+criterion "Both nodes use the same virtual router ID" same_value virtual_router_id
+criterion "Node 1 has a VRRP priority of at least 100" priority_at_least_100
+criterion "Node 2 has a lower VRRP priority than node 1" priority_node2_lower
+criterion "Exactly one of nodes 1 and 2 holds the VIP $VIP" vip_on_exactly_one
+criterion "The VIP $VIP balances over all three backends" balanced_via "$VIP"
+grade_end

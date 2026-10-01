@@ -1,74 +1,49 @@
 #!/bin/bash
-# lb-01 - HAProxy Basic Load Balancing Setup
-# Sets up HAProxy to load balance across 3 Apache web servers
-
+# lb-01 setup: puts the three nodes into the clean starting state (no
+# HAProxy, no Apache, no lab firewall rules). Prints nothing on success.
+# No "set -u": load-config.sh reads variables that may be unset.
 set -e
 
-# Load configuration system
-if [ -f /opt/linux-labs/lib/load-config.sh ]; then
-    source /opt/linux-labs/lib/load-config.sh
-    load_lab_config
+source /opt/linux-labs/lib/load-config.sh
+load_lab_config
+
+if [ "$NODES_ENABLED" != "true" ]; then
+	echo "lb-01 needs multi-node labs: run 'sudo labctl configure interactive' and enable them" >&2
+	exit 1
+fi
+if [ "$NODE_COUNT" -lt 3 ] 2>/dev/null; then
+	echo "lb-01 needs 3 nodes, NODE_COUNT is $NODE_COUNT: run 'sudo labctl configure set NODE_COUNT 3'" >&2
+	exit 1
 fi
 
-# Verify multi-node configuration
-if [[ "$NODES_ENABLED" != "true" ]]; then
-    echo "ERROR: This lab requires multi-node setup enabled"
-    echo "Run: sudo labctl configure interactive"
-    echo "Then answer 'y' for multi-node labs"
-    exit 1
+# Remote reset, run on every node through SSH. It ends with "true" so a
+# missing package or an inactive firewall is not an error.
+RESET_CMD='
+sudo systemctl disable --now haproxy httpd >/dev/null 2>&1
+sudo dnf -y remove haproxy >/dev/null 2>&1
+sudo dnf -y remove httpd >/dev/null 2>&1
+sudo rm -f /etc/haproxy/haproxy.cfg /etc/haproxy/haproxy.cfg.rpmsave /etc/httpd/conf/httpd.conf.rpmsave /var/www/html/index.html
+sudo firewall-cmd --permanent --remove-service=http >/dev/null 2>&1
+sudo firewall-cmd --permanent --remove-port=80/tcp >/dev/null 2>&1
+sudo firewall-cmd --permanent --remove-port=8080/tcp >/dev/null 2>&1
+sudo firewall-cmd --reload >/dev/null 2>&1
+if getsebool haproxy_connect_any 2>/dev/null | grep -q -- "--> on"; then
+	sudo setsebool -P haproxy_connect_any off
 fi
+true'
 
-if [[ "$NODE_COUNT" -lt 3 ]]; then
-    echo "ERROR: This lab requires at least 3 nodes"
-    echo "Current NODE_COUNT: $NODE_COUNT"
-    echo "Run: sudo labctl configure set NODE_COUNT 3"
-    exit 1
-fi
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	if ! test_node_connectivity "$ip" >/dev/null; then
+		echo "Cannot reach node $n ($ip) over SSH as $SSH_USER" >&2
+		exit 1
+	fi
+done
 
-clear
-cat << 'EOF'
-╔════════════════════════════════════════════════════════════════╗
-║         HAProxy Basic Load Balancing Lab (lb-01)               ║
-╚════════════════════════════════════════════════════════════════╝
-
-OBJECTIVE:
-Configure HAProxy to distribute HTTP traffic across 3 Apache web servers:
-1. Install and configure HAProxy on Node 1 (load balancer)
-2. Configure Apache web servers on Nodes 1, 2, and 3 (backends)
-3. Set up round-robin load balancing
-4. Enable basic health checks
-
-TOPOLOGY:
-          HAProxy (Node 1:80)
-               ↓
-        ┌──────┼──────┐
-        ↓      ↓      ↓
-    Node 1  Node 2  Node 3
-    :8080   :8080   :8080
-   (Apache servers)
-
-REQUIREMENTS:
-✓ Multi-node lab enabled (3+ nodes)
-✓ SSH access between nodes configured
-✓ HAProxy installed on Node 1
-✓ Apache (httpd) installed on all 3 nodes
-
-TASKS TO COMPLETE:
-1. Install HAProxy on Node 1
-2. Install and configure Apache on all 3 nodes to listen on port 8080
-3. Create unique index.html on each backend (include node identifier)
-4. Configure HAProxy to balance across all 3 backends
-5. Set balance algorithm to roundrobin
-6. Enable basic HTTP health checks on backends
-7. Bind HAProxy to port 80
-
-VERIFICATION:
-The grading script will:
-- Check HAProxy service is running
-- Verify all 3 Apache backends are running on port 8080
-- Confirm HAProxy is listening on port 80
-- Test load balancing by making multiple requests
-- Verify all backends are being used
-
-Begin working on the lab now. Use 'labctl solution lb-01' if you need help.
-EOF
+for n in 1 2 3; do
+	ip=$(get_node_ip "$n")
+	run_on_node "$ip" "$RESET_CMD" </dev/null >/dev/null 2>&1 || {
+		echo "Resetting node $n ($ip) failed" >&2
+		exit 1
+	}
+done
