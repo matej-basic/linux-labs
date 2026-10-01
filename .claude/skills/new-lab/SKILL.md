@@ -1,15 +1,16 @@
 ---
 name: new-lab
-description: Create a new labctl lab in the linux-labs repo (Rocky/RHEL RHCSA-style labs under labs/<topic>-NN, lab framework 2.0) - pick an idea from LAB_IDEAS.md, settle the graded end state with the user, have a subagent build the seven lab files, review them, runtime-test on the workstation VM and update LAB_IDEAS.md and README.md. Use when the user invokes /new-lab or says "new lab", "create a lab", "next lab from LAB_IDEAS", "implement lab <id>" while working in linux-labs. Not for Markdown course labs in university-labs; that is generate-lab.
+description: Create a new labctl lab in the linux-labs repo (Rocky/RHEL RHCSA-style labs under labs/<topic>-NN, lab framework 2.0) - pick an idea from docs/lab-ideas.md, settle the graded end state with the user, have a subagent build the seven lab files, review them, runtime-test on the workstation VM and update the records (docs/lab-ideas.md and the generated catalog). Use when the user invokes /new-lab or says "new lab", "create a lab", "next lab from the lab ideas", "implement lab <id>" while working in linux-labs. Not for Markdown course labs in university-labs; that is generate-lab.
 ---
 
 # New lab
 
 Build one new framework 2.0 lab per run. The main session picks the lab,
 settles the design with the user, delegates the build, reviews the files
-and runs the runtime test. `CLAUDE.md` in the repo root is the binding
-spec and wins over this skill; read it before step 1 if it is not
-already in context. `labs/files-04/` is the reference lab.
+and runs the runtime test. `docs/author/framework.md` is the binding
+spec (imported by `CLAUDE.md`) and wins over this skill; read it before
+step 1 if it is not already in context. `docs/author/testing.md` covers
+the static and runtime tests. `labs/files-04/` is the reference lab.
 
 ## Rules for everything the lab ships
 
@@ -35,22 +36,23 @@ on an isolated network for network labs. servera, serverb and serverc
 ## 1. Pick the lab
 
 - With an argument: a lab id (`users-04`) or a topic (`ssh keys`). Find
-  the matching entry under "Proposed Lab Ideas" in `LAB_IDEAS.md`.
+  the matching entry in `docs/lab-ideas.md`.
 - Without one: list 3 to 5 proposed ideas that fit a single Rocky VM
   with no internet dependency, and recommend one with a one-line reason.
   Prefer topics that extend an existing category before new categories.
 - Determine the id: `ls -d labs/<topic>-*` (include untracked
   directories, another session may be building one) and take the next
   free two-digit number. The id prefix follows the existing labs
-  (`webserver`, `mysql`, `lb`), not necessarily the LAB_IDEAS name.
-- Map it to a `category` from the list in `CLAUDE.md`. A new category
+  (`webserver`, `mysql`, `lb`), not necessarily the name in
+  `docs/lab-ideas.md`.
+- Map it to a `category` from the list in `docs/author/framework.md`. A new category
   needs `CATEGORIES` in `scripts/check-labs.sh` changed; tell the user
   and get approval before anything outside `labs/<id>/` is edited.
 
 ## 2. Grill the user briefly
 
 One question at a time, each with your recommended answer. Ask only what
-the repo cannot answer; explore `labs/`, `CLAUDE.md` and similar labs
+the repo cannot answer; explore `labs/`, `docs/author/` and similar labs
 instead of asking about conventions. Cover, as relevant:
 
 1. Objective and the exact graded end state (the criteria list).
@@ -116,14 +118,12 @@ check and test. Exit 2 (skipped) is not a pass.
 
 ## 6. Update the records
 
-- `LAB_IDEAS.md`: remove the idea from "Proposed Lab Ideas" and add it
-  under its category in "Existing Labs" as
-  `- **<id>** (<Level>): <short title>`. Update "Lab Statistics" and the
-  "Categories Overview" row and `TOTAL` (completed +1, proposed -1).
-- `README.md`: add `- **<id>** - <short description>` to the category
-  list and raise the `(N labs)` count in its heading.
-- Keep the existing formats. Add no new emoji; a new section heading
-  follows the existing shape without one.
+- Remove the idea from `docs/lab-ideas.md` and run
+  `scripts/gen-catalog.sh`, which regenerates
+  `docs/catalog.md` from the `description.txt` files.
+- Check that `description.txt` has the right `needs:` line (internet,
+  reboot, free-nic, nodes=N; omit the key when the lab needs nothing);
+  `scripts/check-labs.sh` cross-checks reboot and nodes.
 
 ## 7. Report
 
