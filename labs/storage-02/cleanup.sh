@@ -2,7 +2,10 @@
 # storage-02 cleanup: unmounts and removes the lab's LV/VG/PV, the loop
 # devices, the image, the fstab entries and the state file. Only volume
 # groups whose physical volumes are all loop devices are removed, so
-# the real disks and the rl volume group are never touched.
+# the real disks and the rl volume group are never touched. Then the
+# package set of the first start is restored (lvm2 goes if the lab
+# installed it); setup.sh sets STORAGE02_SETUP to skip that step.
+source /opt/linux-labs/lib/packages.sh
 IMG=/tmp/lvm.img
 MNT=/mnt/lvm
 
@@ -56,4 +59,8 @@ done
 rm -f "$IMG"
 rmdir "$MNT" 2>/dev/null
 rm -f /opt/linux-labs/state/storage-02
-exit 0
+
+[ -z "${STORAGE02_SETUP:-}" ] || exit 0
+rc=0
+pkg_restore storage-02 || rc=1
+exit "$rc"

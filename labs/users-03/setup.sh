@@ -4,6 +4,9 @@
 # already in use by something else. Prints nothing on success.
 set -eu
 
+source /opt/linux-labs/lib/packages.sh
+pkg_snapshot users-03
+
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/users-03"
 

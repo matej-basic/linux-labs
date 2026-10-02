@@ -1,11 +1,15 @@
 #!/bin/bash
-# storage-02 setup: removes leftovers of an earlier run and records the
-# start in the state file. Prints nothing on success.
+# storage-02 setup: records the package set, installs lvm2 if it is
+# missing, removes leftovers of an earlier run and records the start in
+# the state file. Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/storage-02"
 dir=$(dirname "$0")
+
+pkg_snapshot storage-02 || exit 1
 
 if ! command -v pvcreate >/dev/null 2>&1; then
 	dnf -y -q install lvm2 >/dev/null 2>&1 || {
@@ -15,7 +19,7 @@ if ! command -v pvcreate >/dev/null 2>&1; then
 fi
 
 # Remove what an earlier run or its solution left behind
-bash "$dir/cleanup.sh"
+STORAGE02_SETUP=1 bash "$dir/cleanup.sh"
 
 # Refuse to continue if datavg exists on real disks (not ours to remove)
 if vgs --noheadings datavg >/dev/null 2>&1; then
