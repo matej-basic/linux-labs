@@ -25,6 +25,13 @@ systemctl disable --now nginx httpd </dev/null >/dev/null 2>&1
 rm -f /var/www/html/index.html /var/www/html/health /etc/nginx/conf.d/lb.conf \
 	/etc/nginx/nginx.conf.rpmsave /etc/httpd/conf/httpd.conf.rpmsave \
 	/var/log/nginx/lb_access.log /var/log/nginx/lb_error.log
+# Where the nginx account is new since the package snapshot, its data
+# (logs, proxy temp directories) goes before the package restore, which
+# keeps a new system user that still owns files
+accounts=/opt/linux-labs/state/lb-02.packages/accounts
+if [ -s "$accounts" ] && getent passwd nginx >/dev/null && ! grep -qx user:nginx "$accounts"; then
+	rm -rf /var/log/nginx /var/lib/nginx /var/cache/nginx
+fi
 exit 0
 REMOTE
 
