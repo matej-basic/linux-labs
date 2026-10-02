@@ -41,7 +41,7 @@ target: workstation
 - `complexity` (required): `Beginner`, `Intermediate` or `Advanced`. Shown as `Level:` in the header.
 - `objective` (required): one sentence, shown by `labctl list`.
 - `course` and `course_lab` (optional, together): course code and two-digit lab number.
-- `target` (required for a single-node lab, forbidden in a multi-node lab): the machine the lab runs on, `workstation` or `servera` (`serverb` and `serverc` are valid too). `workstation` is only for labs that need no root, because the student has no sudo there except for labctl (today `files-01` and `files-04`). Every other single-node lab uses `servera`, where the student works as `opsadmin` with full sudo. A lab with `needs: nodes=N` has no `target:` line; it runs its scripts on the workstation and reaches its nodes itself. See "Targets" below.
+- `target` (required for a single-node lab, forbidden in a multi-node lab): the machine the lab runs on, `workstation` or `servera` (`serverb` and `serverc` are valid too). `workstation` is reserved for labs that need no root, because the student has no sudo there except for labctl; no lab uses it today. Every single-node lab uses `servera`, where the student works as `opsadmin` with full sudo. A lab with `needs: nodes=N` has no `target:` line; it runs its scripts on the workstation and reaches its nodes itself. See "Targets" below.
 - `needs` (optional, omit it when the lab needs nothing special): what the student environment must provide, separated by a comma and a space, in this fixed order: `internet` (the lab installs packages or downloads files), `reboot` (the solution reboots the machine, so it must match `# solve: reboot` in `solve.sh`), `free-nic` (a network interface with no connection, used by network labs), `nodes=N` (the lab uses N nodes, N at least 2, so it must match a `TOPOLOGY` section in `task.txt`). `labctl start` and `labctl task` show it as a `Needs:` line; the catalog has a column for it. Example: `needs: internet, nodes=3`.
 
 The legacy keys `estimated_time`, `requirements` and `skills` are retired. Move anything a student needs to know into `task.txt` (PREREQUISITES or NOTES).
@@ -207,7 +207,7 @@ All converted graders use `lib/grading.sh`. Single-node and multi-node graders f
 Output (Red Hat style, 72 columns, labels exactly `PASS` and `FAIL`, colour only on the result word and only when stdout is a terminal and `NO_COLOR` is empty; `LABCTL_COLOR=1` or `0`, set by labctl for a server target, overrides that test):
 
 ```
-Grading files-04 on workstation
+Grading files-04 on servera
 
 Directory /srv/archive exists ..................................... PASS
 All 12 <type>/<month> directories exist ........................... FAIL

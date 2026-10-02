@@ -15,7 +15,7 @@ Every lab follows lab framework 2.0, specified in `docs/author/framework.md` and
 - `src/usr/bin/labctl`: the CLI (`start|task|grade|reset|list|solution|configure|help`). `start` and `reset` require root; `/etc/sudoers.d/labctl` gives the `student` user passwordless sudo for labctl only. The student has no other sudo on the workstation.
 - `src/opt/linux-labs/lib/`: `grading.sh` (grading library for all 2.0 graders), `load-config.sh` (config loader plus multi-node helpers), `target-run.sh` (runs a lab script on a server target; labctl sends it over SSH) and `colors.sh` (used only by legacy graders; delete it once no lab uses it).
 - `src/etc/profile.d/labctl.sh`: adds `[LAB:<name>]` to PS1 by reading `/opt/linux-labs/.current_lab`, the state file `labctl start` writes and `labctl reset` removes. For a server target labctl also installs it and a marker on the server.
-- Lab targets: `target:` in `description.txt` is `workstation` (files-01, files-04: no root needed) or `servera` (every other single-node lab); multi-node labs have none. For a server target labctl copies the lab and `lib/` to `/var/lib/linux-labs/` on the server and runs setup/grade/cleanup there as root through `ssh <SSH_USER>@<server> sudo -n` (servera is node 1 of the config). Lab state lives on the server. Details: "Targets" in `docs/author/framework.md`.
+- Lab targets: `target:` in `description.txt` is `servera` for every single-node lab (`workstation` is valid but reserved for labs that need no root; none uses it today); multi-node labs have none. For a server target labctl copies the lab and `lib/` to `/var/lib/linux-labs/` on the server and runs setup/grade/cleanup there as root through `ssh <SSH_USER>@<server> sudo -n` (servera is node 1 of the config). Lab state lives on the server. Details: "Targets" in `docs/author/framework.md`.
 - `src/usr/share/man/man1/labctl.1`: the man page. Update it when labctl commands change, together with `docs/student/commands.md`.
 - `labs/<topic>-NN/` installs to `/opt/linux-labs/labs/` (without `solve.sh`).
 - `scripts/`: `build-rpm-linux.sh`, `check-labs.sh` (with its allowlist `check-labs.allow`), `gen-catalog.sh` (writes `docs/catalog.md`, or an HTML catalog with `--html <file>`), `test-lab.sh`, `solve-lib.sh` (helpers for `solve.sh`), and the release helpers `sign-rpm.sh` and `update-pages.sh`. None of these are shipped.
@@ -92,7 +92,7 @@ description starts with "linux-labs "); the user's own snapshots such as
 ## Known issues
 
 - There is no "Tested clustering-NN" commit for the clustering labs.
-- The per-lab pass for the target model is pending: most server-target labs still assume `student` as the task user and have not been runtime-tested on servera (files-02 and files-04 were the pilots).
+- The per-lab pass for the target model is pending: most server-target labs still assume `student` as the task user and have not been runtime-tested on servera.
 - Earlier "Tested <lab>." / "Confirmed <lab> works as intended" commits predate several bulk changes and do not count as evidence; `test-lab.sh` runs replace them.
 - `brainstorm/` holds design notes and plans (class dashboard, break-fix labs, hub/spoke multi-node, the framework 2.0 plan, the docs plan). They are plans, not implemented behaviour.
 

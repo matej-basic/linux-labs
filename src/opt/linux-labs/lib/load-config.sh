@@ -49,7 +49,7 @@ load_lab_config() {
     NODE_COUNT="${env_node_count:-${NODE_COUNT:-1}}"
     NODE_IPS="${env_node_ips:-${NODE_IPS:-}}"
     SSH_KEY_PATH="${env_ssh_key_path:-${SSH_KEY_PATH:-${HOME:-/root}/.ssh/id_rsa}}"
-    SSH_USER="${env_ssh_user:-${SSH_USER:-root}}"
+    SSH_USER="${env_ssh_user:-${SSH_USER:-opsadmin}}"
     SSH_PORT="${env_ssh_port:-${SSH_PORT:-22}}"
     DOCKER_ENABLED="${env_docker_enabled:-${DOCKER_ENABLED:-false}}"
     

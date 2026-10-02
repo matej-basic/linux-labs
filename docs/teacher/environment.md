@@ -2,7 +2,7 @@
 
 This page is for teachers who run linux-labs in a course. It lists what a student's machines need and which labs need more than the basics. Multi-node labs have their own page, [multi-node.md](multi-node.md).
 
-Each student needs a workstation and a server, servera. Students run labctl on the workstation, where they have no sudo except for labctl. Every lab that needs root runs on servera: labctl prepares, grades and resets it there over SSH, and the student logs in to servera to do the work. Only files-01 and files-04 run on the workstation itself. The multi-node labs use servera, serverb and serverc.
+Each student needs a workstation and a server, servera. Students run labctl on the workstation, where they have no sudo except for labctl. Every lab that needs root runs on servera: labctl prepares, grades and resets it there over SSH, and the student logs in to servera to do the work. No lab runs on the workstation itself. The multi-node labs use servera, serverb and serverc.
 
 ## The workstation
 
@@ -17,7 +17,7 @@ The labs were designed for the Red Hat classroom layout: a workstation at 172.25
 
 ### The servers
 
-servera is needed for every lab except files-01 and files-04; serverb and serverc only for the multi-node labs. Each server needs:
+servera is needed for every lab; serverb and serverc only for the multi-node labs. Each server needs:
 
 - the same release as the workstation, with bash and coreutils (nothing from linux-labs is installed there; labctl copies what a lab needs)
 - SELinux enforcing, as installed; the SELinux labs expect it

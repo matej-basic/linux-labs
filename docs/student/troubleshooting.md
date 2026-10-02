@@ -41,7 +41,7 @@ your user is not student. Run the command it suggests:
 
 ## The grade shows "Lab was started with labctl start ... FAIL"
 
-    Grading files-01 on workstation
+    Grading files-01 on servera
 
     Lab was started with labctl start ................................. FAIL
 

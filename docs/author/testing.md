@@ -105,7 +105,7 @@ labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LA
 | Servers | servera, serverb and serverc (10.0.0.189 to .191), Rocky 8.7; `opsadmin` with full passwordless sudo; student's key logs in as `opsadmin`; root SSH access from the Mac |
 | servera NICs | `ens192` carries SSH and the default route and is never touched; `ens224` and `ens256` are free NICs on the isolated `Local_NO_DHCP` network for the network labs |
 
-servera is the target of every single-node lab except files-01 and files-04, and node 1 of the multi-node labs.
+servera is the target of every single-node lab, and node 1 of the multi-node labs.
 
 ### Snapshots of the lab VMs
 

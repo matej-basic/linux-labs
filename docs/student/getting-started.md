@@ -113,7 +113,7 @@ Run it without sudo. labctl gets the rights it needs by itself.
 
 The grader prints one line per check. Each line ends with PASS or FAIL:
 
-    Grading files-01 on workstation
+    Grading files-01 on servera
 
     Directory /tmp/data exists ........................................ PASS
     File /tmp/data/info.txt exists .................................... PASS

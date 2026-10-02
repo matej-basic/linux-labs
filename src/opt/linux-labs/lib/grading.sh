@@ -12,7 +12,7 @@
 #
 # Output (Red Hat style, 72 columns, result right-aligned):
 #
-#   Grading files-04 on workstation
+#   Grading files-04 on servera
 #
 #   Directory /srv/archive exists ................................... PASS
 #   All 108 files are in place ...................................... FAIL

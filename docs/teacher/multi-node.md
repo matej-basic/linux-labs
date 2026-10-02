@@ -51,7 +51,7 @@ Any `labctl configure` action creates the file with default values if it does no
 | `NODE_COUNT` | `1` | number of nodes |
 | `NODE_IPS` | empty | static node addresses, separated by spaces |
 | `SSH_KEY_PATH` | `$HOME/.ssh/id_rsa` | private key used to reach the nodes |
-| `SSH_USER` | `root` | user on the nodes |
+| `SSH_USER` | `opsadmin` | user on the nodes |
 | `SSH_PORT` | `22` | SSH port on the nodes |
 | `DOCKER_ENABLED` | `false` | reserved, no lab uses it |
 
@@ -103,7 +103,7 @@ Prefix each with `sudo` when you use `/etc/linux-labs/config`.
 
 Three details:
 
-- The wizard always writes the SSH settings back to their defaults (`$HOME/.ssh/id_rsa`, `root`, `22`). Run `configure set` for `SSH_KEY_PATH`, `SSH_USER` or `SSH_PORT` after the wizard, not before.
+- The wizard always writes the SSH settings back to their defaults (`$HOME/.ssh/id_rsa`, `opsadmin`, `22`). Run `configure set` for `SSH_KEY_PATH`, `SSH_USER` or `SSH_PORT` after the wizard, not before.
 - With static addresses the wizard sets `NODE_COUNT` to the number of addresses you typed.
 
 `validate` checks nothing about the nodes. It does not look at `NODE_IPS` and does not try to connect.
@@ -143,7 +143,7 @@ Multi-node enabled: true
 Node count: 3
 Node IPs: auto-calculated from network
 SSH Key: /home/student/.ssh/id_rsa
-SSH User: root
+SSH User: opsadmin
 SSH Port: 22
 Config file: /home/student/.config/linux-labs/config
 ```
@@ -161,7 +161,7 @@ Two different users connect to the nodes, both from the workstation and both wit
 labctl configure set SSH_KEY_PATH /home/student/.ssh/id_rsa
 ```
 
-`SSH_USER` (default `root`) must be able to log in to every node with that key. The labs run their commands on the nodes with `sudo`, so a user other than root needs passwordless sudo there.
+`SSH_USER` (default `opsadmin`) must be able to log in to every node with that key. The labs run their commands on the nodes with `sudo`, so a user other than root needs passwordless sudo there (opsadmin has it in the classroom).
 
 The connections use `BatchMode=yes` and a connect timeout (2 seconds for the reachability test, 10 for commands), with `StrictHostKeyChecking=no`. A missing or wrong key fails at once instead of waiting at a password prompt.
 
@@ -196,7 +196,7 @@ Both must print `reachable` for every node.
 ```
 lb-01 needs multi-node labs: run 'sudo labctl configure interactive' and enable them
 lb-01 needs 3 nodes, NODE_COUNT is 1: run 'sudo labctl configure set NODE_COUNT 3'
-Cannot reach node 1 (172.25.250.10) over SSH as root
+Cannot reach node 1 (172.25.250.10) over SSH as opsadmin
 ```
 
 The grader reports the same problems as a single FAIL line and stops, for example `Multi-node labs are enabled in the configuration` or `All three nodes are reachable over SSH`.

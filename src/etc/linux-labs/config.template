@@ -42,8 +42,8 @@ NODE_IPS=""
 SSH_KEY_PATH="$HOME/.ssh/id_rsa"
 
 # SSH user for connecting to lab nodes
-# Default: root
-SSH_USER="root"
+# Default: opsadmin
+SSH_USER="opsadmin"
 
 # SSH port for connecting to lab nodes
 # Default: 22
