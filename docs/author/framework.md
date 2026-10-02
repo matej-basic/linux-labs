@@ -37,7 +37,7 @@ target: workstation
 ```
 
 - `title` (required): sentence case, at most 60 characters, no final period. Shown in the task header and as the `solution.md` heading.
-- `category` (required): one of `Containers`, `Database Replication`, `Databases`, `DNS`, `Files`, `Firewall`, `High Availability Clustering`, `Load Balancing`, `Logging`, `Networking`, `Packages`, `Scheduling`, `SELinux`, `SSH`, `Storage`, `Systemd`, `Users`, `Web Servers`. A new category needs the `CATEGORIES` list in `check-labs.sh` updated.
+- `category` (required): one of `Automation`, `Containers`, `Database Replication`, `Databases`, `DNS`, `Files`, `Firewall`, `High Availability Clustering`, `Load Balancing`, `Logging`, `Networking`, `Packages`, `Scheduling`, `SELinux`, `SSH`, `Storage`, `Systemd`, `Users`, `Web Servers`. A new category needs the `CATEGORIES` list in `check-labs.sh` updated.
 - `complexity` (required): `Beginner`, `Intermediate` or `Advanced`. Shown as `Level:` in the header.
 - `objective` (required): one sentence, shown by `labctl list`.
 - `course` and `course_lab` (optional, together): course code and two-digit lab number.

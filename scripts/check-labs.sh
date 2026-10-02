@@ -33,7 +33,7 @@ MAX_WIDTH=72
 # Keep in sync with render_task in src/usr/bin/labctl
 PLACEHOLDERS="EL_MAJOR ARCH HOSTNAME LAB_USER NODE_COUNT NODE1_IP NODE2_IP NODE3_IP NODE4_IP NODE5_IP NODE6_IP NODE7_IP NODE8_IP NODE9_IP"
 SECTIONS="OBJECTIVE|TOPOLOGY|PREREQUISITES|TASKS|EXPECTED RESULT|PRACTICE (not graded)|NOTES|GRADING"
-CATEGORIES="Containers|Database Replication|Databases|DNS|Files|Firewall|High Availability Clustering|Load Balancing|Logging|Networking|Packages|Scheduling|SELinux|SSH|Storage|Systemd|Users|Web Servers"
+CATEGORIES="Automation|Containers|Database Replication|Databases|DNS|Files|Firewall|High Availability Clustering|Load Balancing|Logging|Networking|Packages|Scheduling|SELinux|SSH|Storage|Systemd|Users|Web Servers"
 # Files and directories allowed in the repo root (tracked, or untracked and
 # not ignored). Keep in sync with the root-file rule in CLAUDE.md and
 # docs/author/testing.md.
