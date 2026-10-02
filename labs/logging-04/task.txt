@@ -1,0 +1,49 @@
+OBJECTIVE
+  Record changes to an application configuration file and deletions
+  by regular users with the Linux audit system. The rules survive a
+  reboot, and auditd keeps its old log files.
+
+PREREQUISITES
+  - The lab has created the file /etc/lab-app.conf.
+  - auditd is running. The lab has not added any audit rules.
+
+TASKS
+  1. The persistent rules file /etc/audit/rules.d/lab-audit.rules
+     holds the two audit rules of tasks 2 and 3.
+  2. A watch on /etc/lab-app.conf records writes and attribute changes
+     with the key lab_config.
+  3. A system call rule for 64-bit programs records the system calls
+     unlink, unlinkat, rename and renameat with the key lab_delete, but
+     only for processes whose login UID is 1000 or higher and is set.
+     Deletions by system services and by root sessions without a
+     regular login UID are not recorded.
+  4. /etc/audit/audit.rules is generated from the files in
+     /etc/audit/rules.d and is up to date with them.
+  5. Both rules are loaded in the kernel now, without a reboot.
+  6. The auditd configuration file /etc/audit/auditd.conf sets
+     max_log_file to 25 (megabytes) and max_log_file_action to
+     keep_logs. auditd has read the changed file.
+  7. auditd stays enabled and running.
+
+EXPECTED RESULT
+  The grader writes to /etc/lab-app.conf and changes its mode to the
+  same value. It deletes test files in /tmp as {{LAB_USER}}, and as
+  root with the login UID 0 and with no login UID. The audit log then
+  has a lab_config event for the write and for the mode change, and a
+  lab_delete event only for the deletion by {{LAB_USER}}.
+
+NOTES
+  - Keep the rules files that exist already. Do not make the audit
+    configuration immutable: labctl reset could not remove the rules.
+  - The systemd unit of auditd refuses a manual stop or restart.
+    Read man auditd for the signals and service actions it accepts.
+  - A rule for 32-bit programs with the same system calls should be
+    added as well (not graded).
+  - Reference: man audit.rules, man auditctl, man augenrules,
+    man auditd.conf, man ausearch.
+  - labctl reset restores the rules files, the loaded rules and
+    auditd.conf as they were before the lab, and removes
+    /etc/lab-app.conf.
+
+GRADING
+  labctl grade logging-04

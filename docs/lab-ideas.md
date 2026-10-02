@@ -49,7 +49,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Security and access control
 
-- ssh-02 (Intermediate): SSH key-based authentication
 - fail2ban-01 (Beginner): Fail2ban installation and basics
 - fail2ban-02 (Intermediate): Custom rules and filters
 - fail2ban-03 (Advanced): Integration with other services
@@ -186,7 +185,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - cgroups-v2-01 (Beginner): Cgroups v2 basics
 - cgroups-v2-02 (Intermediate): Unified hierarchy
 - cgroups-v2-03 (Advanced): systemd integration
-- audit-framework-01 (Beginner): Linux audit daemon setup
 - audit-framework-02 (Intermediate): Complex audit rules
 - audit-framework-03 (Advanced): Real-time monitoring
 - compliance-hardening-01 (Beginner): Hardening basics

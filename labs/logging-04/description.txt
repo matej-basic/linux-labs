@@ -1,0 +1,5 @@
+title: Persistent audit rules and auditd log settings
+category: Logging
+complexity: Intermediate
+objective: Write persistent audit rules for a file watch and for deletions by users, load them with augenrules and change the auditd log settings.
+target: servera
