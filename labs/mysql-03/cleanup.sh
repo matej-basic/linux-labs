@@ -2,8 +2,14 @@
 # mysql-03 cleanup: drop labdb and labdb_restore, remove the backup file
 # and put back what setup.sh recorded in /var/tmp/mysql-03.pre. A server
 # that was there before the lab gets its root@localhost definition, any
-# earlier labdb and labdb_restore and its service state back. A server
-# the lab installed is removed together with its data.
+# earlier labdb and labdb_restore and its service state back. Then the
+# package set of the first start comes back (pkg_restore), which
+# removes a server the lab installed with its dependencies and the
+# mysql user and group it created. The data and log files of such a
+# server go before pkg_restore, since pkg_restore keeps a user that
+# still owns files. When the package set cannot be restored, the
+# records stay for the next reset and the exit status is 1.
+source /opt/linux-labs/lib/packages.sh
 
 ROOT_PW=labpassword
 BACKUP=/tmp/labdb_backup.sql
@@ -19,8 +25,11 @@ lab_home=$(getent passwd "$lab_user" | cut -d: -f6)
 
 rm -f "$BACKUP" "$STATE_FILE"
 
-# setup.sh never ran: nothing more to undo
-[ -d "$pre" ] || exit 0
+# setup.sh did not get far enough to record anything but the packages
+if [ ! -d "$pre" ]; then
+	pkg_restore mysql-03 || exit 1
+	exit 0
+fi
 
 had() {
 	grep -qx "$1" "$pre/flags" 2>/dev/null
@@ -31,7 +40,7 @@ had() {
 rootsql() {
 	local sql
 	sql=$(cat)
-	MYSQL_PWD=$ROOT_PW mysql -u root --init-command='SET sql_log_bin=0' \
+	MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root --init-command='SET sql_log_bin=0' \
 		<<<"$sql" >/dev/null 2>&1 ||
 		mysql -u root --init-command='SET sql_log_bin=0' \
 			<<<"$sql" >/dev/null 2>&1
@@ -75,6 +84,17 @@ if [ "$preinstalled" = yes ]; then
 			}
 		fi
 	fi
+else
+	# The lab installed the server: remove its data and log files, so
+	# that the mysql user owns no file when pkg_restore looks
+	systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1
+	rm -rf "$datadir" /var/log/mysql /var/log/mariadb /var/lib/mysql-files \
+		/var/lib/mysql-keyring
+fi
+
+pkg_restore mysql-03 || rc=1
+
+if [ "$preinstalled" = yes ]; then
 	for u in mysqld mariadb; do
 		systemctl cat "$u" </dev/null >/dev/null 2>&1 || continue
 		if had "$u-enabled"; then
@@ -89,22 +109,7 @@ if [ "$preinstalled" = yes ]; then
 		fi
 	done
 else
-	# The lab installed the server: remove it with its dependencies and
-	# the files it left behind
-	systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1
-	for p in $servers; do
-		rpm -q "$p" >/dev/null 2>&1 || continue
-		dnf -y remove "$p" </dev/null >/dev/null 2>&1 || {
-			echo "Cannot remove $p" >&2
-			rc=1
-		}
-	done
-	if [ -d "$datadir" ] && ! rpm -qf "$datadir" >/dev/null 2>&1; then
-		rm -rf "$datadir"
-	fi
-	for d in /var/log/mysql /var/log/mariadb /var/lib/mysql-files /var/lib/mysql-keyring; do
-		[ -e "$d" ] && ! rpm -qf "$d" >/dev/null 2>&1 && rm -rf "$d"
-	done
+	# Configuration files the package removal saved
 	rm -f /etc/my.cnf.rpmsave /etc/my.cnf.d/*.rpmsave
 fi
 
@@ -113,5 +118,5 @@ for h in "$lab_home" /root; do
 	[ -n "$h" ] && ! had "history $h" && rm -f "$h/.mysql_history"
 done
 
-rm -rf "$pre"
+[ "$rc" -eq 0 ] && rm -rf "$pre"
 exit "$rc"

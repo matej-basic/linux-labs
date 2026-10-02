@@ -3,14 +3,17 @@
 # labpassword, a fresh database labdb (tables users and products), no
 # database labdb_restore and no backup file. Prints nothing on success.
 #
-# An existing server (servera keeps mysql-server from the replication
-# labs) is used as it is. The first run records in /var/tmp/mysql-03.pre
-# what the lab changes: whether the server was installed, the service
-# state, the definition of root@localhost, databases labdb and
-# labdb_restore that already existed, and which mysql history files
-# existed. cleanup.sh puts all of it back. SQL run by this script and
-# cleanup.sh is kept out of the binary log.
+# The first run records the package set (pkg_snapshot); cleanup.sh
+# restores it with pkg_restore, so a server the lab installs goes away
+# at reset with its dependencies. An existing server is used as it is.
+# The first run also records in /var/tmp/mysql-03.pre what else the lab
+# changes: whether a server was there, the service state, the
+# definition of root@localhost, databases labdb and labdb_restore that
+# already existed, and which mysql history files existed. cleanup.sh
+# puts all of it back. SQL run by this script and cleanup.sh is kept
+# out of the binary log.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
 ROOT_PW=labpassword
 BACKUP=/tmp/labdb_backup.sql
@@ -29,10 +32,12 @@ die() {
 	exit 1
 }
 
+pkg_snapshot mysql-03 || die "cannot record the package set"
+
 # rootsql <sql>: run SQL as the database root user, labpassword first,
 # then without a password (socket, or root's own option file)
 rootsql() {
-	MYSQL_PWD=$ROOT_PW mysql -u root -N -B -e "$1" </dev/null 2>/dev/null ||
+	MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root -N -B -e "$1" </dev/null 2>/dev/null ||
 		mysql -u root -N -B -e "$1" </dev/null 2>/dev/null
 }
 
@@ -40,7 +45,7 @@ rootsql() {
 rootdump() {
 	local opt
 	for opt in --set-gtid-purged=OFF ""; do
-		MYSQL_PWD=$ROOT_PW mysqldump -u root ${opt:+"$opt"} --databases "$1" \
+		MYSQL_PWD=$ROOT_PW mysqldump --no-defaults -u root ${opt:+"$opt"} --databases "$1" \
 			>"$2" 2>/dev/null </dev/null && return 0
 		mysqldump -u root ${opt:+"$opt"} --databases "$1" \
 			>"$2" 2>/dev/null </dev/null && return 0
@@ -110,7 +115,7 @@ if [ ! -f "$pre/saved" ] && grep -q -- '-installed$' "$pre/flags"; then
 fi
 
 # Root password: set it when it is not labpassword yet
-if ! MYSQL_PWD=$ROOT_PW mysql -u root -e 'SELECT 1' </dev/null >/dev/null 2>&1; then
+if ! MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root -e 'SELECT 1' </dev/null >/dev/null 2>&1; then
 	rootsql "SET sql_log_bin=0; ALTER USER 'root'@'localhost' IDENTIFIED BY '$ROOT_PW'" >/dev/null ||
 		die "cannot set the database root password to $ROOT_PW"
 fi
@@ -121,7 +126,7 @@ chmod 644 "$STATE_FILE"
 
 # Reset lab state
 rm -f "$BACKUP"
-MYSQL_PWD=$ROOT_PW mysql -u root --init-command='SET sql_log_bin=0' \
+MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root --init-command='SET sql_log_bin=0' \
 	>/dev/null 2>&1 <<'SQL' || die "cannot create the database labdb"
 DROP DATABASE IF EXISTS labdb_restore;
 DROP DATABASE IF EXISTS labdb;

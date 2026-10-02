@@ -9,7 +9,7 @@ TABLES=(users products)
 # Run a query as MySQL root (the lab password is part of the task)
 sql() {
 	local db=$1 query=$2
-	MYSQL_PWD=labpassword mysql -u root -N -B "$db" -e "$query"
+	MYSQL_PWD=labpassword mysql --no-defaults -u root -N -B "$db" -e "$query"
 }
 
 mysql_running() {
