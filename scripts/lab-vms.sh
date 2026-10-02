@@ -4,8 +4,8 @@
 #
 # It only ever touches these four VMs, resolved from a fixed list below (never
 # from user input or govc find patterns):
-#   /Datacenter/vm/Kubernetes/{workstation,servera,serverb,serverc}
-# The same folder holds docker-host and rpm-builder; they are never touched.
+#   /Datacenter/vm/linux-labs/student01/{workstation,servera,serverb,serverc}
+# No other VM (docker-host, rpm-builder, other environments) is ever touched.
 #
 # Usage:
 #   scripts/lab-vms.sh status
@@ -38,7 +38,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CREDS_FILE="$ROOT_DIR/.config/vcenter_creds"
 GOVC="${GOVC:-/opt/homebrew/bin/govc}"
-VM_FOLDER="/Datacenter/vm/Kubernetes"
+VM_FOLDER="/Datacenter/vm/linux-labs/student01"
 VMS=(workstation servera serverb serverc)
 SSH_TIMEOUT=300
 SHUTDOWN_TIMEOUT=180

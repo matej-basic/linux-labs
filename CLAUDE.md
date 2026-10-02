@@ -12,9 +12,9 @@ Every lab follows lab framework 2.0, specified in `docs/author/framework.md` and
 
 `src/` mirrors the target filesystem. Paths inside it are the paths on the student VM:
 
-- `src/usr/bin/labctl`: the CLI (`start|task|grade|reset|list|solution|configure|help`). `start` and `reset` require root; `/etc/sudoers.d/labctl` gives the `student` user passwordless sudo for labctl only. The student has no other sudo on the workstation.
+- `src/usr/bin/labctl`: the CLI (`start|task|hint|grade|reset|list|solution|configure|help`). `start` and `reset` require root; `/etc/sudoers.d/labctl` gives the `student` user passwordless sudo for labctl only. The student has no other sudo on the workstation.
 - `src/opt/linux-labs/lib/`: `grading.sh` (grading library for all 2.0 graders), `load-config.sh` (config loader plus multi-node helpers), `packages.sh` (package snapshot and restore: `pkg_snapshot`/`pkg_restore` in setup.sh/cleanup.sh, `pkg_snapshot_node`/`pkg_restore_node` for multi-node labs; shipped 0644, only sourced), `target-run.sh` (runs a lab script on a server target; labctl sends it over SSH) and `colors.sh` (used only by legacy graders; delete it once no lab uses it).
-- `src/etc/profile.d/labctl.sh`: adds `[LAB:<name>]` to PS1 by reading `/opt/linux-labs/.current_lab`, the state file `labctl start` writes and `labctl reset` removes. For a server target labctl also installs it and a marker on the server.
+- `src/etc/profile.d/labctl.sh`: adds `[LAB:<name>]` to PS1 by reading `/opt/linux-labs/.current_lab`, the state file `labctl start` writes and `labctl reset` removes. For a server target labctl also installs it and a marker on the server. Next to it labctl writes `/opt/linux-labs/.current_target` (`<lab> <target>`); an active lab without it was started by labctl 1.1.0 on the workstation, and `start` refuses a second lab while one is active ("labctl behaviour" in the framework).
 - Lab targets: `target:` in `description.txt` is `servera` for every single-node lab (`workstation` is valid but reserved for labs that need no root; none uses it today); multi-node labs have none. For a server target labctl copies the lab and `lib/` to `/var/lib/linux-labs/` on the server and runs setup/grade/cleanup there as root through `ssh <SSH_USER>@<server> sudo -n` (servera is node 1 of the config). Lab state lives on the server. Details: "Targets" in `docs/author/framework.md`.
 - `src/usr/share/man/man1/labctl.1`: the man page. Update it when labctl commands change, together with `docs/student/commands.md`.
 - `labs/<topic>-NN/` installs to `/opt/linux-labs/labs/` (without `solve.sh`).
@@ -44,7 +44,7 @@ Every lab script hardcodes the installed paths (`/opt/linux-labs/...`), so labs 
 - sudo resets the environment. `labctl start`, `reset` and `grade` (which re-executes itself through `sudo -n`) see only the config file and the defaults, not exported variables, even though `load_lab_config` gives environment variables precedence.
 - `labctl configure` writes `~/.config/linux-labs/config` of the sudo caller unless `/etc/linux-labs/config` already exists; it never creates the system file. The interactive wizard rewrites `SSH_KEY_PATH`, `SSH_USER` and `SSH_PORT` to their defaults, and `configure set` refuses an empty value.
 - The clustering labs use `pcs` and `crm_node`, never `crm` (crmsh is not installed). The High Availability repo id is `ha` on EL8 and `highavailability` on EL9.
-- Packages: reset removes every package that was not installed at the lab's first start (dependencies, `gpg-pubkey` keys and the student's extras included) and reinstalls missing ones, but never downgrades; an upgrade pulled in during the lab stays (gcc upgrades glibc on 8.7). A lab that installs or removes packages calls `pkg_snapshot <lab>` first in setup.sh and `pkg_restore <lab>` in cleanup.sh (lib/packages.sh), never `dnf remove` by hand; the snapshot is `/opt/linux-labs/state/<lab>.packages` and also covers `/etc/dnf/modules.d` and `/etc/yum.repos.d`. Solutions install only what is missing (`rpm -q X || dnf -y install X`). Labs not yet converted are listed in `PKG_HELPER_PENDING` in `check-labs.sh`; `test-lab.sh` compares the package set before start and after reset. Details: "Packages" in `docs/author/framework.md`.
+- Packages: reset removes every package that was not installed at the lab's first start (dependencies, `gpg-pubkey` keys and the student's extras included) and reinstalls missing ones, but never downgrades; an upgrade pulled in during the lab stays (gcc upgrades glibc on 8.7). A lab that installs or removes packages calls `pkg_snapshot <lab>` first in setup.sh and `pkg_restore <lab>` in cleanup.sh (lib/packages.sh), never `dnf remove` by hand; the snapshot is `/opt/linux-labs/state/<lab>.packages` and also covers `/etc/dnf/modules.d` and `/etc/yum.repos.d`. Solutions install only what is missing (`rpm -q X || dnf -y install X`). Every lab that installs packages uses the helper (`PKG_HELPER_PENDING` in `check-labs.sh` is empty); `test-lab.sh` compares the package set before start and after reset. Details: "Packages" in `docs/author/framework.md`.
 - System users and groups: `pkg_restore` also removes users and groups with ID 1 to 999 that are new since the snapshot (apache, mysql, named), but keeps one that still owns a file and then fails. So `cleanup.sh` removes the data of a server the lab installed (`/var/lib/mysql`, `/var/named`) before `pkg_restore` (use `pkg_was_installed <lab> <pkg>`), never after, and never runs `userdel`/`groupdel` for package accounts by hand. `test-lab.sh` compares these accounts too.
 - `labs/<id>/known-issues.md` is optional and repo only: `check-labs.sh` validates it, the catalog counts its open and workaround entries, and the RPM build and spec leave it out. Entries come from runtime tests, never from static review.
 
@@ -52,22 +52,23 @@ Every lab script hardcodes the installed paths (`/opt/linux-labs/...`), so labs 
 
 Details are in `docs/author/testing.md`. The essentials:
 
-- The reference state is the snapshot `clean-baseline` on all four VMs (clean servers without httpd, MySQL or PostgreSQL). A VM a lab cannot reset goes back with `scripts/lab-vms.sh revert clean-baseline --yes`.
-- Workstation `10.0.0.188`: Rocky 8.7, SELinux enforcing, `linux-labs` RPM installed, user `student`, root SSH key access from the Mac. `ens192` carries the default route and is never touched. servera, serverb and serverc are 10.0.0.189 to .191 (Rocky 8.7, `opsadmin` with passwordless sudo, student's key logs in as `opsadmin`, root SSH from the Mac). On servera `ens192` carries SSH and the default route; `ens224` and `ens256` are the free NICs for the network labs.
+- There are four student environments, each a workstation plus servera, serverb and serverc on Rocky 8.10: student01 at 10.0.0.188 to .191 (workstation .188, servera .189, serverb .190, serverc .191) and student02 to student04 at 10.0.0.201 to .212. `scripts/test-lab.sh <workstation IP> <lab>...` tests against the environment of that workstation, and reads the server addresses from its lab configuration.
+- Each environment: workstation with the `linux-labs` RPM, SELinux enforcing, user `student`, root SSH key access from the Mac; servers with `opsadmin` (passwordless sudo, student's key logs in as `opsadmin`) and root SSH from the Mac. `ens192` carries SSH and the default route and is never touched; on servera `ens224` and `ens256` are the free NICs for the network labs, on the isolated network `Local_NO_DHCP` that all four environments share.
+- The reference state is the cold snapshot `clean-baseline` on every VM (clean servers without httpd, MySQL or PostgreSQL). Every lab's reset must return to its package set and system users and groups.
 - Server-target labs all run on servera, so the one-lab-at-a-time rule covers servera too; reboot and network labs can break servera rather than the workstation.
-- Labs are tested strictly one at a time: never two `test-lab.sh` runs against the same host, never in parallel with another session, never while a person works through a lab there. If a lab is active on the host, report it and stop; do not reset someone else's lab.
+- Labs are tested strictly one at a time per environment: never two `test-lab.sh` runs against the same environment, never while a person works through a lab there. Different environments may run tests in parallel, but never two network labs (`needs: free-nic`) at the same time across environments, because they share `Local_NO_DHCP`. If a lab is active on the host, report it and stop; do not reset someone else's lab.
 - Build and test one new lab before starting the next (`.claude/skills/new-lab/`).
 - `SHELLCHECK=docker scripts/check-labs.sh --strict` must exit 0 before anything is committed; CI uses the same docker image.
 - A bug in a lab is fixed, never recorded as a known issue. Runtime results go into release notes, not into git.
 
 ### Lab VMs: snapshots and resets
 
-workstation, servera, serverb and serverc (`/Datacenter/vm/Kubernetes/`) are
-this project's test environment. `scripts/lab-vms.sh` is the only way to
-snapshot, revert or reset them. It has the four VMs hardcoded; docker-host and
-rpm-builder in the same folder are never touched, and no other vCenter VM may
-be touched by any means. Credentials come only from `.config/vcenter_creds`
-(gitignored, parsed literally, never sourced or printed).
+`scripts/lab-vms.sh` manages student01 only: workstation, servera, serverb
+and serverc in `/Datacenter/vm/linux-labs/student01`. It is the only way to
+snapshot, revert or reset them from this repo. It has the four VMs
+hardcoded, and no other vCenter VM may be touched by any means. Credentials
+come only from `.config/vcenter_creds` (gitignored, parsed literally, never
+sourced or printed). The other environments have no script here.
 
 Take a snapshot before a risky test run (network, storage, firewall, reboot
 labs):
@@ -75,7 +76,8 @@ labs):
     scripts/lab-vms.sh snapshot pre-net-02          # warm, no memory, VMs keep running
     scripts/lab-vms.sh snapshot clean-base --cold   # guest shutdown, snapshot, power on, wait for SSH
 
-When a lab leaves a VM unreachable or broken, revert all four to the snapshot:
+When a lab leaves a VM unreachable or broken, revert all four to the snapshot
+(`clean-baseline` for the reference state):
 
     scripts/lab-vms.sh revert pre-net-02 --yes
 
@@ -95,7 +97,6 @@ description starts with "linux-labs "); the user's own snapshots such as
 ## Known issues
 
 - There is no "Tested clustering-NN" commit for the clustering labs.
-- The per-lab pass for the target model is pending: most server-target labs still assume `student` as the task user and have not been runtime-tested on servera.
 - Earlier "Tested <lab>." / "Confirmed <lab> works as intended" commits predate several bulk changes and do not count as evidence; `test-lab.sh` runs replace them.
 - `brainstorm/` holds design notes and plans (class dashboard, break-fix labs, hub/spoke multi-node, the framework 2.0 plan, the docs plan). They are plans, not implemented behaviour.
 

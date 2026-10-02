@@ -231,7 +231,7 @@ done
 
 - Network labs run on `servera` (`target: servera`). Never touch the interface that carries the default route (`ip route show default`), or its connection profile: on servera that is `ens192`, which also carries the student's SSH session. servera has two free NICs, `ens224` and `ens256`, on an isolated network without DHCP for these labs. The workstation's free NICs stay but no lab uses them.
 - `setup.sh` detects free interfaces (ethernet, not the default-route interface, not enslaved) and refuses to start with a clear stderr message if there are not enough. The detected name goes into the state file; `task.txt` refers to "the first free interface" or tells the student how to find the name, since it is not a placeholder.
-- NetworkManager creates automatic profiles named `Wired connection 1`, `Wired connection 2`, ... on free NICs. `setup.sh` deletes or deactivates the auto profiles on the interfaces the lab uses, and `cleanup.sh` deletes every profile the lab or the solution created and leaves those interfaces unmanaged by any lab profile (NetworkManager may recreate its auto profile; that is fine).
+- NetworkManager creates automatic in-memory profiles named `Wired connection 1`, `Wired connection 2`, ... on free NICs. `setup.sh` never deletes or rewrites them, because any change without `--temporary` writes them to disk as ifcfg files. It turns their autoconnect off with `nmcli connection modify --temporary`, takes them down and keeps their UUIDs in the state file. `cleanup.sh` deletes every profile the lab or the solution created, turns autoconnect back on for exactly the recorded profiles and brings them up again. firewall-02 also gives the NIC a lab-owned profile, `fwlab`, so that NetworkManager does not keep reactivating the interface with an automatic profile.
 
 ## Targets
 
@@ -254,10 +254,10 @@ ssh -i <SSH_KEY_PATH> <SSH_USER>@<server> sudo -n bash -s
 - `start` makes a fresh copy in `/var/lib/linux-labs/` on the server (`labs/<lab>/` and `lib/`) and keeps it until `reset`. Lab scripts keep sourcing `/opt/linux-labs/lib/<file>`; in the copy labctl rewrites that prefix to `/var/lib/linux-labs/lib/`. Write the path literally, as `check-labs.sh` expects.
 - `setup.sh`, `grade.sh` and `cleanup.sh` run on the server as root, from `/`, with stdin on `/dev/null` and `LAB_USER` set. Their stdout and stderr stream to the student's terminal and their exit status is labctl's, so `start`, `grade` and `reset` behave exactly as for a local lab. The grade header names the server (`Grading files-02 on servera`). Colour follows the student's terminal: labctl passes `LABCTL_COLOR=1` or `0` and `lib/grading.sh` uses it instead of its own terminal test.
 - `grade` uses the copy from `start`. When the lab is not started on the server it grades from a temporary copy that it deletes afterwards, so the result is the usual `Lab was started with labctl start ... FAIL`.
-- `reset` makes a fresh copy, runs `cleanup.sh`, then removes `/var/lib/linux-labs/`, the server's marker and the directories `/opt/linux-labs/state` and `/opt/linux-labs` if they are empty. This happens also when `cleanup.sh` fails.
+- `reset` makes a fresh copy, runs `cleanup.sh`, then removes `/var/lib/linux-labs/`, the server's marker and the directories `/opt/linux-labs/state` and `/opt/linux-labs` if they are empty. This happens also when `cleanup.sh` fails. When the server's marker names another lab whose copy is there, `reset` runs `cleanup.sh` from a temporary copy and leaves that lab's copy and marker alone.
 - If SSH itself fails (exit 255), labctl adds `Error: cannot connect to servera (<address>) over SSH as opsadmin.` to the usual setup or cleanup error.
 
-Lab state (`/opt/linux-labs/state/<lab>`) lives on the server, where `setup.sh` writes it. The workstation keeps `/opt/linux-labs/.current_lab` for its own prompt.
+Lab state (`/opt/linux-labs/state/<lab>`) lives on the server, where `setup.sh` writes it. The workstation keeps `/opt/linux-labs/.current_lab` for its own prompt and `/opt/linux-labs/.current_target` with the line `<lab> <target>` (see "labctl behaviour during the migration").
 
 ### The task user
 
@@ -462,7 +462,7 @@ STEPS
   - `# solve: package <name>`: a package the solution installs; it must not be installed after `labctl reset`.
   - `# solve: reboot`: the lab needs a reboot after solving (for example to prove that a setting persists); `test-lab.sh` reboots the lab's machine (the server target), waits for SSH, a new `/proc/sys/kernel/random/boot_id` and the end of the boot, and grades afterwards.
   - `# solve: none`: nothing to declare (only allowed on its own).
-- `/opt/linux-labs/state/<lab>`, the package snapshot `/opt/linux-labs/state/<lab>.packages` and `/opt/linux-labs/.current_lab` are always checked (on a server target also the server's marker and `/var/lib/linux-labs`), and so is the whole package set of the lab's machine (see "Packages" and [testing.md](testing.md)); do not declare them. Paths and packages are checked on the lab's machine.
+- `/opt/linux-labs/state/<lab>`, the package snapshot `/opt/linux-labs/state/<lab>.packages` and `/opt/linux-labs/.current_lab` and `.current_target` are always checked (on a server target also the server's marker and `/var/lib/linux-labs`), and so is the whole package set of the lab's machine (see "Packages" and [testing.md](testing.md)); do not declare them. Paths and packages are checked on the lab's machine.
 
 ## known-issues.md
 
@@ -497,11 +497,27 @@ Format: the heading `# <id>: known issues`, then one list entry per issue in thi
 
 ## labctl behaviour during the migration
 
-- `start`: for a converted lab, runs `setup.sh`; if it fails, prints `Error: setup of lab <id> failed (exit N). The lab was not started.` to stderr and exits with that status. Otherwise writes `.current_lab` and prints the header and task. For a legacy lab, runs `setup.sh` (which prints its own banner) and writes `.current_lab` as before, ignoring the setup status. Both exit 0 on success.
+- `start`: one lab is active at a time. When `.current_lab` names another installed lab, `start` refuses with exit 1 and prints to stderr:
+
+  ```
+  Error: lab <active> is still active. Only one lab can be active at a time.
+  Finish it first: sudo labctl reset <active>
+  ```
+
+  Starting the active lab again is allowed, since `setup.sh` is idempotent. A marker that names a lab which is not installed is ignored. There is no `--force`: skipping the reset would leave the first lab's changes behind for the next grader, and a force that resets first would only save one command while hiding a failed cleanup.
+- `start`: for a converted lab, runs `setup.sh`; if it fails, prints `Error: setup of lab <id> failed (exit N). The lab was not started.` to stderr and exits with that status. Otherwise writes `.current_lab` and `.current_target` and prints the header and task. For a legacy lab, runs `setup.sh` (which prints its own banner) and writes both files as before, ignoring the setup status. Both exit 0 on success.
+- `.current_target` (`/opt/linux-labs/.current_target`, mode 0644, on the workstation) holds one line `<lab> <target>`: the lab and the target labctl ran `setup.sh` on (`workstation` for workstation and multi-node labs). labctl 1.1.0 wrote only `.current_lab` and ran every lab on the workstation, so an active lab without a matching `.current_target` line was started by an older labctl, on the workstation. The local state file is no evidence: most 1.1.0 labs wrote none. For such a lab, `task` and `grade` exit 1 and print:
+
+  ```
+  Error: lab <id> was started with an older version of linux-labs.
+  Reset it, then start it again: sudo labctl reset <id>
+  ```
+
+  `start <id>` of that lab prints the same message. `reset <id>` of a lab that is now on a server target prints `Lab <id> was started with an older version of linux-labs. Cleaning it up on this workstation and on servera.`, runs the installed `cleanup.sh` locally on the workstation with the sudo caller as `LAB_USER` (where 1.1.0 ran the lab), then the normal reset on the target, and removes both marker files even when a cleanup fails. Each failure is reported as `Error: cleanup of lab <id> on this workstation failed (exit N).` or `... on servera failed (exit N).`, and the exit status is the first non-zero one. Running a current `cleanup.sh` on the workstation is safe because every `cleanup.sh` must already cope with a machine where the lab was never started or only half done, and it leaves alone what it has no state for (packages, network profiles, volume groups on real disks). For a workstation or multi-node lab the normal local reset already cleans the right machine. A lab started by a pre-release build of 2.0.0, which did not write `.current_target` either, counts as older too; its reset then also runs `cleanup.sh` on the workstation, which is harmless for the same reason.
 - `task`: converted labs only; for a legacy lab it tells the student to use `sudo labctl start`. Needs no root and changes nothing.
-- `reset`: runs `cleanup.sh` and removes `.current_lab`; for a converted lab a failed cleanup is reported and its status returned.
+- `reset`: runs `cleanup.sh` and removes `.current_lab` and `.current_target` when they name this lab or no lab (the reset of another lab leaves the active lab's record alone); for a converted lab a failed cleanup is reported and its status returned.
 - `start` and `task` end with `Stuck? Run labctl hint <id>` when `solution.md` has a `## Hints` section. `start` and `reset` delete the hint counter of the calling user (`SUDO_USER`).
 - `hint <id>` shows the hints given so far plus the next one; `hint <id> --all` shows all of them and leaves the counter alone. `solution <id>` asks "This shows the full solution. Continue? [y/N]" when stdin and stdout are terminals; `--yes` skips the question, and without a terminal (pipes, scripts, `test-lab.sh`) nothing is asked.
-- `grade` and `configure` are unchanged; `list` gained the `--course` and `--level` filters. labctl output is plain ASCII.
+- `grade` only gained the older-version check, `configure` is unchanged; `list` gained the `--course` and `--level` filters. labctl output is plain ASCII.
 - The `[LAB:...]` prompt comes from `PROMPT_COMMAND` in `/etc/profile.d/labctl.sh` reading `.current_lab` at every prompt; labctl does not source it. For a server target the same script and a marker are on the server too (see "Targets").
 - `start`, `grade` and `reset` run the lab scripts on the target named by `target:`; legacy labs (no `task.txt`) always run locally.

@@ -23,8 +23,22 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - A new GitHub Pages site: front page with the install command and an example labctl session, the lab catalog, and the student guides rendered from docs/student. scripts/preview-pages.sh builds and serves it locally.
 - Per-lab known issues: an optional labs/<id>/known-issues.md that check-labs.sh validates and the catalog counts in a new "Known issues" column. It stays in the repo and is never shipped in the RPM.
 - Release notes come from this file: scripts/release-notes.sh extracts the section of the tagged version, and the release fails when it is missing.
+- Lab targets: a target: key in description.txt names the machine a single-node lab runs on. For a server target labctl sends the lab and lib/ to the server over SSH and runs setup, grade and cleanup there as root through opsadmin's passwordless sudo, with the output streamed to the student's terminal.
+- The task header of a lab on a server ends with the command to reach it, for example "Work on servera: ssh opsadmin@servera".
+- The [LAB:...] prompt marker also shows on the server while a lab runs there.
+- Lab scripts get the task user as LAB_USER (student on the workstation, opsadmin on a server), and task.txt shows it with the {{LAB_USER}} placeholder.
+- A Target column in the lab catalog.
+- lib/packages.sh, the shared package cleanup. pkg_snapshot records the package set at a lab's first start and pkg_restore puts it back at reset; pkg_snapshot_node and pkg_restore_node do the same on the nodes of the multi-node labs.
+- labctl reset removes every package, repo key, module stream file and repo file that a lab added since its first start, and reinstalls packages that went missing. It never downgrades, so an upgrade pulled in during the lab stays.
+- labctl reset removes the system users and groups that packages created during the lab, when they own no files, together with such a user's empty mail spool.
+- scripts/test-lab.sh checks on every machine of a lab that the package set and the system users and groups after reset match those before start.
+- check-labs.sh requires every lab that installs packages to use lib/packages.sh, and every such lab does.
+- Known issues files for logging-01 (journalctl on Rocky 8), clustering-02 (fence_virsh has no hypervisor to reach) and packages-04 (EPEL mirror 404s).
+- labctl start refuses to start a lab while another one is active and tells the student to run sudo labctl reset <active lab> first. Before, it overwrote the marker and the first lab was never cleaned up. Starting the active lab again still works.
+- labctl records where it started the active lab in /opt/linux-labs/.current_target. A lab that 1.1.0 started and that is still active after the upgrade is recognised by the missing record: labctl task and labctl grade say it was started with an older version of linux-labs, and sudo labctl reset runs its cleanup on the workstation, where 1.1.0 ran it, and on servera.
 
 ### Changed
+- Upgrading from 1.1.0: reset active labs before the upgrade. 1.1.0 ran every lab on the workstation; a lab still active after the upgrade must be reset with 2.0.0, which cleans it up on the workstation and on servera.
 - All 55 labs converted to framework 2.0 and reviewed one by one. Setup is silent, cleanup undoes both setup and the student's solution, and solution.md follows a common format.
 - labctl grade now re-runs itself through sudo for the student, so graders run as root and can read root-only state.
 - Config lookup in labctl follows SUDO_USER, so sudo labctl reads the config the student saved with labctl configure.
@@ -34,6 +48,18 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - Repository root cleaned: install.sh and the RPM signing key moved to pages/.
 - CI runs shellcheck from the same docker image as local runs (SHELLCHECK=docker). The apt version on the runner reported SC2015 on chains that the current release accepts.
 - The labctl man page updated for the new commands.
+- Every single-node lab now runs on servera, where the student works as opsadmin with full sudo. On the workstation the student has sudo only for labctl. The workstation target stays valid for labs that need no root, and no lab uses it today.
+- The default SSH_USER in labctl, load-config.sh and the config template is opsadmin.
+- scripts/test-lab.sh runs solve.sh, the reboot and the leftover checks on the lab's target machine.
+- storage-01 and systemd-04 reboot servera, and their tasks say that the SSH connection closes during the reboot and is opened again afterwards.
+- Solutions install a package only when it is missing, so they never upgrade one that is already there.
+- The MySQL and PostgreSQL labs keep a server that existed before the lab. mysql-01 and postgres-01 set it aside and put it back at reset, and the other labs restore its accounts, configuration and service state.
+- webserver-01 to webserver-03 start without httpd again, so the first task is to install it, and reset brings back an httpd that was there before together with its configuration.
+- The load balancing and clustering labs remove the packages the student is to install from the nodes at setup, and reset puts back what each node had before.
+- firewall-02 creates its own NetworkManager connection, fwlab, on the free interface, and the student assigns the interface to the zone on that connection.
+- clustering-02 and clustering-03 build the clustering-01 cluster when it is missing, so each one runs on its own.
+- clustering-03 no longer grades STONITH. fence_virsh cannot reach a hypervisor in the classroom, and a cluster with fencing on and no working fence device does not run its resource.
+- The replication tasks say what reset does to the database servers on the nodes.
 
 ### Fixed
 - Graders that could never pass, and graders that passed without checking anything.
@@ -42,7 +68,21 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - Network labs that modified the interface used for the SSH session.
 - Differences between Rocky Linux 8 and 9 that broke setup, grading or the solution.
 - labctl configure no longer reports success for a config write that failed.
+- labctl reset of one lab removed the active-lab marker of another lab that was still active, on the workstation and on servera, and also that lab's working copy on servera.
 - The labctl configure wizard showed a wrong example network and node address; it now matches the default 172.25.250.0/24 and node 1 at .10.
+- Lab scripts lost their exec bit in the copy labctl makes on a server, so a setup that runs its own cleanup.sh failed with Permission denied.
+- check-labs.sh failed the package criterion in CI with a broken pipe from GNU sed, while BSD sed on macOS stayed silent.
+- The network labs wrote NetworkManager's in-memory "Wired connection" profiles to disk. They now turn autoconnect off in memory only and restore exactly those profiles at reset.
+- firewall-02 sometimes graded a correct solution FAIL, because NetworkManager kept reactivating the free interface and each activation reset its zone.
+- networking-03 could pick an interface with an address as a bond port, and left the bonding module loaded.
+- mysql-02 and mysql-03 broke on a server with a /root/.my.cnf, because its password overrode the lab password. Lab logins now pass --no-defaults.
+- Setup printed to stderr before the task header: initdb and psql notices in postgres-02 and postgres-03, and "Importing GPG key" from dnf in selinux-03, scheduling-01, scheduling-03 and logging-02. Multi-node setups are silent on success too.
+- The multi-node node scripts ran commands as opsadmin without sudo; they now use sudo -n.
+- Multi-node cleanups removed httpd and other services that were on the nodes before the lab. Setup now records each node's state and cleanup restores it.
+- Lab fixes found by runtime tests on Rocky 8.7: users-02 (chage output padded with tabs), logging-01 (journalctl 239 output), selinux-01 (PASS right after reset), webserver-02 (httpd -S with one virtual host), webserver-03 (syntax check before the certificate existed), postgres-01 (process name postmaster), replication-01 and replication-03 (SHOW REPLICA STATUS read without field names), lb-02 (a backend marked down skewed the balancing check) and clustering-02 (fence-agents-virsh missing from the solution).
+- clustering-01 removes stale cluster configuration that leaked into the new cluster.
+- users-02 restores /etc/login.defs exactly at reset, and selinux-02 restores the httpd service state it found.
+- The named, mysql, apache, nginx and cluster accounts stayed after reset; the labs now remove the data those accounts own before the package restore.
 
 ### Removed
 - test_static_ips.sh, a manual smoke test that only ran from a checkout at /root/linux-labs.

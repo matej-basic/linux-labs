@@ -21,9 +21,11 @@ servera is needed for every lab; serverb and serverc only for the multi-node lab
 
 - the same release as the workstation, with bash and coreutils (nothing from linux-labs is installed there; labctl copies what a lab needs)
 - SELinux enforcing, as installed; the SELinux labs expect it
-- internet access for the many labs that install packages (see below)
+- access to the distribution's package repositories, and internet access for the labs that need it (see below). Labs without `internet` in their Needs line may still install a base package such as acl, lvm2, cronie or rsyslog when it is missing
 - a user `opsadmin` with full passwordless sudo, for example `/etc/sudoers.d/opsadmin` with `opsadmin ALL=(ALL) NOPASSWD: ALL`
 - the workstation's `student` key in `~opsadmin/.ssh/authorized_keys`, so `ssh opsadmin@servera` from the workstation logs in without a password. Create the key on the workstation as student (`ssh-keygen`) and copy it to every server (`ssh-copy-id opsadmin@servera`)
+
+2 GB of RAM per VM, workstation and servers alike, was enough for every lab in the tests.
 
 labctl finds the servers through the lab configuration, not through DNS: servera is node 1, serverb node 2, serverc node 3. On the workstation, `/etc/linux-labs/config` needs at least:
 
@@ -33,7 +35,7 @@ SSH_USER="opsadmin"
 SSH_KEY_PATH="/home/student/.ssh/id_rsa"
 ```
 
-Without `NODE_IPS`, node N is `<network base>.<N+9>`, which matches the classroom layout. `labctl start` and `labctl task` show the student the line `Work on servera: ssh opsadmin@servera`; when the name servera does not resolve to the configured address on the workstation, the line shows the address instead. labctl keeps the servers' host keys in its own `/var/lib/linux-labs/known_hosts` on the workstation and accepts a new server's key on first use.
+`opsadmin` is the default `SSH_USER` and the student's `~/.ssh/id_rsa` the default key, so those two lines only matter when they differ. Without `NODE_IPS`, node N is `<network base>.<N+9>`, which matches the classroom layout. The multi-node labs also need `NODES_ENABLED=true` and `NODE_COUNT`; see [multi-node.md](multi-node.md). `labctl start` and `labctl task` show the student the line `Work on servera: ssh opsadmin@servera`; when the name servera does not resolve to the configured address on the workstation, the line shows the address instead. labctl keeps the servers' host keys in its own `/var/lib/linux-labs/known_hosts` on the workstation and accepts a new server's key on first use.
 
 ### A user other than student
 
@@ -63,7 +65,7 @@ sudo rpm --import https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-lab
 sudo dnf install linux-labs
 ```
 
-New versions arrive with `sudo dnf upgrade linux-labs`, or by running the installer again. Each release RPM is also attached to its GitHub Release at https://github.com/matej-basic/linux-labs/releases.
+New versions arrive with `sudo dnf upgrade linux-labs`, or by running the installer again. Reset active labs (`sudo labctl reset <lab>`) before upgrading from 1.1.0 to 2.0.0: 1.1.0 ran every lab on the workstation. A lab still active after the upgrade cannot be graded; `sudo labctl reset <lab>` with 2.0.0 cleans it up on the workstation and on servera. Each release RPM is also attached to its GitHub Release at https://github.com/matej-basic/linux-labs/releases.
 
 What the package installs:
 
@@ -94,7 +96,7 @@ The values:
 
 | Needs | Meaning | Labs today |
 |---|---|---|
-| `internet` | setup or the solution installs packages or downloads files | the database, DNS, package, web server and multi-node labs, plus scheduling-03, selinux-02 and selinux-03 |
+| `internet` | setup or the solution installs packages or downloads files | the database, DNS, package and web server labs, the multi-node labs except clustering-03, plus scheduling-03, selinux-02 and selinux-03 |
 | `reboot` | the solution reboots the VM to prove a setting persists | storage-01, systemd-04 |
 | `free network interface` | a NIC that carries no connection | networking-01, networking-02, networking-03 (two NICs), firewall-02 |
 | `N nodes` | the lab runs on N extra machines | lb-*, replication-*, clustering-* |
@@ -110,7 +112,7 @@ labctl list --level beginner
 
 The network labs run on servera. They never touch the interface that carries the default route, which on servera also carries the student's SSH session. They look for an ethernet interface that is not the default-route interface and is not enslaved to a bond or team. If there is none, `labctl start` stops with a message and the lab is not started. networking-03 needs two.
 
-Give each servera two extra NICs on an isolated network without DHCP (in the test environment `ens224` and `ens256` on `Local_NO_DHCP`; `ens192` carries SSH). Extra NICs on the workstation are not used any more and do no harm. NetworkManager creates automatic profiles named `Wired connection 1`, `Wired connection 2` on them; that is fine. Setup removes or deactivates those profiles on the interfaces the lab uses, and `labctl reset` deletes every profile the lab created.
+Give each servera two extra NICs on an isolated network without DHCP (in the test environment `ens224` and `ens256` on `Local_NO_DHCP`; `ens192` carries SSH). Extra NICs on the workstation are not used any more and do no harm. NetworkManager creates automatic profiles named `Wired connection 1`, `Wired connection 2` on them; that is fine. Setup turns those profiles off in memory only, without writing anything to disk, and `labctl reset` deletes every profile the lab or the student created and turns the automatic profiles back on. firewall-02 creates its own profile, `fwlab`, on the free NIC.
 
 ### Reboots
 
@@ -122,7 +124,13 @@ The storage labs work on loop devices backed by image files, for example `/srv/d
 
 ## One lab at a time
 
-A student has one active lab, recorded in `/opt/linux-labs/.current_lab` on the workstation and shown in the prompt as `[LAB:<name>]`. For a lab on servera, servera has the same file and prompt while the lab is active, plus the lab's working copy in `/var/lib/linux-labs/`. Students finish a lab with `sudo labctl reset <lab>` before they start the next one. `reset` undoes the setup and the solution: files, users, packages, services, firewall rules, SELinux settings and network profiles.
+A student has one active lab, recorded in `/opt/linux-labs/.current_lab` on the workstation and shown in the prompt as `[LAB:<name>]`. For a lab on servera, servera has the same file and prompt while the lab is active, plus the lab's working copy in `/var/lib/linux-labs/`. Students finish a lab with `sudo labctl reset <lab>` before they start the next one; `labctl start` refuses to start a second lab while one is active. `reset` undoes the setup and the solution: files, users, packages, services, firewall rules, SELinux settings and network profiles.
+
+## Packages
+
+A lab records the package set of its machines when it first starts, and `labctl reset` returns to it. Reset removes every package the lab, its solution or the student installed since then, including dependencies, imported repo keys and added repo files, and it reinstalls a package that setup or the student removed. It also removes the system users and groups those packages created (apache, mysql, named and similar) once they own no files. Packages that were installed before the lab stay, so a server can already run httpd, MySQL or PostgreSQL. The labs that use them work with an existing server and put it back at reset, with its configuration and data.
+
+Reset never downgrades. When an install during the lab upgrades a package that was already there (installing gcc upgrades glibc on Rocky 8.7), the newer version stays.
 
 ## Solutions
 

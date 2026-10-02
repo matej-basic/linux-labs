@@ -23,7 +23,7 @@ It runs on macOS bash 3.2 and on Linux. For each converted lab it checks:
 - that `grade.sh` uses `grading.sh` and has no legacy helpers, and that `setup.sh` prints no banner
 - the optional `known-issues.md`: heading, entry shape (date, releases, status, text), continuation lines, text rules and no solving commands (criterion "known-issues.md follows the format", described in [framework.md](framework.md))
 - the `solve.sh` directives and its `solve-lib.sh` line
-- package installs (criterion "Package installs are undone with lib/packages.sh"): a lab whose `setup.sh` or `solve.sh` has a line that runs `dnf`/`yum install` (also `localinstall`, `reinstall`, `groupinstall`, `module install`) or `rpm -i`/`-U`, not counting comments, `echo` and `printf` lines, must source `lib/packages.sh` in `setup.sh` and `cleanup.sh` and call `pkg_snapshot <lab>` and `pkg_restore <lab>` (or the `_node` variants), with the lab name literally or as `$LAB`. Labs not yet converted are listed in `PKG_HELPER_PENDING` in `check-labs.sh` and pass; the criterion fails for a listed lab that already uses the helper or no longer installs packages, so the list only shrinks. The per-lab pass removes each lab from it.
+- package installs (criterion "Package installs are undone with lib/packages.sh"): a lab whose `setup.sh` or `solve.sh` has a line that runs `dnf`/`yum install` (also `localinstall`, `reinstall`, `groupinstall`, `module install`) or `rpm -i`/`-U`, not counting comments, `echo` and `printf` lines, must source `lib/packages.sh` in `setup.sh` and `cleanup.sh` and call `pkg_snapshot <lab>` and `pkg_restore <lab>` (or the `_node` variants), with the lab name literally or as `$LAB`. `PKG_HELPER_PENDING` in `check-labs.sh` lists labs that are exempt while they move to the helper; it is empty now that every lab uses the helper. The criterion fails for a listed lab that already uses the helper or no longer installs packages, so the list can only shrink.
 - `bash -n` and shellcheck on all four scripts
 
 A run without lab names also checks two repo-level criteria. The repo root may hold only `README.md`, `CHANGELOG`, `LICENSE`, `CLAUDE.md`, `.github/`, `.gitignore`, `.claude/` and the directories `labs/`, `src/`, `rpm/`, `scripts/`, `pages/` and `docs/` (tracked files and untracked files that are not ignored both count). And `docs/catalog.md` must match what `scripts/gen-catalog.sh` generates now; if it does not, the check says "run scripts/gen-catalog.sh".
@@ -56,7 +56,7 @@ scripts/test-lab.sh 10.0.0.188 files-04            # one lab
 scripts/test-lab.sh 10.0.0.188 files-04 users-01   # several, strictly one after the other
 ```
 
-It runs from the Mac against the workstation, which has the `linux-labs` RPM installed, a `student` user and root SSH access with a key (BatchMode). It copies the working tree's `labctl`, `lib/*.sh` and the lab directories (without `solve.sh`) over the installed RPM files, plus the man page and the profile script when they differ, and runs `restorecon` on them. labctl always runs on the workstation; for a lab with a server target it runs the lab scripts on the server itself (see "Targets" in [framework.md](framework.md)).
+The first argument is the address of a workstation; it selects the test environment (see "Test environments" below). The script runs from the Mac against that workstation, which has the `linux-labs` RPM installed, a `student` user and root SSH access with a key (BatchMode). It copies the working tree's `labctl`, `lib/*.sh` and the lab directories (without `solve.sh`) over the installed RPM files, plus the man page and the profile script when they differ, and runs `restorecon` on them. labctl always runs on the workstation; for a lab with a server target it runs the lab scripts on the server itself (see "Targets" in [framework.md](framework.md)).
 
 For a server target the script reads the server's address and the task user (`SSH_USER`, `opsadmin`) from the workstation's lab configuration (servera is node 1, the first `NODE_IPS` entry), and needs root SSH access from the Mac to the server as well. Before deploying it checks that it can reach the server and that no lab is active there. For a multi-node lab (`needs: nodes=N`) it reads `NODE_COUNT` and the node addresses from the same configuration and checks root SSH access to every configured node, for the package check below.
 
@@ -75,9 +75,9 @@ Then, per lab:
 | `sudo labctl reset <lab>` as student | workstation | 0 |
 | `labctl grade <lab>` as student | workstation | 1 |
 
-After the reset the paths and packages declared in `solve.sh`, the state file `/opt/linux-labs/state/<lab>` and the package snapshot `/opt/linux-labs/state/<lab>.packages` must be gone on the lab's machine (for a multi-node lab the snapshot on every node too), `/opt/linux-labs/.current_lab` must be gone on the workstation, and on a server target the server's marker and `/var/lib/linux-labs` must be gone too.
+After the reset the paths and packages declared in `solve.sh`, the state file `/opt/linux-labs/state/<lab>` and the package snapshot `/opt/linux-labs/state/<lab>.packages` must be gone on the lab's machine (for a multi-node lab the snapshot on every node too), `/opt/linux-labs/.current_lab` and `/opt/linux-labs/.current_target` must be gone on the workstation, and on a server target the server's marker and `/var/lib/linux-labs` must be gone too.
 
-The criterion "Package set on <machine> is unchanged after reset" compares the package set right before `sudo labctl start` with the set after `sudo labctl reset`: `<name>.<arch>` of every package plus `gpg-pubkey-<version>` of every repo key, read with `rpm -qa` over root SSH from the Mac. The machine is the lab's machine (the workstation or the server target); for a multi-node lab the workstation and every configured node (nodes 1 to `NODE_COUNT`) are compared, one criterion each. On a failure the log lists the packages added and missing on that machine (`!! packages added on servera (10.0.0.189): ...`). An upgrade is not a difference, since the version is not compared (see "Packages" in [framework.md](framework.md)). Labs that still have hand-written package code can fail this criterion until the per-lab pass moves them to `lib/packages.sh`.
+The criterion "Package set on <machine> is unchanged after reset" compares the package set right before `sudo labctl start` with the set after `sudo labctl reset`: `<name>.<arch>` of every package plus `gpg-pubkey-<version>` of every repo key, read with `rpm -qa` over root SSH from the Mac. The machine is the lab's machine (the workstation or the server target); for a multi-node lab the workstation and every configured node (nodes 1 to `NODE_COUNT`) are compared, one criterion each. On a failure the log lists the packages added and missing on that machine (`!! packages added on servera (10.0.0.189): ...`). An upgrade is not a difference, since the version is not compared (see "Packages" in [framework.md](framework.md)).
 
 The criterion "System users and groups on <machine> are unchanged" compares, on the same machines and at the same two moments, every user and group with an ID from 1 to 999 (`getent passwd` and `getent group`, name and ID). It fails when a package's user (`mysql`, `named`) survives the reset, usually because `cleanup.sh` removes the server's data after `pkg_restore` instead of before it; `pkg_restore` then also reports the user on stderr and `labctl reset` fails. On a failure the log lists the accounts added and missing (`!! system users and groups added on servera (10.0.0.189): group:mysql:27 user:mysql:27`).
 
@@ -87,39 +87,49 @@ The output is one criterion block per lab and a summary. The full log, with ever
 - A legacy lab (no `task.txt` or no `solve.sh`) is skipped with a message, not failed.
 - The run aborts before touching the host if a lab is active there or on a server target of the labs to test, and stops if a lab is still active after its reset. Do not reset a lab someone else started; report it and wait.
 - It deletes nothing on the host except through the lab's own `cleanup.sh` and its own temporary directory. Afterwards `rpm -V linux-labs` lists the replaced files, and `dnf reinstall linux-labs` restores the packaged versions.
-- Runtime tests do not run in CI: most labs need systemd, firewalld or SELinux. Results go into the release notes (for example "Verified on Rocky 8.7 workstation: N of 55 PASS"), not into commits or files in git.
+- Runtime tests do not run in CI: most labs need systemd, firewalld or SELinux. Results go into the release notes (for example "Verified on Rocky 8.10: N of 55 PASS"), not into commits or files in git.
 
 ### One lab at a time
 
-labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LAB:...]` prompt reads it (on the workstation, and for a server target on the server too). Two runs against the same host overwrite each other's state, so labs are tested strictly one at a time, also across targets: all server-target labs share servera.
+labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LAB:...]` prompt reads it (on the workstation, and for a server target on the server too). Two runs against the same environment overwrite each other's state, so labs are tested strictly one at a time per environment, also across targets: all server-target labs of an environment share its servera.
 
-- never two `test-lab.sh` runs against the same host, in parallel or from two sessions
-- never a test while a person is working through a lab on that host
+- never two `test-lab.sh` runs against the same environment, in parallel or from two sessions
+- never a test while a person is working through a lab in that environment
+- tests in different environments may run in parallel, but never two network labs (`needs: free-nic`) at the same time, not even in different environments: the free NICs of every environment are on the same isolated network `Local_NO_DHCP`
 - build and test one new lab before starting the next
 
-### The test workstation
+### Test environments
+
+There are four test environments, student01 to student04. Each one is a workstation plus servera, serverb and serverc, all on Rocky 8.10:
+
+| Environment | Addresses |
+|---|---|
+| student01 | workstation `10.0.0.188`, servera `.189`, serverb `.190`, serverc `.191` |
+| student02 to student04 | `10.0.0.201` to `.212` |
+
+`test-lab.sh` takes the workstation's address and reads the server addresses from that workstation's lab configuration. Every environment is set up the same way:
 
 | Item | Value |
 |---|---|
-| Host | `10.0.0.188`, Rocky 8.7, SELinux enforcing |
-| Package | `linux-labs` RPM installed |
-| Users | `student`; root SSH access with a key from the Mac |
-| Default route | `ens192`, never touched by a lab |
-| Free NICs | `ens224` and `ens256`, no longer used by any lab |
-| Lab config | `/etc/linux-labs/config`: `NODES_ENABLED=true`, `NODE_COUNT=3`, `NODE_IPS="10.0.0.189 10.0.0.190 10.0.0.191"`, `SSH_USER=opsadmin`, `SSH_KEY_PATH=/home/student/.ssh/id_rsa` |
-| Servers | servera, serverb and serverc (10.0.0.189 to .191), Rocky 8.7; `opsadmin` with full passwordless sudo; student's key logs in as `opsadmin`; root SSH access from the Mac |
-| servera NICs | `ens192` carries SSH and the default route and is never touched; `ens224` and `ens256` are free NICs on the isolated `Local_NO_DHCP` network for the network labs |
+| Workstation | SELinux enforcing, `linux-labs` RPM installed, user `student`, root SSH access with a key from the Mac |
+| Lab config | `/etc/linux-labs/config` on the workstation: `NODES_ENABLED=true`, `NODE_COUNT=3`, `NODE_IPS` with the three server addresses, `SSH_USER=opsadmin`, `SSH_KEY_PATH=/home/student/.ssh/id_rsa` |
+| Servers | `opsadmin` with full passwordless sudo; student's key logs in as `opsadmin`; root SSH access from the Mac |
+| Default route | `ens192` on every VM carries SSH and the default route and is never touched by a lab |
+| servera NICs | `ens224` and `ens256` are free NICs for the network labs, on the isolated network `Local_NO_DHCP`, which all four environments share |
+| Workstation NICs | its extra NICs are not used by any lab |
 
 servera is the target of every single-node lab, and node 1 of the multi-node labs.
 
 ### Snapshots of the lab VMs
 
-The reference state for runtime tests is the snapshot `clean-baseline` on all four VMs: servera, serverb and serverc are clean Rocky 8.7 installs without httpd, MySQL or PostgreSQL, and the workstation has the `linux-labs` RPM. Every lab test starts from it and every lab's reset must return the machines to its package set and its system users and groups. When a lab leaves a VM broken or with packages its reset cannot remove, revert all four with `scripts/lab-vms.sh revert clean-baseline --yes`.
+The reference state for runtime tests is the cold snapshot `clean-baseline` on every VM of an environment: servera, serverb and serverc are clean Rocky 8.10 installs without httpd, MySQL or PostgreSQL, and the workstation has the `linux-labs` RPM. Every lab test starts from it and every lab's reset must return the machines to its package set and its system users and groups.
 
-Before a test run that can break a VM (network, storage, firewall, reboot labs, which now break servera rather than the workstation), snapshot the four lab VMs: `scripts/lab-vms.sh snapshot <name>`.
+`scripts/lab-vms.sh` manages student01 only: its workstation, servera, serverb and serverc in the vCenter folder `/Datacenter/vm/linux-labs/student01`. When a lab leaves a VM broken or with packages its reset cannot remove, revert all four with `scripts/lab-vms.sh revert clean-baseline --yes`.
+
+Before a test run that can break a VM (network, storage, firewall, reboot labs, which break servera rather than the workstation), snapshot the four lab VMs: `scripts/lab-vms.sh snapshot <name>`.
 If a lab leaves a VM unreachable, `scripts/lab-vms.sh revert <name> --yes` puts all four back; a single wedged guest takes `scripts/lab-vms.sh power-cycle <vm> --yes`.
 `scripts/lab-vms.sh status` shows power state and the existing snapshots.
-The script needs `.config/vcenter_creds` and govc, and only ever touches workstation, servera, serverb and serverc.
+The script needs `.config/vcenter_creds` and govc, and only ever touches those four VMs.
 
 ## Known issues
 
@@ -137,5 +147,3 @@ Each one becomes an entry in `labs/<id>/known-issues.md`, in the format describe
 `scripts/check-labs.sh` validates the file, the catalog shows the count of `open` and `workaround` entries with a link to it, and the RPM never contains it.
 
 Entries are written by the runtime test agents and by hand, after a runtime test has shown the problem. A static review does not write entries. Issues reported by the agents that converted the labs to 2.0 are not pre-filled: each runtime test confirms or drops them.
-
-The `check-labs.sh` validation of the file and the catalog column are planned, not yet implemented. Until then `check-labs.sh` rejects the extra file (see framework.md), so the first entry lands together with that change.
