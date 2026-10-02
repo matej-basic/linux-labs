@@ -24,7 +24,8 @@
    sudo systemctl set-default multi-user.target
    ```
 
-3. [sudo] Reboot to confirm the system boots into it:
+3. [sudo] Reboot to confirm the system boots into it. The SSH
+   connection closes; connect again once servera is back up:
 
    ```bash
    sudo systemctl reboot
@@ -32,7 +33,7 @@
 
 ## Verification
 
-After logging in again:
+After connecting to servera again:
 
 ```bash
 systemctl get-default
@@ -40,8 +41,8 @@ systemctl is-active multi-user.target
 labctl grade systemd-04
 ```
 
-Do not switch the default back. `sudo labctl reset systemd-04`
-restores the original default.
+Do not switch the default back. `sudo labctl reset systemd-04` on the
+workstation restores the original default.
 
 ## Explanation
 

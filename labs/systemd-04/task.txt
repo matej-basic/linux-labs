@@ -25,8 +25,8 @@ NOTES
   - Root access is required to change the default target.
   - Do not switch the default back after the reboot. Resetting the
     lab restores the original default for you.
-  - On a machine with a desktop you get a text login after the
-    reboot. That is expected.
+  - A reboot of {{HOSTNAME}} closes your SSH connection to it. This is
+    expected: connect again once the system is back up.
   - Reference: man systemctl and man systemd.special.
   - Run the grading after the reboot, not before.
 
