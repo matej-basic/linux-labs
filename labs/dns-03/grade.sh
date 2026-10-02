@@ -1,6 +1,6 @@
 #!/bin/bash
-# dns-03 grader. Runs as the student, who cannot read /etc/named.conf or
-# /var/named, so everything is checked through named on 127.0.0.1.
+# dns-03 grader. Checks everything through named on 127.0.0.1, not through
+# /etc/named.conf or /var/named.
 source /opt/linux-labs/lib/grading.sh
 
 ZONE=labsecure.com

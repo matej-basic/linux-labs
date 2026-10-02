@@ -18,6 +18,15 @@ fi
 
 if ! rpm -q bind >/dev/null 2>&1; then
 	rm -f /etc/named.conf /etc/named.conf.rpmsave
-	rm -rf /var/named
+	rm -f /var/named/labsecure.com.zone* /var/named/Klabsecure.com.* \
+		/var/named/dsset-labsecure.com.
+fi
+if [ -f /var/tmp/dns-03.pre ]; then
+	if ! grep -q named-user /var/tmp/dns-03.pre && ! rpm -q bind >/dev/null 2>&1; then
+		rm -rf /var/named
+		userdel named >/dev/null 2>&1 || true
+		groupdel named >/dev/null 2>&1 || true
+	fi
+	rm -f /var/tmp/dns-03.pre
 fi
 exit 0

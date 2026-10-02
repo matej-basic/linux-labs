@@ -106,7 +106,7 @@ signatures. The option dnssec-enable that older guides add to
 named.conf is obsolete in the BIND versions of both releases and is not
 needed. The packaged configuration already has dnssec-validation auto.
 
-The grader runs as the student, who cannot read /var/named or
-/etc/named.conf, so it queries named instead. Transfers from 127.0.0.1
-must work and transfers from the other addresses of the host must be
-refused. An allow-transfer of localhost or any fails that check.
+The grader queries named instead of reading /var/named or
+/etc/named.conf. Transfers from 127.0.0.1 must work and transfers
+from the other addresses of the host must be refused.
+An allow-transfer of localhost or any fails that check.

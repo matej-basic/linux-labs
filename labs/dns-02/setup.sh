@@ -3,6 +3,17 @@
 # student starts from a clean system. Prints nothing on success.
 set -u
 
+# First run only: did the named account exist before BIND was installed?
+# cleanup.sh removes the account and /var/named only if it did not.
+pre=/var/tmp/dns-02.pre
+if [ ! -f "$pre" ]; then
+	if getent passwd named >/dev/null 2>&1 && ! rpm -q bind >/dev/null 2>&1; then
+		echo named-user > "$pre"
+	else
+		: > "$pre"
+	fi
+fi
+
 systemctl stop named >/dev/null 2>&1 || true
 systemctl disable named >/dev/null 2>&1 || true
 
