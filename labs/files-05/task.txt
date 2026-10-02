@@ -1,0 +1,58 @@
+OBJECTIVE
+  Find files by owner, size, type, permissions and age, search a log
+  file for lines that match a pattern and save the results in answer
+  files.
+
+PREREQUISITES
+  The lab created the data tree /srv/search and the users analyst,
+  builder and tester, who own parts of it. Some directories in the
+  tree cannot be read by {{LAB_USER}}. The empty directory answers is
+  ready in the home directory of {{LAB_USER}}.
+
+TASKS
+  1. Save in ~/answers/large-files.txt the absolute path of every
+     regular file under /srv/search that is owned by builder and is
+     larger than 1 MiB (1048576 bytes), one path per line.
+  2. Save in ~/answers/old-files.txt the absolute path of every
+     regular file under /srv/search/projects that was last modified
+     more than 30 days ago, one path per line.
+  3. Save in ~/answers/setuid.txt the absolute path of every regular
+     file under /srv/search that has the SUID permission bit set, one
+     path per line.
+  4. Save in ~/answers/link-count.txt the number of symbolic links
+     under /srv/search, as a single number.
+  5. Save in ~/answers/errors.txt every line of
+     /srv/search/logs/app.log that begins with ERROR and contains the
+     word disk in lower case. The line must start with ERROR in its
+     very first column. Only disk as a whole word counts: disks and
+     diskless do not. Copy the lines unchanged, without the file name
+     or line numbers.
+  6. As {{LAB_USER}}, without sudo, search the whole /srv/search tree
+     with the find command for files named report.txt. Save the
+     normal output of that search, the absolute paths it finds, in
+     ~/answers/report-files.txt.
+  7. Save the error messages of the same search in
+     ~/answers/denied.txt, exactly as find prints them. The file
+     holds the error messages and nothing else.
+
+EXPECTED RESULT
+  The directory ~/answers holds the seven answer files. The order of
+  the lines in a file is not graded.
+
+PRACTICE (not graded)
+  - Find every world-writable regular file under /srv/search.
+  - Find every directory under /srv/search owned by analyst.
+  - Count the lines of the log file that begin with WARN.
+
+NOTES
+  - Only the content of the answer files is graded. Use any valid
+    Linux commands, with or without sudo, except for the search in
+    tasks 6 and 7, which must run as {{LAB_USER}} without sudo.
+  - Blank lines and trailing spaces in an answer file are ignored.
+  - Do not change anything under /srv/search. The grader computes the
+    expected answers from the tree.
+  - Reference: man find (sections TESTS and the description of the
+    numeric arguments), man grep, man bash (section REDIRECTION).
+
+GRADING
+  labctl grade files-05

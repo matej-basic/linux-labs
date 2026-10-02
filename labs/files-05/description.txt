@@ -1,0 +1,5 @@
+title: Finding files and searching text
+category: Files
+complexity: Beginner
+objective: Find files by owner, size, type, permissions and age, search a log with regular expressions and redirect output to files.
+target: servera

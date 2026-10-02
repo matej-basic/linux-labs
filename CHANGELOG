@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab files-05 (Files, Beginner): find files by owner, size, age and permissions, search a log with grep, and keep a command's errors apart from its output.
 - Lab podman-02 (Containers, Intermediate): build an image from a Containerfile with a label and an environment variable, and run it rootless with a published port, a named volume and a restart policy.
 - Lab users-04 (Users, Intermediate): a password policy with pwquality, account lockout with faillock and password history through authselect features.
 - Lab time-01 (Networking, Intermediate, two nodes): node 1 serves time with chrony from a local stratum, and node 2 synchronises only from node 1 and uses the time zone Europe/Zagreb.
