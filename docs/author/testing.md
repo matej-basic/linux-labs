@@ -89,6 +89,10 @@ The output is one criterion block per lab and a summary. The full log, with ever
 - It deletes nothing on the host except through the lab's own `cleanup.sh` and its own temporary directory. Afterwards `rpm -V linux-labs` lists the replaced files, and `dnf reinstall linux-labs` restores the packaged versions.
 - Runtime tests do not run in CI: most labs need systemd, firewalld or SELinux. Results go into the release notes (for example "Verified on Rocky 8.10: N of 55 PASS"), not into commits or files in git.
 
+### Testing a release candidate RPM
+
+`scripts/test-lab.sh --installed <host> <lab>...` tests the package installed on the workstation instead of the working tree, so the run sees exactly what students get. Install the candidate first (`dnf -y install ./linux-labs-<version>-1.noarch.rpm`). Nothing is copied over the RPM files: only `solve.sh` and `solve-lib.sh` go to a temporary directory, and every other step and check is the same as above. The run aborts before the first lab if `labctl --version` does not report 2.0.0 or newer, or if a lab to test is not owned by the package. Installed lab files that differ from the working tree are only noted in the log, because the package may come from another commit. One extra criterion per lab, "Package files are unchanged (rpm -V)", compares the output of `rpm -V linux-labs` after the lab with the output before the run.
+
 ### One lab at a time
 
 labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LAB:...]` prompt reads it (on the workstation, and for a server target on the server too). Two runs against the same environment overwrite each other's state, so labs are tested strictly one at a time per environment, also across targets: all server-target labs of an environment share its servera.
@@ -100,12 +104,12 @@ labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LA
 
 ### Test environments
 
-There are four test environments, student01 to student04. Each one is a workstation plus servera, serverb and serverc, all on Rocky 8.10:
+There are up to seven test environments, student01 to student07. Each one is a workstation plus servera, serverb and serverc on Rocky 8.10 or Rocky 9.8 (the release is chosen per environment when it is built; test both releases before a release):
 
 | Environment | Addresses |
 |---|---|
 | student01 | workstation `10.0.0.188`, servera `.189`, serverb `.190`, serverc `.191` |
-| student02 to student04 | `10.0.0.201` to `.212` |
+| student02 to student07 | `10.0.0.201` to `.224`, four addresses each, workstation first |
 
 `test-lab.sh` takes the workstation's address and reads the server addresses from that workstation's lab configuration. Every environment is set up the same way:
 
@@ -122,7 +126,7 @@ servera is the target of every single-node lab, and node 1 of the multi-node lab
 
 ### Snapshots of the lab VMs
 
-The reference state for runtime tests is the cold snapshot `clean-baseline` on every VM of an environment: servera, serverb and serverc are clean Rocky 8.10 installs without httpd, MySQL or PostgreSQL, and the workstation has the `linux-labs` RPM. Every lab test starts from it and every lab's reset must return the machines to its package set and its system users and groups.
+The reference state for runtime tests is the cold snapshot `clean-baseline` on every VM of an environment: servera, serverb and serverc are clean Rocky 8.10 or 9.8 installs without httpd, MySQL or PostgreSQL, and the workstation has the `linux-labs` RPM. Every lab test starts from it and every lab's reset must return the machines to its package set and its system users and groups.
 
 `scripts/lab-vms.sh` manages student01 only: its workstation, servera, serverb and serverc in the vCenter folder `/Datacenter/vm/linux-labs/student01`. When a lab leaves a VM broken or with packages its reset cannot remove, revert all four with `scripts/lab-vms.sh revert clean-baseline --yes`.
 

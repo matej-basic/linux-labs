@@ -1,13 +1,22 @@
 #!/usr/bin/env bash
 # Runtime test for converted labs (lab framework 2.0), run from the Mac.
 #
-# Usage: scripts/test-lab.sh <host> <lab>...
+# Usage: scripts/test-lab.sh [--installed] <host> <lab>...
 #
 # <host> is the workstation. It must have the linux-labs RPM installed, a
 # "student" user and root SSH access with a key (BatchMode). The script
 # copies the working tree's labctl, lib/*.sh and the lab directories
 # (without solve.sh) over the installed RPM files, plus the man page and
 # the profile script when they differ, and runs restorecon on them.
+#
+# --installed tests the installed package itself, for example a release
+# candidate RPM: nothing is copied over the RPM files. Only solve.sh and
+# solve-lib.sh go to a temporary directory, and every check below still
+# runs. The run aborts before any lab if "labctl --version" on the host
+# does not report 2.0.0 or newer, or if a lab is not installed by the
+# package. The log notes installed lab files that differ from the working
+# tree. After each lab, "rpm -V linux-labs" must give the same output as
+# before the run (criterion "Package files are unchanged (rpm -V)").
 #
 # A lab with "target: servera" (serverb, serverc) in description.txt runs
 # on that server through labctl on the workstation. The server's address
@@ -60,8 +69,9 @@
 # 2 no failures but at least one lab was skipped, 3 usage error.
 #
 # Nothing on the host is deleted except by the lab's own cleanup.sh and the
-# temporary directory this script creates. The replaced RPM files show up
-# in "rpm -V linux-labs"; "dnf reinstall linux-labs" restores them.
+# temporary directory this script creates. Without --installed the
+# replaced RPM files show up in "rpm -V linux-labs"; "dnf reinstall
+# linux-labs" restores them.
 
 set -u
 
@@ -83,10 +93,35 @@ PKGSET_CMD="rpm -qa --qf '%{NAME}.%{ARCH}\\n' | grep -v '^gpg-pubkey\\.'; rpm -q
 # lib/packages.sh restores): user:<name>:<uid> and group:<name>:<gid>
 ACCTSET_CMD="getent passwd | awk -F: '\$3 >= 1 && \$3 <= 999 { print \"user:\" \$1 \":\" \$3 }'; getent group | awk -F: '\$3 >= 1 && \$3 <= 999 { print \"group:\" \$1 \":\" \$3 }'"
 PKGDIR=""
+# --installed: test the installed package, copy nothing over it
+INSTALLED=0
+# --installed: "rpm -V linux-labs" output before the first lab
+RPMV_BEFORE=""
+# Lowest labctl version --installed accepts
+MIN_VERSION=2.0.0
 
 usage() {
-	echo "Usage: $0 <host> <lab>..." >&2
+	echo "Usage: $0 [--installed] <host> <lab>..." >&2
 }
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+		--installed)
+			INSTALLED=1
+			shift
+			;;
+		-h | --help)
+			usage
+			exit 0
+			;;
+		-*)
+			echo "Error: unknown option: $1" >&2
+			usage
+			exit 3
+			;;
+		*) break ;;
+	esac
+done
 
 if [ "$#" -lt 2 ]; then
 	usage
@@ -231,7 +266,7 @@ trap cleanup_stage EXIT
 trap 'echo "Interrupted." >&2; exit 1' INT TERM
 
 echo "Log: ${LOG#"$ROOT_DIR"/}"
-log "test-lab.sh $HOST ${LABS[*]}"
+log "test-lab.sh$([ "$INSTALLED" -eq 1 ] && echo ' --installed') $HOST ${LABS[*]}"
 log "git: $(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null) $(git -C "$ROOT_DIR" status --porcelain 2>/dev/null | wc -l | tr -d ' ') changed paths"
 
 # Split labs into testable and legacy
@@ -248,6 +283,51 @@ abort() {
 	echo "Error: $*" >&2
 	log "ABORT: $*"
 	exit 1
+}
+
+# version_ge <a> <b>: true if version X.Y.Z a is at least b
+version_ge() {
+	local -a a b
+	local i
+	IFS=. read -r -a a <<<"$1"
+	IFS=. read -r -a b <<<"$2"
+	for i in 0 1 2; do
+		if [ "${a[$i]:-0}" -gt "${b[$i]:-0}" ]; then
+			return 0
+		elif [ "${a[$i]:-0}" -lt "${b[$i]:-0}" ]; then
+			return 1
+		fi
+	done
+	return 0
+}
+
+# installed_check: --installed only. The package must be linux-labs
+# MIN_VERSION or newer, with every lab to test installed by it. Sets
+# RPMV_BEFORE and logs installed lab files that differ from the tree.
+installed_check() {
+	local v lab f sums
+	remote "installed version" "rpm -q linux-labs && labctl --version"
+	[ "$RC" -eq 0 ] || abort "labctl --version fails on $HOST: the installed linux-labs is older than $MIN_VERSION (see log)"
+	v=$(printf '%s\n' "$OUT" | sed -n 's/^labctl \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\)$/\1/p' | tail -n 1)
+	[ -n "$v" ] || abort "labctl --version on $HOST does not print a release version (see log)"
+	version_ge "$v" "$MIN_VERSION" || abort "installed labctl is $v on $HOST, --installed needs $MIN_VERSION or newer"
+	log "installed labctl $v"
+	for lab in "${TESTABLE[@]}"; do
+		remote "$lab installed by the package" "rpm -qf --qf '%{NAME}\n' /opt/linux-labs/labs/$lab/task.txt /opt/linux-labs/labs/$lab/setup.sh"
+		[ "$RC" -eq 0 ] || abort "lab $lab is not installed by the linux-labs package on $HOST (see log)"
+		# Differences to the working tree are a note, not a failure: the
+		# package may be built from another commit
+		sums=""
+		for f in "$ROOT_DIR/labs/$lab"/*; do
+			case "${f##*/}" in solve.sh | known-issues.md) continue ;; esac
+			sums="$sums$(shasum -a 256 "$f" | cut -d ' ' -f 1)  /opt/linux-labs/labs/$lab/${f##*/}
+"
+		done
+		remote "$lab compared with the working tree" "printf '%s' '$sums' | sha256sum -c --quiet"
+		[ "$RC" -eq 0 ] || log "note: installed $lab differs from the working tree"
+	done
+	remote "rpm -V before the run" "rpm -V linux-labs; true"
+	RPMV_BEFORE="$OUT"
 }
 
 if [ "${#TESTABLE[@]}" -gt 0 ]; then
@@ -306,25 +386,37 @@ if [ "${#TESTABLE[@]}" -gt 0 ]; then
 		done
 	fi
 
+	[ "$INSTALLED" -eq 1 ] && installed_check
+
 	remote "create staging directory" "mktemp -d /tmp/test-lab.XXXXXX"
 	[ "$RC" -eq 0 ] || abort "cannot create a temporary directory on $HOST"
 	STAGE="$OUT"
 	PKGDIR=$(mktemp -d "${TMPDIR:-/tmp}/test-lab-pkg.XXXXXX") || abort "cannot create a local temporary directory"
 
-	files=(src/usr/bin/labctl scripts/solve-lib.sh src/usr/share/man/man1/labctl.1 src/etc/profile.d/labctl.sh)
-	for f in "$ROOT_DIR"/src/opt/linux-labs/lib/*.sh; do
-		files+=("src/opt/linux-labs/lib/${f##*/}")
-	done
-	for lab in "${TESTABLE[@]}"; do
-		files+=("labs/$lab")
-	done
+	if [ "$INSTALLED" -eq 1 ]; then
+		# Only the solver: the package provides labctl, lib and the labs
+		files=(scripts/solve-lib.sh)
+		for lab in "${TESTABLE[@]}"; do
+			files+=("labs/$lab/solve.sh")
+		done
+	else
+		files=(src/usr/bin/labctl scripts/solve-lib.sh src/usr/share/man/man1/labctl.1 src/etc/profile.d/labctl.sh)
+		for f in "$ROOT_DIR"/src/opt/linux-labs/lib/*.sh; do
+			files+=("src/opt/linux-labs/lib/${f##*/}")
+		done
+		for lab in "${TESTABLE[@]}"; do
+			files+=("labs/$lab")
+		done
+	fi
 	log ""
 	log "---- upload to $STAGE: ${files[*]}"
 	if ! (cd "$ROOT_DIR" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - "${files[@]}") \
 		| rssh "tar --warning=no-unknown-keyword -xf - -C '$STAGE'" >>"$LOG" 2>&1; then
 		abort "upload to $HOST failed"
 	fi
+fi
 
+if [ "${#TESTABLE[@]}" -gt 0 ] && [ "$INSTALLED" -eq 0 ]; then
 	# labctl and the library always; man page and profile script only when
 	# they differ from the installed ones
 	remote "install labctl and lib" "set -e
@@ -348,9 +440,15 @@ fi
 
 # --- Per-lab test ------------------------------------------------------------
 
-# Install one lab directory from the staging area, without solve.sh
+# Install one lab directory from the staging area, without solve.sh.
+# With --installed only put solve-lib.sh next to the staged solve.sh.
 install_lab() {
 	local lab="$1"
+	if [ "$INSTALLED" -eq 1 ]; then
+		remote "stage solve-lib.sh for $lab" "test -d /opt/linux-labs/labs/$lab && cp '$STAGE/scripts/solve-lib.sh' '$STAGE/labs/$lab/solve-lib.sh'"
+		[ "$RC" -eq 0 ]
+		return
+	fi
 	remote "install $lab" "set -e
 src='$STAGE/labs/$lab'
 dst='/opt/linux-labs/labs/$lab'
@@ -435,11 +533,13 @@ test_lab() {
 		log "target $target ($lab_host), task user $task_user"
 	fi
 
+	local installed_text="Lab files are installed on the host"
+	[ "$INSTALLED" -eq 1 ] && installed_text="Lab is installed, solve.sh is staged"
 	if ! install_lab "$lab"; then
-		criterion_result "Lab files are installed on the host" 1
+		criterion_result "$installed_text" 1
 		return
 	fi
-	criterion_result "Lab files are installed on the host" 0
+	criterion_result "$installed_text" 0
 
 	# Machines whose package set must survive start to reset: the lab's
 	# machine, and for a multi-node lab every configured node as well
@@ -629,6 +729,17 @@ test_lab() {
 	remote "active lab" "test ! -e /opt/linux-labs/.current_lab && test ! -e /opt/linux-labs/.current_target"
 	expect_rc "No lab is active after reset" 0
 	[ "$RC" -eq 0 ] && ACTIVE_LAB=""
+
+	if [ "$INSTALLED" -eq 1 ]; then
+		remote "rpm -V after $lab" "rpm -V linux-labs; true"
+		if [ "$OUT" = "$RPMV_BEFORE" ]; then
+			criterion_result "Package files are unchanged (rpm -V)" 0
+		else
+			criterion_result "Package files are unchanged (rpm -V)" 1
+			log "!! rpm -V linux-labs before the run:"
+			log "${RPMV_BEFORE:-(clean)}"
+		fi
+	fi
 }
 
 RESULTS=()
