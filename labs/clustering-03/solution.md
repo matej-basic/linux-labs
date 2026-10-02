@@ -35,8 +35,8 @@
    no-quorum-policy should be ignore:
 
    ```bash
-   for ip in $NODES; do n "$ip" "sudo corosync-quorumtool -s"; done
-   n "$NODE1" "sudo pcs property config"
+   for ip in $NODES; do n "$ip" "sudo -n corosync-quorumtool -s"; done
+   n "$NODE1" "sudo -n pcs property config"
    ```
 
 3. [user] Set the votequorum options in the quorum block of
@@ -51,10 +51,10 @@
    ADD="$ADD"'\n\1wait_for_all: 1\n\1last_man_standing: 1'
    ADD="$ADD"'\n\1last_man_standing_window: 10000/'
    for ip in $NODES; do
-     n "$ip" "sudo sed -i -E '$DEL' $CONF"
-     n "$ip" "sudo sed -i '$ADD' $CONF"
+     n "$ip" "sudo -n sed -i -E '$DEL' $CONF"
+     n "$ip" "sudo -n sed -i '$ADD' $CONF"
    done
-   n "$NODE1" "sudo sed -n '/^quorum {/,/^}/p' $CONF"
+   n "$NODE1" "sudo -n sed -n '/^quorum {/,/^}/p' $CONF"
    ```
 
 4. [user] Restart the cluster services one node at a time and wait
@@ -63,10 +63,10 @@
 
    ```bash
    for ip in $NODES; do
-     n "$ip" "sudo systemctl stop pacemaker corosync"
-     n "$ip" "sudo systemctl start pacemaker"
+     n "$ip" "sudo -n systemctl stop pacemaker corosync"
+     n "$ip" "sudo -n systemctl start pacemaker"
      for i in $(seq 1 60); do
-       n "$ip" "sudo corosync-quorumtool -s |
+       n "$ip" "sudo -n corosync-quorumtool -s |
          grep -Eq '^Nodes:[[:space:]]+3\$'" && break
        sleep 2
      done
@@ -76,15 +76,15 @@
 5. [user] Make a partition without quorum stop its resources:
 
    ```bash
-   n "$NODE1" "sudo pcs property set no-quorum-policy=stop"
+   n "$NODE1" "sudo -n pcs property set no-quorum-policy=stop"
    ```
 
 ## Verification
 
 ```bash
-for ip in $NODES; do n "$ip" "sudo corosync-quorumtool -s"; done
-n "$NODE1" "sudo pcs property config"
-n "$NODE1" "sudo pcs status"
+for ip in $NODES; do n "$ip" "sudo -n corosync-quorumtool -s"; done
+n "$NODE1" "sudo -n pcs property config"
+n "$NODE1" "sudo -n pcs status"
 labctl grade clustering-03
 ```
 
@@ -106,6 +106,8 @@ at start, so the restart in step 4 is required, and the grader checks
 the running cluster as well as the file. The nodes are restarted one at
 a time because stopping two at once costs the cluster its quorum.
 
-STONITH stays enabled: quorum decides who may run resources, fencing
-makes sure the other side is really off. The two_node option is meant
-for clusters of exactly two nodes and stays off here.
+A production cluster also needs fencing: quorum decides which partition
+may run resources, fencing makes sure the other side is really off.
+This lab does not grade fencing, because no fence device can reach a
+hypervisor in this environment. The two_node option is meant for
+clusters of exactly two nodes and stays off here.

@@ -1,8 +1,7 @@
 OBJECTIVE
   Protect the three-node Pacemaker/Corosync cluster against
   split-brain: tune the votequorum options, make a partition without
-  quorum stop its resources, and keep fencing and the web resource
-  intact.
+  quorum stop its resources, and keep the web resource running.
 
 TOPOLOGY
   The cluster nodes are managed over SSH from this workstation
@@ -20,9 +19,19 @@ TOPOLOGY
 PREREQUISITES
   - NODE_COUNT is {{NODE_COUNT}} and multi-node labs are enabled in
     the lab configuration.
-  - The cluster from clustering-01 and clustering-02 is running: all
-    three nodes are members, STONITH is enabled, and the resource
+  - The lab starts from the end state of clustering-01: the cluster
+    ha_cluster runs on all three nodes, it has quorum and the resource
     apache_web is started.
+  - If node 1 already runs such a cluster, for example right after
+    clustering-01 or clustering-02, labctl start uses it as it is, and
+    labctl reset undoes only the changes of this lab (corosync.conf
+    and no-quorum-policy). Otherwise labctl start builds the cluster
+    itself, which takes a few minutes, and labctl reset removes it
+    again and returns the nodes to their state before the lab.
+  - Fencing is not part of this lab and is not graded. A cluster that
+    labctl start builds runs with STONITH disabled, because no fence
+    device can reach a hypervisor in this environment (see
+    clustering-02). A cluster from clustering-02 keeps its fencing.
   - Cluster configuration is changed with root privileges on each
     node (sudo). Nodes cannot log in to each other as root.
 
@@ -42,9 +51,8 @@ TASKS
   4. A cluster partition that has lost quorum stops all resources it
      runs. The cluster property that controls this has the value
      stop.
-  5. STONITH stays enabled.
-  6. The resource apache_web is started on one of the nodes.
-  7. Each node sees the same cluster of 3 members, so there is no
+  5. The resource apache_web is started on one of the nodes.
+  6. Each node sees the same cluster of 3 members, so there is no
      partitioned view of the membership.
 
 PRACTICE (not graded)
