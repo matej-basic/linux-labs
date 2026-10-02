@@ -1,0 +1,5 @@
+title: Password policy with pwquality, faillock and pwhistory
+category: Users
+complexity: Intermediate
+objective: Set password quality rules, account lockout and a password history on servera through authselect and the PAM configuration files.
+target: servera

@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab users-04 (Users, Intermediate): a password policy with pwquality, account lockout with faillock and password history through authselect features.
 - Lab time-01 (Networking, Intermediate, two nodes): node 1 serves time with chrony from a local stratum, and node 2 synchronises only from node 1 and uses the time zone Europe/Zagreb.
 - Lab logging-04 (Logging, Intermediate): persistent audit rules in rules.d for a file watch and a deletion rule by login UID, and auditd log settings.
 - Lab nfs-02 (Storage, Intermediate, two nodes): an all_squash export with a fixed anonymous user, a read-only export, and on-demand mounts through an autofs indirect map.

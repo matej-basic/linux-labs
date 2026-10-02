@@ -58,8 +58,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - certs-01 (Beginner): Certificate basics and generation
 - certs-02 (Intermediate): Let's Encrypt automation
 - certs-03 (Advanced): Certificate pinning and validation
-- pwd-policy-01 (Beginner): Password policy basics
-- pwd-policy-02 (Intermediate): Pam configuration
 - pwd-policy-03 (Advanced): Multi-factor authentication
 - 2fa-01 (Beginner): TOTP setup with Google Authenticator
 - 2fa-02 (Intermediate): FIDO2 security keys

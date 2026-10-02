@@ -1,0 +1,68 @@
+OBJECTIVE
+  Set a password policy on servera: quality rules for new passwords,
+  account lockout after failed logins and a history of previous
+  passwords. authselect manages the PAM configuration.
+
+PREREQUISITES
+  The tasks need root privileges, which sudo provides. authselect
+  manages the PAM configuration of servera. If no authselect profile
+  was selected before the lab, the lab selected the profile minimal.
+  The lab created the user pamtest with the password Quill-Harbor-472.
+  Rocky Linux 8 and 9 behave the same.
+
+TASKS
+  1. Keep the authselect profile that is selected now and enable its
+     features with-faillock and with-pwhistory. The PAM files in
+     /etc/pam.d that authselect generates must still match the
+     authselect configuration, so do not edit them by hand.
+  2. Create the file /etc/security/pwquality.conf.d/50-policy.conf
+     with these password quality settings:
+
+       minlen             12
+       minclass           3
+       dictcheck          1
+       enforce_for_root   (the rules apply to root as well)
+
+     No other pwquality file may override these values.
+  3. Set these values in /etc/security/faillock.conf:
+
+       deny          3
+       unlock_time   600
+
+  4. Set these values in /etc/security/pwhistory.conf:
+
+       remember           5
+       enforce_for_root   (the history applies to root as well)
+
+  5. The policy is in effect. The grader tests it on pamtest and puts
+     the account back afterwards:
+       - three failed logins as pamtest lock the account, so that even
+         the correct password is refused
+       - when root sets a new password for pamtest, a password of
+         11 characters and a password with only two character classes
+         are rejected
+       - a password that meets the policy, such as Vt9-plum-Orbit-x,
+         is accepted
+       - the previous password of pamtest is rejected
+
+PRACTICE (not graded)
+  - From your own account, switch to pamtest with a wrong password
+    three times. Look at the failure records of pamtest, try the
+    correct password, then unlock the account.
+  - As pamtest, try to change the password to a short one and to the
+    current one, and read the error messages.
+
+NOTES
+  - Work with root privileges (sudo). Only the final state is graded.
+  - Keep a second session to servera open while you change the PAM
+    configuration.
+  - Do not enable the lockout for root. The grader locks only
+    pamtest, never root or {{LAB_USER}}.
+  - Reference: man authselect, man pam_faillock, man faillock.conf,
+    man faillock, man pwquality.conf, man pam_pwquality,
+    man pwhistory.conf and man pam_pwhistory.
+  - The lab restores the authselect configuration and the files in
+    /etc/security when you run labctl reset.
+
+GRADING
+  labctl grade users-04
