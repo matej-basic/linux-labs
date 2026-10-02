@@ -17,9 +17,9 @@ if ! command -v systemd-cat >/dev/null 2>&1; then
 	exit 1
 fi
 
-# Lab owner: the user who ran sudo, else "student". If that user does not
-# exist, use the first regular user (UID >= 1000), else root.
-owner="${SUDO_USER:-student}"
+# Lab owner: the task user (LAB_USER), else "student". If that user does
+# not exist, use the first regular user (UID >= 1000), else root.
+owner="${LAB_USER:-student}"
 if ! id "$owner" &>/dev/null; then
 	owner=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
 	owner="${owner:-root}"
