@@ -1,6 +1,7 @@
 #!/bin/bash
 # scheduling-03 cleanup: remove the anacron job, the timer, the scripts and
 # logs, and restore root's crontab from the backup made by setup.sh.
+source /opt/linux-labs/lib/packages.sh
 STATE_DIR=/opt/linux-labs/state/scheduling-03
 
 # Anacron job (in place, to keep mode and SELinux context)
@@ -34,12 +35,7 @@ rm -f /usr/local/bin/env-task.sh /var/log/env-task.log
 
 rm -rf "$STATE_DIR"
 
-# Packages that setup.sh installed (none when servera already had them)
-PRE=/var/tmp/scheduling-03.pre
-if [ -f "$PRE" ]; then
-	while read -r pkg; do
-		[ -n "$pkg" ] && dnf -y -q remove "$pkg" >/dev/null 2>&1 || true
-	done < <(tac "$PRE")
-	rm -f "$PRE"
-fi
-exit 0
+# cronie and cronie-anacron go again if the lab installed them
+rc=0
+pkg_restore scheduling-03 || rc=1
+exit "$rc"

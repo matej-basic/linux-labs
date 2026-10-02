@@ -66,7 +66,7 @@ PKG_INSTALL_RE='(dnf|yum)( [^|;&]*)? (install|localinstall|reinstall|groupinstal
 # each from this list; the criterion fails for a listed lab that already
 # uses the helper or no longer installs packages, so the list only shrinks.
 PKG_HELPER_PENDING="clustering-01 clustering-02 clustering-03
-	scheduling-01 scheduling-03 selinux-02 selinux-03 storage-02 users-03
+	selinux-02 selinux-03 storage-02 users-03
 	webserver-02 webserver-03"
 # Allowed shellcheck exclusions for lab scripts:
 #   SC1091  not following a sourced file (lab scripts source absolute

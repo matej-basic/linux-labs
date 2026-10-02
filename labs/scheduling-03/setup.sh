@@ -1,20 +1,14 @@
 #!/bin/bash
-# scheduling-03 setup: make sure cronie-anacron is installed, remove any
+# scheduling-03 setup: snapshot the packages, make sure cronie and
+# cronie-anacron are installed (reset removes what the lab added), remove
 # earlier lab files and back up root's crontab so cleanup can restore it.
 # Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+
+pkg_snapshot scheduling-03
 
 STATE_DIR=/opt/linux-labs/state/scheduling-03
-
-# First run only: record which packages the lab has to install, so that
-# cleanup.sh removes only those (servera may already have them).
-PRE=/var/tmp/scheduling-03.pre
-if [ ! -f "$PRE" ]; then
-	: > "$PRE"
-	for pkg in cronie cronie-anacron; do
-		rpm -q "$pkg" >/dev/null 2>&1 || echo "$pkg" >> "$PRE"
-	done
-fi
 
 for pkg in cronie cronie-anacron; do
 	if ! rpm -q "$pkg" >/dev/null 2>&1; then

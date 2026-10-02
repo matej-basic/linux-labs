@@ -3,6 +3,9 @@
 # or log file left by an earlier run. Other root crontab entries stay.
 # Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+
+pkg_snapshot scheduling-01
 
 if ! command -v crontab >/dev/null 2>&1; then
 	dnf -y -q install cronie >/dev/null
