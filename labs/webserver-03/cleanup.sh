@@ -1,56 +1,73 @@
 #!/bin/bash
-# webserver-03 cleanup: undo setup and the solution. Packages the lab
-# installed are removed again; packages that were already there stay, and
-# httpd gets its earlier files, enabled state and active state back.
+# webserver-03 cleanup: stop httpd, remove the lab3 virtual host, content,
+# certificate and hosts entry, and restore the package set of the first
+# start (pkg_restore): httpd, mod_ssl and their dependencies go if the
+# lab installed them, and come back if they were installed before. Then
+# put back what setup.sh recorded: /etc/httpd, /var/www and
+# /var/log/httpd of a httpd that was there before, and its service state.
+# When the package set cannot be restored, the records stay for the next
+# reset and the exit status is 1.
+source /opt/linux-labs/lib/packages.sh
+
 STATE_FILE=/opt/linux-labs/state/webserver-03
 bak=/var/tmp/webserver-03.bak
+dirs="etc/httpd var/www var/log/httpd"
 
 state_value() {
 	[ -r "$STATE_FILE" ] || return 0
 	sed -n "s/^$1=//p" "$STATE_FILE" | head -n 1
 }
 
+systemctl disable --now httpd >/dev/null 2>&1 || true
+
 rm -rf /var/www/lab3
 rm -f /etc/httpd/conf.d/lab3.conf
-rm -f /etc/pki/tls/certs/lab3.crt
-rm -f /etc/pki/tls/private/lab3.key
+rm -f /etc/pki/tls/certs/lab3.crt /etc/pki/tls/private/lab3.key
 sed -i '/lab3\.local/d' /etc/hosts
 
-if [ -r "$STATE_FILE" ]; then
-	systemctl stop httpd &>/dev/null || true
-	if [ "$(state_value mod_ssl_installed)" = no ]; then
-		dnf -y remove mod_ssl &>/dev/null || true
-		# The default certificate httpd-init generated on the first start
-		if [ "$(state_value default_cert_present)" = no ]; then
-			rm -f /etc/pki/tls/certs/localhost.crt /etc/pki/tls/private/localhost.key
-		fi
-	fi
-	if [ "$(state_value httpd_installed)" = no ]; then
-		# The lab installed httpd: disable it and remove it again
-		systemctl disable httpd &>/dev/null || true
-		dnf -y remove httpd &>/dev/null || true
-	else
-		# httpd was already there: delete files the lab added, restore the
-		# recorded /etc/httpd and /var/www/html, then the service state
-		if [ -f "$bak/files.tar" ]; then
-			tar -tf "$bak/files.tar" | sed 's|/$||' | sort > "$bak/list"
-			while read -r f; do
-				f=${f#/}
-				grep -qxF "$f" "$bak/list" || rm -f "/$f"
-			done < <(find /etc/httpd /var/www/html \( -type f -o -type l \) 2>/dev/null)
-			tar --selinux --xattrs --acls -C / -xpf "$bak/files.tar"
-		fi
-		[ "$(state_value httpd_enabled)" = yes ] || systemctl disable httpd &>/dev/null || true
-		if [ "$(state_value httpd_active)" = yes ]; then
-			systemctl restart httpd &>/dev/null || true
-		fi
-	fi
-else
-	# Lab was not started through labctl: only stop and disable httpd
-	systemctl stop httpd &>/dev/null || true
-	systemctl disable httpd &>/dev/null || true
+httpd_before=yes
+if ! pkg_was_installed webserver-03 httpd; then
+	httpd_before=no
+	# New httpd: delete what the apache account owns, so that
+	# pkg_restore can remove the account
+	rm -rf /var/log/httpd/* /var/cache/httpd
 fi
 
-rm -rf "$bak"
-rm -f "$STATE_FILE"
-exit 0
+rc=0
+pkg_restore webserver-03 || rc=1
+
+if [ "$httpd_before" = no ] && ! rpm -q httpd >/dev/null 2>&1; then
+	# Empty directories rpm leaves behind after removing a new httpd
+	rmdir /etc/httpd/conf.modules.d /etc/httpd 2>/dev/null || true
+	# The default certificate that httpd-init created on the first start
+	if [ "$(state_value default_cert_present)" = no ]; then
+		rm -f /etc/pki/tls/certs/localhost.crt /etc/pki/tls/private/localhost.key
+	fi
+fi
+
+if [ "$(state_value httpd_preinstalled)" = yes ]; then
+	if [ -f "$bak/files.tar" ]; then
+		# Delete files the lab added, then restore the recorded ones
+		tar -tf "$bak/files.tar" | sed 's|/$||' | sort > "$bak/list"
+		for p in $dirs; do
+			[ -d "/$p" ] || continue
+			find "/$p" \( -type f -o -type l \) 2>/dev/null
+		done | while read -r f; do
+			f=${f#/}
+			grep -qxF "$f" "$bak/list" || rm -f "/$f"
+		done
+		tar --selinux --xattrs --acls -C / -xpf "$bak/files.tar"
+	fi
+	if [ "$(state_value httpd_enabled)" = yes ]; then
+		systemctl enable httpd >/dev/null 2>&1 || true
+	fi
+	if [ "$(state_value httpd_active)" = yes ]; then
+		systemctl restart httpd >/dev/null 2>&1 || true
+	fi
+fi
+
+if [ "$rc" -eq 0 ]; then
+	rm -rf "$bak"
+	rm -f "$STATE_FILE"
+fi
+exit "$rc"

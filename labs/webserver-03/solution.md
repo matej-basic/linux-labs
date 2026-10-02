@@ -17,8 +17,7 @@
 
 ## Solution
 
-1. [sudo] Install Apache and the TLS module, whichever is missing
-   (an installed package is not upgraded):
+1. [sudo] Install Apache and the TLS module:
 
    ```bash
    rpm -q httpd || sudo dnf -y install httpd

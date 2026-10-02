@@ -16,11 +16,10 @@
 
 ## Solution
 
-1. [sudo] Install Apache (this changes nothing if it is already
-   installed), enable it and start it:
+1. [sudo] Install Apache, enable it and start it:
 
    ```bash
-   sudo dnf -y install httpd
+   rpm -q httpd || sudo dnf -y install httpd
    sudo systemctl enable --now httpd
    ```
 
