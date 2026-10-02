@@ -1,0 +1,5 @@
+title: NFS export security and autofs client mounts
+category: Storage
+complexity: Intermediate
+objective: Export two directories with different squashing options from node 1 and mount them on demand with autofs on node 2.
+needs: internet, nodes=2

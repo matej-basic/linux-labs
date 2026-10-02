@@ -1,0 +1,88 @@
+OBJECTIVE
+  Share two directories of node 1 with node 2 over NFS with different
+  security options, and let node 2 mount them on demand with autofs.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH.
+
+     workstation
+          |
+          | SSH to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     NFS server: exports /srv/projects and /srv/docs
+          |
+          | NFS, port 2049
+          |
+     node 2  {{NODE2_IP}}
+     NFS client: autofs mounts them at /shares/projects and
+     /shares/docs
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - SSH access to both nodes works from the workstation, and the SSH
+    user has sudo on the nodes.
+  - The nodes reach the Rocky Linux package repositories. The NFS
+    tools come from the package nfs-utils, the automounter from the
+    package autofs.
+  - Node 1 has the user projdata (UID 3001) and the group projdata
+    (GID 3001).
+  - Node 1 has the directory /srv/projects with the file README.txt,
+    owned by projdata and group projdata, mode 0770. It also has the
+    directory /srv/docs with the file manual.txt, owned by root.
+  - Neither directory is exported, the NFS server is not running and
+    the firewall on node 1 has no rule for NFS. Node 2 has no autofs
+    configuration for /shares.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. The NFS server (service nfs-server) is enabled at boot and
+     running on node 1.
+  2. Node 1 exports /srv/projects read-write to the address
+     {{NODE2_IP}} of node 2. The export maps every user of the
+     client, root included, to the user ID 3001 and the group ID
+     3001.
+  3. Node 1 exports /srv/docs read-only to the address {{NODE2_IP}}.
+     The export keeps root squashing, the default.
+  4. Both exports are configured in /etc/exports or in a file in
+     /etc/exports.d. Use the address of node 2, not a host name or a
+     network.
+  5. The firewall on node 1 allows the nfs service, at runtime and
+     permanently.
+  6. The service autofs is enabled at boot and running on node 2.
+  7. A file with the extension .autofs in /etc/auto.master.d on
+     node 2 defines an indirect map for the directory /shares. /shares
+     is an autofs mount point.
+  8. Accessing /shares/projects on node 2 mounts
+     {{NODE1_IP}}:/srv/projects there, and accessing /shares/docs
+     mounts {{NODE1_IP}}:/srv/docs there.
+  9. A file that root creates on node 2 in /shares/projects belongs to
+     UID 3001 and GID 3001 (projdata) on node 1.
+  10. On node 2, root can read /shares/docs/manual.txt and cannot
+      create files in /shares/docs.
+
+EXPECTED RESULT
+  /shares on node 2 is empty until a program accesses one of its
+  subdirectories. Listing /shares/projects mounts the export and shows
+  README.txt. Files created there show up in /srv/projects on node 1,
+  owned by projdata. Writing to /shares/docs fails with a read-only
+  file system error.
+
+PRACTICE (not graded)
+  - Wait until autofs unmounts an idle share, then access it again.
+  - Create a file in /shares/projects as the SSH user on node 2 and
+    compare its owner on both nodes.
+
+NOTES
+  - The automounter creates the directories below /shares itself.
+    Do not create them on node 2.
+  - Reference: man exports, man exportfs, man auto.master and
+    man 5 autofs (the map format).
+  - labctl reset removes the autofs configuration for /shares, the
+    exports, the firewall rule, /srv/projects, /srv/docs and the user
+    and group projdata. Where the lab installed nfs-utils or autofs,
+    reset removes them again.
+
+GRADING
+  labctl grade nfs-02

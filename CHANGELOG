@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab nfs-02 (Storage, Intermediate, two nodes): an all_squash export with a fixed anonymous user, a read-only export, and on-demand mounts through an autofs indirect map.
 - Lab ansible-01 (Automation, Beginner, three nodes): an Ansible control node on servera with ansible.cfg, an inventory, key access to a sudo account on the managed nodes and a playbook that installs and starts httpd. Automation is a new category.
 - Lab storage-04 (Storage, Intermediate, reboot): a persistent swap file with a priority, vm.swappiness in sysctl.d and a tuned profile.
 - Lab ssh-02 (SSH, Advanced): sshd hardening with key-only root login, a Match block that disables passwords for a group, and a second port with its SELinux type and firewall rule.
