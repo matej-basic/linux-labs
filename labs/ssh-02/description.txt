@@ -1,0 +1,6 @@
+title: Hardening the SSH server
+category: SSH
+complexity: Advanced
+objective: Restrict root and password logins in the SSH server configuration and add a second SSH port with its SELinux type and firewall rule.
+target: servera
+needs: internet

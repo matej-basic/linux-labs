@@ -1,0 +1,57 @@
+OBJECTIVE
+  Harden the SSH server on this machine. Root may log in only with a
+  key, the members of one group may log in only with a key, and sshd
+  listens on a second port that SELinux and the firewall allow.
+
+PREREQUISITES
+  - The lab has created the group automation with the members
+    svcbackup and svcdeploy. Both accounts have the password Ssh02.lab
+    and can log in over SSH with it.
+  - The private key ~/svcbackup_ed25519 of {{LAB_USER}} logs in as
+    svcbackup. Use it to test key logins.
+  - Right now root can log in over SSH with a password.
+
+TASKS
+  1. Root can log in over SSH with a key, but not with a password.
+     Root logins with a key stay allowed.
+  2. Password authentication is off for the members of the group
+     automation. Public key authentication stays on for them. For
+     every other account, such as {{LAB_USER}}, password
+     authentication stays as it was at the start of the lab.
+  3. sshd is configured for exactly two ports, 22 and 2222/tcp, is
+     enabled and running, and listens on both ports.
+  4. Port 2222/tcp has the SELinux port type ssh_port_t.
+  5. Port 2222/tcp is open in the default firewall zone, in the
+     runtime and in the permanent configuration.
+  6. A key login as svcbackup with the key from the PREREQUISITES
+     works on port 22 and on port 2222.
+  7. The SSH server configuration passes the sshd syntax test.
+
+EXPECTED RESULT
+  The effective sshd configuration, as sshd prints it in its extended
+  test mode, shows the new values. For svcbackup and svcdeploy it
+  shows password authentication off, for {{LAB_USER}} it does not.
+
+NOTES
+  - Keep port 22 and key logins as {{LAB_USER}} working at all times.
+    labctl reaches this machine over SSH on port 22 with a key, and
+    so do you. Keep a second SSH session open while you change sshd,
+    and test the configuration before you reload or restart sshd.
+  - As soon as the configuration names any port, sshd no longer
+    listens on port 22 by default.
+  - Put the settings in /etc/ssh/sshd_config or in a file of your
+    choice in /etc/ssh/sshd_config.d. Check whether sshd_config on
+    this system reads that directory, and where. For most keywords
+    the first value sshd reads wins.
+  - The password rule for the group should be a conditional block
+    that matches the group (not graded beyond the two members).
+  - The SELinux port tools may not be installed yet.
+  - Reference: man sshd_config (sections Match and Include), man sshd
+    (extended test mode), man semanage-port, man firewall-cmd.
+  - labctl reset restores the SSH server configuration exactly as it
+    was, removes the SELinux port type and the firewall rule for
+    2222/tcp, the lab accounts and the key, and the packages you
+    installed.
+
+GRADING
+  labctl grade ssh-02
