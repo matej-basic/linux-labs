@@ -34,6 +34,8 @@ NOTES
     graded; command history is not evaluated.
   - Reference: man mysql and the MySQL reference manual, sections
     CREATE USER and GRANT.
+  - labctl reset drops labdb and labuser and returns the database
+    server to its state before labctl start.
 
 GRADING
   labctl grade mysql-02

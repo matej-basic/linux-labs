@@ -1,65 +1,128 @@
 #!/bin/bash
-# mysql-03 setup: make sure MySQL runs with the root password labpassword
-# and a fresh database labdb (tables users and products). Removes any
-# earlier backup and the restore database. Prints nothing on success.
+# mysql-03 setup: a running MySQL/MariaDB server with root password
+# labpassword, a fresh database labdb (tables users and products), no
+# database labdb_restore and no backup file. Prints nothing on success.
+#
+# An existing server (servera keeps mysql-server from the replication
+# labs) is used as it is. The first run records in /var/tmp/mysql-03.pre
+# what the lab changes: whether the server was installed, the service
+# state, the definition of root@localhost, databases labdb and
+# labdb_restore that already existed, and which mysql history files
+# existed. cleanup.sh puts all of it back. SQL run by this script and
+# cleanup.sh is kept out of the binary log.
 set -eu
 
+ROOT_PW=labpassword
+BACKUP=/tmp/labdb_backup.sql
+pre=/var/tmp/mysql-03.pre
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/mysql-03"
-PASS=labpassword
+servers="mysql-server mariadb-server"
+lab_user=${LAB_USER:-student}
+if ! getent passwd "$lab_user" >/dev/null; then
+	lab_user=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
+fi
+lab_home=$(getent passwd "$lab_user" | cut -d: -f6)
 
-# Remember whether this lab installed the server, so cleanup can undo it.
-# A repeated run keeps the value from the first run.
-installed=no
-if [ -r "$STATE_FILE" ]; then
-	installed=$(sed -n 's/^installed_by_lab=//p' "$STATE_FILE" | head -n 1)
+die() {
+	echo "mysql-03 setup: $*" >&2
+	exit 1
+}
+
+# rootsql <sql>: run SQL as the database root user, labpassword first,
+# then without a password (socket, or root's own option file)
+rootsql() {
+	MYSQL_PWD=$ROOT_PW mysql -u root -N -B -e "$1" </dev/null 2>/dev/null ||
+		mysql -u root -N -B -e "$1" </dev/null 2>/dev/null
+}
+
+# rootdump <db> <file>: dump one database with CREATE DATABASE
+rootdump() {
+	local opt
+	for opt in --set-gtid-purged=OFF ""; do
+		MYSQL_PWD=$ROOT_PW mysqldump -u root ${opt:+"$opt"} --databases "$1" \
+			>"$2" 2>/dev/null </dev/null && return 0
+		mysqldump -u root ${opt:+"$opt"} --databases "$1" \
+			>"$2" 2>/dev/null </dev/null && return 0
+	done
+	return 1
+}
+
+# First run only: record whether a server was there and how it was
+if [ ! -d "$pre" ]; then
+	rm -rf "$pre.tmp"
+	mkdir -m 0700 "$pre.tmp"
+	for p in $servers; do
+		rpm -q "$p" >/dev/null 2>&1 && echo "$p-installed" >> "$pre.tmp/flags"
+	done
+	for u in mysqld mariadb; do
+		systemctl is-enabled --quiet "$u" 2>/dev/null && echo "$u-enabled" >> "$pre.tmp/flags"
+		systemctl is-active --quiet "$u" 2>/dev/null && echo "$u-active" >> "$pre.tmp/flags"
+	done
+	for h in "$lab_home" /root; do
+		[ -n "$h" ] && [ -e "$h/.mysql_history" ] &&
+			echo "history $h" >> "$pre.tmp/flags"
+	done
+	touch "$pre.tmp/flags"
+	mv "$pre.tmp" "$pre"
 fi
 
-if ! rpm -q --quiet mysql-server && ! rpm -q --quiet mariadb-server; then
-	dnf -q -y install mysql-server >/dev/null
-	installed=yes
-fi
-
-svc=mysqld
-if ! rpm -q --quiet mysql-server; then
+if rpm -q mariadb-server &>/dev/null; then
 	svc=mariadb
+else
+	if ! rpm -q mysql-server &>/dev/null; then
+		dnf -y install mysql-server </dev/null >/dev/null 2>&1 ||
+			die "cannot install mysql-server"
+	fi
+	svc=mysqld
 fi
 
-mkdir -p "$STATE_DIR"
-echo "installed_by_lab=${installed:-no}" > "$STATE_FILE"
-chmod 644 "$STATE_FILE"
+systemctl enable --now "$svc" </dev/null >/dev/null 2>&1 ||
+	die "cannot start $svc"
 
-systemctl enable --now "$svc" >/dev/null 2>&1
-
-# Wait until the server answers (socket login as the OS user root)
-ready=
+# Wait until the server answers (ping succeeds even if access is denied)
+up=0
 for _ in $(seq 1 60); do
-	if mysqladmin --protocol=socket -u root ping >/dev/null 2>&1 ||
-		MYSQL_PWD=$PASS mysqladmin -u root ping >/dev/null 2>&1; then
-		ready=yes
+	if mysqladmin --connect-timeout=2 ping </dev/null >/dev/null 2>&1; then
+		up=1
 		break
 	fi
 	sleep 1
 done
-if [ -z "$ready" ]; then
-	echo "mysql-03 setup: $svc did not become ready" >&2
-	exit 1
+[ "$up" = 1 ] || die "$svc does not answer"
+
+rootsql 'SELECT 1' >/dev/null || die "cannot log in to $svc as root"
+
+# First run with a server that was there before: save root@localhost,
+# and labdb and labdb_restore if they exist
+if [ ! -f "$pre/saved" ] && grep -q -- '-installed$' "$pre/flags"; then
+	# MySQL prints password hashes as hex, MariaDB has no such option
+	rootsql "SET SESSION print_identified_with_as_hex=1; SHOW CREATE USER 'root'@'localhost'" > "$pre/root.sql" ||
+		rootsql "SHOW CREATE USER 'root'@'localhost'" > "$pre/root.sql" ||
+		die "cannot read the definition of root@localhost"
+	for db in labdb labdb_restore; do
+		if [ "$(rootsql "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='$db'")" = 1 ]; then
+			rootdump "$db" "$pre/$db.sql" ||
+				die "cannot save the existing database $db"
+		fi
+	done
+	touch "$pre/saved"
 fi
 
-# Root login: with the lab password if it is already set, else set it
-if MYSQL_PWD=$PASS mysql -u root -e 'SELECT 1' >/dev/null 2>&1; then
-	:
-elif mysql --protocol=socket -u root -e 'SELECT 1' >/dev/null 2>&1; then
-	mysql --protocol=socket -u root \
-		-e "ALTER USER 'root'@'localhost' IDENTIFIED BY '$PASS';"
-else
-	echo "mysql-03 setup: cannot log in to MySQL as root" >&2
-	exit 1
+# Root password: set it when it is not labpassword yet
+if ! MYSQL_PWD=$ROOT_PW mysql -u root -e 'SELECT 1' </dev/null >/dev/null 2>&1; then
+	rootsql "SET sql_log_bin=0; ALTER USER 'root'@'localhost' IDENTIFIED BY '$ROOT_PW'" >/dev/null ||
+		die "cannot set the database root password to $ROOT_PW"
 fi
+
+mkdir -p "$STATE_DIR"
+echo "lab_user=$lab_user" > "$STATE_FILE"
+chmod 644 "$STATE_FILE"
 
 # Reset lab state
-rm -f /tmp/labdb_backup.sql
-MYSQL_PWD=$PASS mysql -u root <<'SQL'
+rm -f "$BACKUP"
+MYSQL_PWD=$ROOT_PW mysql -u root --init-command='SET sql_log_bin=0' \
+	>/dev/null 2>&1 <<'SQL' || die "cannot create the database labdb"
 DROP DATABASE IF EXISTS labdb_restore;
 DROP DATABASE IF EXISTS labdb;
 CREATE DATABASE labdb;
@@ -85,3 +148,4 @@ INSERT INTO products (id, name, price) VALUES
   (2, 'Monitor', 189.00),
   (3, 'Mouse', 12.50);
 SQL
+exit 0

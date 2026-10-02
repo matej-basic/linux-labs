@@ -29,6 +29,9 @@ NOTES
     command history is not evaluated.
   - Log in to MySQL as root with the password labpassword.
   - Reference: man mysqldump and man mysql.
+  - labctl reset drops labdb and labdb_restore, removes the backup
+    file and returns the database server to its state before labctl
+    start.
 
 GRADING
   labctl grade mysql-03

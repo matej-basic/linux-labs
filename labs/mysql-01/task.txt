@@ -30,6 +30,8 @@ NOTES
     command history is not evaluated.
   - Reference: man dnf, man systemctl and man mysql.
   - You need root privileges (sudo) for the installation.
+  - A MySQL server that {{HOSTNAME}} had before the lab, with its data,
+    is set aside while the lab runs and comes back at labctl reset.
 
 GRADING
   labctl grade mysql-01

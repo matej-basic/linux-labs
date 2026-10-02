@@ -2,7 +2,9 @@
 # Reference solution for mysql-01, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# solve: package mysql-server
+# mysql-server is not declared as a package: on a server that had MySQL
+# before the lab, labctl reset puts that installation back.
+# solve: none
 set -euo pipefail
 # shellcheck source=/dev/null
 source "$(dirname "$0")/solve-lib.sh"
