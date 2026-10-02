@@ -63,6 +63,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - The replication tasks say what reset does to the database servers on the nodes.
 
 ### Fixed
+- Every lab was runtime-tested on Rocky Linux 8.10 and 9.8. On Rocky 9, users-02 could not verify passwords hashed with a rounds setting; its grader now uses the system crypt().
 - Graders that could never pass, and graders that passed without checking anything.
 - Solutions that did not satisfy their own task text.
 - Cleanups that destroyed data or left the VM in a changed state.
