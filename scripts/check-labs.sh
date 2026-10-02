@@ -728,7 +728,7 @@ pkg_install_lines() {
 
 c_packages() {
 	local installs uses=0 pending=0 f
-	installs=$(pkg_install_lines | head -n 1)
+	installs=$(pkg_install_lines | sed -n 1p) # reads all input: head would SIGPIPE sed
 	for f in setup.sh cleanup.sh; do
 		[ -f "$D/$f" ] && grep -qE '^[[:space:]]*(source|\.) /opt/linux-labs/lib/packages\.sh$' "$D/$f" && uses=1
 	done
