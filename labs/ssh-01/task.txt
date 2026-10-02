@@ -1,0 +1,45 @@
+OBJECTIVE
+  Generate an SSH key pair, authorize it for a second account on the
+  same machine and add a host alias for that login to your SSH client
+  configuration.
+
+PREREQUISITES
+  - The lab has created the local account deploy. It has no password,
+    so the only way to log in as deploy is with a key.
+
+TASKS
+  1. As {{LAB_USER}}, generate an ed25519 key pair without a
+     passphrase. The private key is the file deploy_ed25519 in the
+     directory .ssh of your home directory, and the public key is the
+     same path with the suffix .pub. Both files belong to
+     {{LAB_USER}}. The private key has the mode 0600.
+  2. Authorize the new public key for the account deploy. The file
+     /home/deploy/.ssh/authorized_keys contains it. The directory
+     /home/deploy/.ssh has the mode 0700, the file authorized_keys has
+     the mode 0600, and deploy owns both.
+  3. A non-interactive login as deploy on localhost with the private
+     key from task 1 succeeds without any password.
+  4. Add the host alias deploy-local to the SSH client configuration
+     of {{LAB_USER}}. The alias connects to localhost as the user
+     deploy with the private key from task 1. A login with the alias
+     as the only connection argument then logs in as deploy.
+
+EXPECTED RESULT
+  As {{LAB_USER}}, connecting to the alias deploy-local opens a shell
+  as deploy on this machine without asking for a password.
+
+NOTES
+  - Do not change the SSH server configuration in /etc/ssh. The task
+    needs only the client side and the account deploy.
+  - Creating files for deploy needs root privileges (sudo). Generate
+    the key pair and edit your own client configuration as
+    {{LAB_USER}}.
+  - The first connection to localhost asks you to confirm its host
+    key. The grader does not use your known_hosts file.
+  - Reference: man ssh-keygen, man ssh, man ssh_config and man sshd
+    (section AUTHORIZED_KEYS FILE FORMAT).
+  - labctl reset deletes the account deploy, the key pair and the
+    changes to your client configuration and known_hosts file.
+
+GRADING
+  labctl grade ssh-01

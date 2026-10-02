@@ -2,6 +2,11 @@
 
 All notable changes to linux-labs. The version matches `Version:` in rpm/linux-labs.spec and the git tag vX.Y.Z.
 
+## Unreleased
+
+### Added
+- Lab ssh-01 (SSH, Beginner): an ed25519 key pair, an authorized key for a second account and a client host alias. SSH is a new category.
+
 ## 2.0.0 (2026-10-03)
 
 ### Added

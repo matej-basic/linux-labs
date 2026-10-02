@@ -1,0 +1,5 @@
+title: SSH key authentication and a client host alias
+category: SSH
+complexity: Beginner
+objective: Generate an ed25519 key pair, authorize it for another account and log in through a host alias in the SSH client configuration.
+target: servera

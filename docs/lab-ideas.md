@@ -52,7 +52,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Security and access control
 
-- ssh-01 (Beginner): SSH basics and key generation
 - ssh-02 (Intermediate): SSH key-based authentication
 - ssh-03 (Advanced): SSH hardening and security
 - fail2ban-01 (Beginner): Fail2ban installation and basics
