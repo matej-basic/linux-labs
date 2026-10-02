@@ -22,9 +22,12 @@
    MAJOR=$(. /etc/os-release && echo "${VERSION_ID%%.*}")
    ARCH=$(uname -m)
    URL=https://dl.fedoraproject.org/pub/epel/$MAJOR/Everything/$ARCH/Packages/j/
-   curl -s $URL | grep -o 'joe-[0-9][^"<]*\.rpm' | sort -uV
-   curl -o joe.rpm ${URL}joe-<version>.<dist>.<arch>.rpm
+   curl -fsSL $URL | grep -o 'joe-[0-9][^"<]*\.rpm' | sort -uV
+   curl -fsSL -o joe.rpm ${URL}joe-<version>.<dist>.<arch>.rpm
    ```
+
+   The mirror sometimes answers `404 Not Found` for a directory that
+   exists. Repeat the command a few seconds later.
 
 2. [sudo] Install joe from the downloaded file. dnf resolves the
    dependencies from the enabled repositories:
