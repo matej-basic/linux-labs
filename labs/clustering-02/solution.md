@@ -26,7 +26,8 @@ names of the classroom layout. Use the names the cluster reports.
    Rocky 9 system its id is highavailability):
 
    ```bash
-   sudo dnf -y install --enablerepo=ha fence-agents-virsh
+   rpm -q fence-agents-virsh ||
+     sudo dnf -y install --enablerepo=ha fence-agents-virsh
    ```
 
 2. [sudo] On node 1, list the node names known to Pacemaker. Node N
