@@ -3,8 +3,7 @@
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
 # solve: path /tmp/labdb_backup.sql
-# solve: path /var/lib/pgsql/data
-# solve: package postgresql-server
+# solve: path /var/tmp/postgres-03.pre
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 

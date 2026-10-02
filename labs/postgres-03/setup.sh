@@ -1,41 +1,44 @@
 #!/bin/bash
-# postgres-03 setup: PostgreSQL installed, initialised and running, with
-# database labdb and table users holding sample data. Records in the state
-# file what this script did, so that cleanup.sh undoes only that.
+# postgres-03 setup: a running PostgreSQL server with database labdb and
+# table users holding sample data, no labdb_restore and no backup file.
+# Installs and initialises the server only when it is missing.
 # Prints nothing on success.
+#
+# An existing server (servera keeps PostgreSQL from the replication
+# labs) is used as it is. The first run records in /var/tmp/postgres-03.pre
+# what the lab may change: whether the server was installed, the
+# postgresql* packages, the module stream file, the user postgres and
+# /var/lib/pgsql, the service state, the firewall service postgresql,
+# the configuration files of the cluster, every role with its attributes
+# and password, the databases labdb and labdb_restore if they already
+# existed, and the psql history and .pgpass files of the task user, root
+# and postgres. cleanup.sh puts all of it back.
 set -eu
 
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/postgres-03"
-DATA_DIR=/var/lib/pgsql/data
+BACKUP=/tmp/labdb_backup.sql
+pre=/var/tmp/postgres-03.pre
+home=/var/lib/pgsql
+DATA=$home/data
+modfile=/etc/dnf/modules.d/postgresql.module
+CONF_FILES="pg_hba.conf pg_ident.conf postgresql.conf postgresql.auto.conf"
+LAB_DBS="labdb labdb_restore"
 
-# Flags: 1 = created or started by this lab (cleanup undoes it)
-pkg=0 init=0 svc=0 db=0 tbl=0 rows=0 hash=
-if [ -r "$STATE_FILE" ]; then
-	for k in pkg init svc db tbl rows; do
-		v=$(sed -n "s/^$k=//p" "$STATE_FILE" | head -n 1)
-		[ "$v" = 1 ] && printf -v "$k" '%s' 1
-	done
+lab_user=${LAB_USER:-student}
+if ! getent passwd "$lab_user" >/dev/null; then
+	lab_user=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
 fi
+lab_home=$(getent passwd "$lab_user" | cut -d: -f6)
 
-save_state() {
-	mkdir -p "$STATE_DIR"
-	cat > "$STATE_FILE" <<STATE
-pkg=$pkg
-init=$init
-svc=$svc
-db=$db
-tbl=$tbl
-rows=$rows
-hash=$hash
-STATE
-	chmod 644 "$STATE_FILE"
+die() {
+	echo "postgres-03 setup: $*" >&2
+	exit 1
 }
 
 # client_min_messages=warning hides NOTICEs such as "does not exist, skipping"
-pg() {
-	local d=$1 q=$2
-	(cd /tmp && PGOPTIONS='-c client_min_messages=warning' runuser -u postgres -- psql -X -At -v ON_ERROR_STOP=1 -d "$d" -c "$q")
+pgsu() {
+	(cd /tmp && PGOPTIONS='-c client_min_messages=warning' runuser -u postgres -- psql -X -qAt -v ON_ERROR_STOP=1 "$@")
 }
 
 # Run a command silently (stdout and stderr); show its output only on failure
@@ -44,74 +47,121 @@ quiet() {
 	out=$("$@" 2>&1) || { echo "$out" >&2; return 1; }
 }
 
-# Package, cluster and service
-if ! rpm -q postgresql-server > /dev/null 2>&1; then
-	quiet dnf -y -q install postgresql-server
-	pkg=1
-	save_state
+# First run only: what the machine looked like before the lab
+if [ ! -d "$pre" ]; then
+	rm -rf "$pre.tmp"
+	mkdir -m 0700 "$pre.tmp" "$pre.tmp/files"
+	flags="$pre.tmp/flags"
+	: > "$flags"
+	rpm -q postgresql-server >/dev/null 2>&1 && echo server >> "$flags"
+	rpm -qa 'postgresql*' 'libpq*' | sort > "$pre.tmp/rpms"
+	[ -f "$modfile" ] && cp -p "$modfile" "$pre.tmp/postgresql.module"
+	getent passwd postgres >/dev/null && echo user >> "$flags"
+	[ -e "$home" ] && echo home >> "$flags"
+	[ -f "$DATA/PG_VERSION" ] && echo data >> "$flags"
+	systemctl is-enabled --quiet postgresql 2>/dev/null && echo enabled >> "$flags"
+	systemctl is-active --quiet postgresql 2>/dev/null && echo active >> "$flags"
+	if firewall-cmd --state >/dev/null 2>&1; then
+		echo firewalld >> "$flags"
+		firewall-cmd --query-service=postgresql >/dev/null 2>&1 &&
+			echo fw-runtime >> "$flags"
+		firewall-cmd --permanent --query-service=postgresql >/dev/null 2>&1 &&
+			echo fw-permanent >> "$flags"
+	fi
+	for h in "$lab_home" /root "$home"; do
+		[ -n "$h" ] || continue
+		for f in .psql_history .pgpass; do
+			[ -f "$h/$f" ] || continue
+			echo "$h/$f" >> "$pre.tmp/files.list"
+			cp -p "$h/$f" "$pre.tmp/files/$(echo "$h/$f" | tr / %)"
+		done
+	done
+	touch "$pre.tmp/files.list"
+	mv "$pre.tmp" "$pre"
 fi
-if [ ! -f "$DATA_DIR/PG_VERSION" ]; then
-	quiet postgresql-setup --initdb
-	init=1
-	save_state
+
+# Install and initialise the server if needed
+if ! rpm -q postgresql-server &>/dev/null; then
+	quiet dnf -y -q install postgresql-server </dev/null ||
+		die "cannot install postgresql-server"
 fi
-if ! systemctl is-active --quiet postgresql; then
-	systemctl start postgresql
-	svc=1
-	save_state
+if [ ! -f "$DATA/PG_VERSION" ]; then
+	quiet postgresql-setup --initdb || die "cannot initialise the database cluster"
 fi
-ready=0
+
+# First run: keep the configuration files. A repeated start puts them
+# back, so it begins from the same configuration.
+restart=no
+if [ ! -d "$pre/conf" ]; then
+	mkdir -m 0700 "$pre/conf.tmp"
+	for f in $CONF_FILES; do
+		[ -f "$DATA/$f" ] && cp -p "$DATA/$f" "$pre/conf.tmp/$f"
+	done
+	mv "$pre/conf.tmp" "$pre/conf"
+else
+	for f in $CONF_FILES; do
+		[ -f "$pre/conf/$f" ] || continue
+		cmp -s "$pre/conf/$f" "$DATA/$f" && continue
+		cat "$pre/conf/$f" > "$DATA/$f"
+		restart=yes
+	done
+fi
+
+if [ "$restart" = yes ] && systemctl is-active --quiet postgresql; then
+	systemctl restart postgresql || die "cannot restart postgresql"
+else
+	systemctl start postgresql || die "cannot start postgresql"
+fi
+
+ready=no
 for _ in $(seq 1 30); do
-	if pg postgres 'SELECT 1' > /dev/null 2>&1; then
-		ready=1
+	if pgsu -d postgres -c 'SELECT 1' > /dev/null 2>&1; then
+		ready=yes
 		break
 	fi
 	sleep 1
 done
-if [ "$ready" -ne 1 ]; then
-	echo "postgres-03: PostgreSQL does not accept connections" >&2
-	exit 1
+[ "$ready" = yes ] || die "postgresql does not accept connections"
+
+# First run: save every role (attributes, passwords, memberships) and
+# the lab databases that already exist
+if [ ! -f "$pre/saved" ]; then
+	(cd /tmp && runuser -u postgres -- pg_dumpall --roles-only) \
+		> "$pre/roles.sql" 2>/dev/null || die "cannot save the roles"
+	pgsu -d postgres -c "SELECT format('ALTER ROLE %I PASSWORD NULL;', rolname) FROM pg_authid WHERE rolpassword IS NULL AND rolname !~ '^pg_'" \
+		>> "$pre/roles.sql" || die "cannot save the roles"
+	for db in $LAB_DBS; do
+		[ "$(pgsu -d postgres -c "SELECT 1 FROM pg_database WHERE datname = '$db'")" = 1 ] || continue
+		(cd /tmp && runuser -u postgres -- pg_dump --create -d "$db") \
+			> "$pre/$db.sql" 2>/dev/null || die "cannot save the existing database $db"
+	done
+	touch "$pre/saved"
+else
+	# A repeated start: the roles as they were before the lab
+	(cd /tmp && runuser -u postgres -- psql -X -q -d postgres) \
+		< "$pre/roles.sql" > /dev/null 2>&1 || true
 fi
 
-# Starting state of the lab: no backup, no restore database
-pg postgres 'DROP DATABASE IF EXISTS labdb_restore' > /dev/null
-rm -f /tmp/labdb_backup.sql
+# Remove what a previous run or the solution left behind
+rm -f "$BACKUP"
+for db in $LAB_DBS; do
+	pgsu -d postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '$db'" > /dev/null
+	pgsu -d postgres -c "DROP DATABASE IF EXISTS $db" > /dev/null
+done
 
-# labdb: recreate it when this lab made it, otherwise keep what exists
-if [ "$db" = 1 ]; then
-	pg postgres 'DROP DATABASE IF EXISTS labdb' > /dev/null
-fi
-if [ "$(pg postgres "SELECT count(*) FROM pg_database WHERE datname = 'labdb'")" = 0 ]; then
-	pg postgres 'CREATE DATABASE labdb' > /dev/null
-	db=1
-	save_state
-fi
-
-# users table and rows (only touched when this lab owns them)
-if [ "$db" = 0 ]; then
-	if [ "$tbl" = 1 ]; then
-		pg labdb 'DROP TABLE IF EXISTS public.users' > /dev/null
-	fi
-	if [ "$rows" = 1 ]; then
-		pg labdb 'DELETE FROM public.users' > /dev/null 2>&1 || true
-	fi
-fi
-if [ "$(pg labdb "SELECT count(*) FROM pg_tables WHERE schemaname = 'public' AND tablename = 'users'")" = 0 ]; then
-	pg labdb 'CREATE TABLE public.users (id serial PRIMARY KEY, name text NOT NULL, email text NOT NULL)' > /dev/null
-	[ "$db" = 1 ] || tbl=1
-	save_state
-fi
-if [ "$(pg labdb 'SELECT count(*) FROM public.users')" = 0 ]; then
-	pg labdb "INSERT INTO public.users (name, email) VALUES
-		('Alice Novak', 'alice@example.com'),
-		('Bruno Horvat', 'bruno@example.com'),
-		('Cecilia Kovac', 'cecilia@example.com'),
-		('David Babic', 'david@example.com'),
-		('Eva Maric', 'eva@example.com')" > /dev/null
-	[ "$db" = 1 ] || rows=1
-	save_state
-fi
+# labdb with the sample data
+pgsu -d postgres -c 'CREATE DATABASE labdb' > /dev/null
+pgsu -d labdb -c 'CREATE TABLE public.users (id serial PRIMARY KEY, name text NOT NULL, email text NOT NULL)' > /dev/null
+pgsu -d labdb -c "INSERT INTO public.users (name, email) VALUES
+	('Alice Novak', 'alice@example.com'),
+	('Bruno Horvat', 'bruno@example.com'),
+	('Cecilia Kovac', 'cecilia@example.com'),
+	('David Babic', 'david@example.com'),
+	('Eva Maric', 'eva@example.com')" > /dev/null
 
 # Checksum of the original data for the grader
-hash=$(pg labdb 'COPY (SELECT * FROM public.users) TO STDOUT' | sort | md5sum | cut -d' ' -f1)
-save_state
+hash=$(pgsu -d labdb -c 'COPY (SELECT * FROM public.users) TO STDOUT' | sort | md5sum | cut -d' ' -f1)
+mkdir -p "$STATE_DIR"
+echo "hash=$hash" > "$STATE_FILE"
+chmod 644 "$STATE_FILE"
+exit 0

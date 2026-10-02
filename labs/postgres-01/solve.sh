@@ -2,8 +2,10 @@
 # Reference solution for postgres-01, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# solve: package postgresql-server
-# solve: path /var/lib/pgsql/data
+# postgresql-server and /var/lib/pgsql/data are not declared: on a server
+# that had PostgreSQL before the lab, labctl reset puts that installation
+# back.
+# solve: none
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 

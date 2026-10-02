@@ -3,11 +3,14 @@ OBJECTIVE
   the backup into a new database and check that the data is intact.
 
 PREREQUISITES
-  The lab start installs and starts the PostgreSQL server if needed
-  and makes sure that database labdb exists with sample data in the
-  table users. This needs internet access on the first start. The
-  administrative database account is postgres. Works on Rocky Linux
-  8 and 9.
+  - labctl start installs and initialises postgresql-server if it is
+    missing and starts the postgresql service. Installing needs
+    internet access.
+  - The lab start creates the database labdb with sample data in the
+    table users. The database labdb_restore and the file
+    /tmp/labdb_backup.sql are removed, so you begin without them.
+    Other databases are left alone.
+  - The administrative database account is postgres.
 
 TASKS
   1. Keep the PostgreSQL service running.

@@ -2,7 +2,7 @@
 # Reference solution for postgres-02, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# solve: none
+# solve: path /var/tmp/postgres-02.pre
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
