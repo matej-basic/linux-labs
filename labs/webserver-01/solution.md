@@ -13,7 +13,8 @@
 
 ## Solution
 
-1. [sudo] Install the Apache HTTP Server package:
+1. [sudo] Install the Apache HTTP Server package (this changes
+   nothing if httpd is already installed):
 
    ```bash
    sudo dnf -y install httpd

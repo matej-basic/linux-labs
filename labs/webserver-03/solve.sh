@@ -6,13 +6,13 @@
 # solve: path /etc/httpd/conf.d/lab3.conf
 # solve: path /etc/pki/tls/certs/lab3.crt
 # solve: path /etc/pki/tls/private/lab3.key
-# solve: package httpd
 # solve: package mod_ssl
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install httpd mod_ssl >/dev/null
+rpm -q httpd >/dev/null || dnf -y install httpd >/dev/null
+rpm -q mod_ssl >/dev/null || dnf -y install mod_ssl >/dev/null
 
 # Step 2 [sudo]
 echo "127.0.0.1 lab3.local" >> /etc/hosts

@@ -7,8 +7,8 @@ PREREQUISITES
   - Run the steps as {{LAB_USER}} with sudo where root is needed.
 
 TASKS
-  1. Install the Apache web server (httpd) and its TLS module
-     (mod_ssl). httpd must be running.
+  1. Make sure the Apache web server (httpd) and its TLS module
+     (mod_ssl) are installed. httpd must be running.
   2. Make the name lab3.local resolve to 127.0.0.1 through
      /etc/hosts.
   3. Create the document root /var/www/lab3/html with an index.html

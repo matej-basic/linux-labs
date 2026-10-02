@@ -4,7 +4,6 @@
 #
 # solve: path /var/www/lab2
 # solve: path /etc/httpd/conf.d/lab2.conf
-# solve: package httpd
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 

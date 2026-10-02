@@ -10,7 +10,13 @@ STATE_FILE="$STATE_DIR/webserver-02"
 mkdir -p "$STATE_DIR"
 
 # Record the original httpd state once; a rerun keeps the first record.
+# If httpd is already installed (servera keeps it from the clustering
+# labs), also keep a copy of /etc/httpd and /var/www/html in
+# /var/tmp/webserver-02.bak so cleanup.sh can put them back.
 if [ ! -f "$STATE_FILE" ]; then
+	bak=/var/tmp/webserver-02.bak
+	rm -rf "$bak"
+	mkdir -m 0700 "$bak"
 	pre=no
 	act=no
 	ena=no
@@ -18,6 +24,12 @@ if [ ! -f "$STATE_FILE" ]; then
 		pre=yes
 		systemctl is-active --quiet httpd && act=yes
 		systemctl is-enabled --quiet httpd && ena=yes
+		keep=""
+		for p in etc/httpd var/www/html; do
+			[ -e "/$p" ] && keep="$keep $p"
+		done
+		# shellcheck disable=SC2086 # word splitting is intended
+		tar --selinux --xattrs --acls -C / -cpf "$bak/files.tar" $keep
 	fi
 	{
 		echo "httpd_installed=$pre"

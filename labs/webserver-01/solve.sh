@@ -2,7 +2,7 @@
 # Reference solution for webserver-01, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# solve: package httpd
+# solve: none
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 

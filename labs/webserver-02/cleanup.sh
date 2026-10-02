@@ -1,6 +1,7 @@
 #!/bin/bash
 # webserver-02 cleanup: undo setup and the solution.
 STATE_FILE=/opt/linux-labs/state/webserver-02
+bak=/var/tmp/webserver-02.bak
 
 state_value() {
 	[ -r "$STATE_FILE" ] || return 0
@@ -22,7 +23,17 @@ if [ -r "$STATE_FILE" ]; then
 		systemctl disable --now httpd &>/dev/null || true
 		dnf -y remove httpd &>/dev/null || true
 	else
-		# httpd was already there: restore its enabled and active state
+		# httpd was already there: delete files the lab added, restore the
+		# recorded /etc/httpd and /var/www/html, then the service state
+		systemctl stop httpd &>/dev/null || true
+		if [ -f "$bak/files.tar" ]; then
+			tar -tf "$bak/files.tar" | sed 's|/$||' | sort > "$bak/list"
+			while read -r f; do
+				f=${f#/}
+				grep -qxF "$f" "$bak/list" || rm -f "/$f"
+			done < <(find /etc/httpd /var/www/html \( -type f -o -type l \) 2>/dev/null)
+			tar --selinux --xattrs --acls -C / -xpf "$bak/files.tar"
+		fi
 		[ "$(state_value httpd_enabled)" = yes ] || systemctl disable httpd &>/dev/null || true
 		if [ "$(state_value httpd_active)" = yes ]; then
 			systemctl restart httpd &>/dev/null || true
@@ -35,5 +46,6 @@ else
 	systemctl try-restart httpd &>/dev/null || true
 fi
 
+rm -rf "$bak"
 rm -f "$STATE_FILE"
 exit 0

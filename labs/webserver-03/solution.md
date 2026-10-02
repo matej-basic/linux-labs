@@ -17,10 +17,12 @@
 
 ## Solution
 
-1. [sudo] Install Apache and the TLS module:
+1. [sudo] Install Apache and the TLS module, whichever is missing
+   (an installed package is not upgraded):
 
    ```bash
-   sudo dnf -y install httpd mod_ssl
+   rpm -q httpd || sudo dnf -y install httpd
+   rpm -q mod_ssl || sudo dnf -y install mod_ssl
    ```
 
 2. [sudo] Make lab3.local resolve to the local machine:
