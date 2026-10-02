@@ -28,6 +28,8 @@ NOTES
   - A filesystem inside an image file has no device that exists
     before it is attached, so an fstab entry must not depend on a
     device name or UUID that appears only after the attach.
+  - A reboot of {{HOSTNAME}} closes your SSH connection to it. This is
+    expected: connect again once the system is back up.
   - Reference: man fstab, man mount (loop devices), man mkfs.ext4.
 
 GRADING
