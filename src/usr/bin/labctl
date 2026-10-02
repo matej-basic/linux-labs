@@ -3,6 +3,8 @@
 LAB_ROOT="/opt/linux-labs/labs"
 LIB_DIR="/opt/linux-labs/lib"
 STATE_FILE="/opt/linux-labs/.current_lab"
+# "<lab> <target>": where labctl started the active lab (see active_lab)
+TARGET_FILE="/opt/linux-labs/.current_target"
 PROFILE_SCRIPT="/etc/profile.d/labctl.sh"
 # labctl's own SSH known_hosts for server targets (not root's)
 KNOWN_HOSTS="/var/lib/linux-labs/known_hosts"
@@ -70,15 +72,66 @@ usage() {
   exit "${1:-1}"
 }
 
+# True when <lab> is an installed lab (one of its scripts is executable)
+is_known_lab() {
+  case "$1" in ""|*/*) return 1 ;; esac
+  [ -x "$LAB_ROOT/$1"/setup.sh ] || [ -x "$LAB_ROOT/$1"/grade.sh ] || [ -x "$LAB_ROOT/$1"/cleanup.sh ]
+}
+
 # Require a lab name for commands that need one
 require_lab() {
   local lab="$1"
   if [ -z "$lab" ]; then
     usage
   fi
-  if [ ! -x "$LAB_ROOT/$lab"/setup.sh ] && [ ! -x "$LAB_ROOT/$lab"/grade.sh ] && [ ! -x "$LAB_ROOT/$lab"/cleanup.sh ]; then
+  if ! is_known_lab "$lab"; then
     echo "Unknown lab: $lab" >&2
     exit 1
+  fi
+}
+
+# --- The active lab ---------------------------------------------------------
+#
+# One lab is active at a time. $STATE_FILE holds its name (the [LAB:...]
+# prompt reads it) and $TARGET_FILE holds "<lab> <target>", the machine
+# labctl ran setup.sh on. labctl 1.1.0 wrote only $STATE_FILE and ran
+# every lab on the workstation, so an active lab without a matching
+# $TARGET_FILE line was started by an older labctl, on this workstation.
+
+# Print the name of the active lab, nothing when no lab is active
+active_lab() {
+  [ -r "$STATE_FILE" ] || return 0
+  head -n 1 "$STATE_FILE" 2>/dev/null
+}
+
+# True when <lab> is the active lab and an older labctl started it
+started_by_old_labctl() {
+  local rec
+  [ -n "$1" ] && [ "$(active_lab)" = "$1" ] || return 1
+  rec=$(head -n 1 "$TARGET_FILE" 2>/dev/null)
+  [ "${rec%% *}" != "$1" ]
+}
+
+old_start_error() {
+  echo "Error: lab $1 was started with an older version of linux-labs." >&2
+  echo "Reset it, then start it again: sudo labctl reset $1" >&2
+}
+
+# write_markers <lab> <target>: record the active lab after its setup
+write_markers() {
+  mkdir -p "$(dirname "$STATE_FILE")"
+  echo "$1" > "$STATE_FILE"
+  printf '%s %s\n' "$1" "$2" > "$TARGET_FILE"
+  chmod 0644 "$STATE_FILE" "$TARGET_FILE" 2>/dev/null
+}
+
+# clear_markers <lab>: forget the active lab after a reset of <lab>. The
+# reset of another lab leaves the record of the active lab alone.
+clear_markers() {
+  local active
+  active=$(active_lab)
+  if [ -z "$active" ] || [ "$active" = "$1" ]; then
+    rm -f "$STATE_FILE" "$TARGET_FILE"
   fi
 }
 
@@ -238,7 +291,14 @@ task_user() {
   target=$(lab_target "$1")
   if is_server_target "$target"; then
     target_settings "$target" | sed -n 2p
-  elif [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+  else
+    local_task_user
+  fi
+}
+
+# The task user of a lab that runs on the workstation
+local_task_user() {
+  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
     printf '%s\n' "$SUDO_USER"
   elif [ "$EUID" -ne 0 ]; then
     id -un
@@ -651,6 +711,22 @@ case "$1" in
       echo "Error: 'labctl start' requires root. Use: sudo labctl start $2" >&2
       exit 1
     fi
+    # One lab at a time: another active lab is reset first, so that its
+    # changes do not stay behind. Starting the active lab again is fine
+    # (setup.sh is idempotent), unless an older labctl started it on this
+    # workstation. A marker naming a lab that is not installed is ignored.
+    active=$(active_lab)
+    if is_known_lab "$active"; then
+      if [ "$active" != "$2" ]; then
+        echo "Error: lab $active is still active. Only one lab can be active at a time." >&2
+        echo "Finish it first: sudo labctl reset $active" >&2
+        exit 1
+      fi
+      if started_by_old_labctl "$2"; then
+        old_start_error "$2"
+        exit 1
+      fi
+    fi
     clear_hint_counter "$2"
     target=$(lab_target "$2")
     if is_server_target "$target"; then
@@ -664,8 +740,7 @@ case "$1" in
         echo "Error: setup of lab $2 failed (exit $rc). The lab was not started." >&2
         exit "$rc"
       fi
-      mkdir -p "$(dirname "$STATE_FILE")"
-      echo "$2" > "$STATE_FILE"
+      write_markers "$2" "$target"
       print_task "$2"
       exit 0
     fi
@@ -680,14 +755,12 @@ case "$1" in
         echo "Error: setup of lab $2 failed (exit $rc). The lab was not started." >&2
         exit "$rc"
       fi
-      mkdir -p "$(dirname "$STATE_FILE")"
-      echo "$2" > "$STATE_FILE"
+      write_markers "$2" "$target"
       print_task "$2"
     else
       # Legacy lab: setup.sh prints its own banner
       "$LAB_ROOT/$2/setup.sh"
-      mkdir -p "$(dirname "$STATE_FILE")"
-      echo "$2" > "$STATE_FILE"
+      write_markers "$2" "$target"
     fi
     # The [LAB:...] prompt picks up $STATE_FILE through PROMPT_COMMAND
     # (/etc/profile.d/labctl.sh) at the next prompt of the student's shell.
@@ -695,6 +768,10 @@ case "$1" in
     ;;
   task)
     require_lab "$2"
+    if started_by_old_labctl "$2"; then
+      old_start_error "$2"
+      exit 1
+    fi
     if [ ! -f "$LAB_ROOT/$2/task.txt" ]; then
       echo "No task text for lab $2. Run 'sudo labctl start $2' to see its task." >&2
       exit 1
@@ -703,6 +780,12 @@ case "$1" in
     ;;
   grade)
     require_lab "$2"
+    # An older labctl ran setup.sh on this workstation; grading here or on
+    # the target would compare against a setup that does not match
+    if started_by_old_labctl "$2"; then
+      old_start_error "$2"
+      exit 1
+    fi
     if [ "$EUID" -ne 0 ]; then
       # Graders always run as root, so they can read root-only state
       # (firewalld permanent config, /var/named, logs). The sudoers rule
@@ -730,13 +813,38 @@ case "$1" in
       exit 1
     fi
     target=$(lab_target "$2")
+    if is_server_target "$target" && started_by_old_labctl "$2"; then
+      # An older labctl ran this lab on the workstation. Clean up there
+      # with the local cleanup.sh, as that version would have, and on the
+      # target, which the current labctl uses. The record goes either way.
+      echo "Lab $2 was started with an older version of linux-labs. Cleaning it up on this workstation and on $target."
+      LAB_USER=$(local_task_user)
+      export LAB_USER
+      "$LAB_ROOT/$2/cleanup.sh"
+      rc_local=$?
+      rc_target=1
+      if load_target "$target"; then
+        run_on_target "$2" reset
+        rc_target=$?
+      fi
+      clear_markers "$2"
+      clear_hint_counter "$2"
+      if [ "$rc_local" -ne 0 ]; then
+        echo "Error: cleanup of lab $2 on this workstation failed (exit $rc_local)." >&2
+      fi
+      if [ "$rc_target" -ne 0 ]; then
+        echo "Error: cleanup of lab $2 on $target failed (exit $rc_target)." >&2
+      fi
+      [ "$rc_local" -ne 0 ] && exit "$rc_local"
+      exit "$rc_target"
+    fi
     if is_server_target "$target"; then
       # cleanup.sh runs on the server, which then drops its lab copy and
       # its prompt marker
       load_target "$target" || exit 1
       run_on_target "$2" reset
       rc=$?
-      rm -f "$STATE_FILE"
+      clear_markers "$2"
       clear_hint_counter "$2"
       if [ "$rc" -ne 0 ]; then
         echo "Error: cleanup of lab $2 failed (exit $rc)." >&2
@@ -748,7 +856,7 @@ case "$1" in
     export LAB_USER
     "$LAB_ROOT/$2/cleanup.sh"
     rc=$?
-    rm -f "$STATE_FILE"
+    clear_markers "$2"
     clear_hint_counter "$2"
     if [ -f "$LAB_ROOT/$2/task.txt" ] && [ "$rc" -ne 0 ]; then
       # Framework 2.0 lab: report a failed cleanup

@@ -39,6 +39,30 @@ your user is not student. Run the command it suggests:
 
     sudo labctl grade files-01
 
+## Error: lab files-04 is still active
+
+    Error: lab files-04 is still active. Only one lab can be active at a time.
+    Finish it first: sudo labctl reset files-04
+
+You started another lab earlier and did not reset it. Reset it, then
+start the new lab. The reset removes your work in the old lab:
+
+    sudo labctl reset files-04
+    sudo labctl start files-01
+
+## Error: lab files-01 was started with an older version of linux-labs
+
+    Error: lab files-01 was started with an older version of linux-labs.
+    Reset it, then start it again: sudo labctl reset files-01
+
+linux-labs was updated while the lab was active. The older version ran
+the lab on the workstation, and the new version runs it on servera, so
+the lab cannot be graded any more. Reset it and start it again. The
+reset cleans up both machines, and your work in that lab is removed:
+
+    sudo labctl reset files-01
+    sudo labctl start files-01
+
 ## The grade shows "Lab was started with labctl start ... FAIL"
 
     Grading files-01 on servera
@@ -111,7 +135,9 @@ If that file exists, a lab is still active. Reset that lab.
 ## Error: cleanup of lab <lab> failed (exit N).
 
 The reset did not finish. The lab is no longer active, but some of its
-files or settings may still be there. Run the reset again:
+files or settings may still be there. For a lab that an older version
+started, the message names the machine, for example "cleanup of lab
+files-01 on servera failed". Run the reset again:
 
     sudo labctl reset files-01
 

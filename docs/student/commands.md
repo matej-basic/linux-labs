@@ -25,6 +25,11 @@ not matter.
 `labctl grade` needs root rights to check the system, but you run it
 without sudo: labctl gets the rights by itself.
 
+One lab is active at a time. Finish it with `sudo labctl reset <lab>`
+before you start the next one; `sudo labctl start` refuses another lab
+until then. Starting the active lab again is allowed and prepares it
+from the beginning.
+
 Run all labctl commands on the workstation, also for a lab that runs
 on servera. labctl does the setup, grading and reset on servera by
 itself; you only log in there to do the work.

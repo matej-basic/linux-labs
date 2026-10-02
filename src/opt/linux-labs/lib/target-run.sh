@@ -23,7 +23,9 @@
 #   grade  grade.sh from the working copy, or from a temporary copy when
 #          the lab is not started on this target.
 #   reset  fresh copy, cleanup.sh, then the copy and the marker are removed
-#          (also when cleanup.sh fails). The prompt script stays.
+#          (also when cleanup.sh fails). The prompt script stays. When the
+#          marker names another lab that has its copy here, cleanup.sh runs
+#          from a temporary copy and that lab's copy and marker stay.
 #
 # The exit status is the status of the lab script, or 1 when the copy
 # fails.
@@ -110,18 +112,27 @@ case "$MODE" in
 		exit $?
 		;;
 	reset)
+		# When another lab is active here, clean up from a temporary copy
+		# and leave that lab's copy and marker alone
+		active=$(head -n 1 "$MARKER" 2>/dev/null)
+		dir="$BASE"
+		if [ -n "$active" ] && [ "$active" != "$LAB" ] && [ -d "$BASE/labs/$active" ]; then
+			dir="$BUNDLE/run"
+		fi
 		rc=1
-		if install_copy "$BASE"; then
-			run_script "$BASE" cleanup.sh
+		if install_copy "$dir"; then
+			run_script "$dir" cleanup.sh
 			rc=$?
 		else
-			copy_failed "$BASE"
+			copy_failed "$dir"
 		fi
-		rm -rf "$BASE"
-		rm -f "$MARKER"
-		# Remove the directories the lab created, only when they are empty
-		rmdir /opt/linux-labs/state 2>/dev/null
-		rmdir /opt/linux-labs 2>/dev/null
+		if [ "$dir" = "$BASE" ]; then
+			rm -rf "$BASE"
+			rm -f "$MARKER"
+			# Remove the directories the lab created, only when they are empty
+			rmdir /opt/linux-labs/state 2>/dev/null
+			rmdir /opt/linux-labs 2>/dev/null
+		fi
 		exit "$rc"
 		;;
 	*)

@@ -35,9 +35,10 @@
 #   su - student -c "labctl grade <lab>"         expect exit 1
 #   the paths and packages declared in solve.sh, the state file
 #   /opt/linux-labs/state/<lab>, the package snapshot
-#   /opt/linux-labs/state/<lab>.packages and /opt/linux-labs/.current_lab
-#   are gone (on a server target also the server's marker and
-#   /var/lib/linux-labs; for a multi-node lab the snapshot on every node)
+#   /opt/linux-labs/state/<lab>.packages, /opt/linux-labs/.current_lab
+#   and /opt/linux-labs/.current_target are gone (on a server target
+#   also the server's marker and /var/lib/linux-labs; for a multi-node
+#   lab the snapshot on every node)
 #   the package set (name.arch of every package, gpg-pubkey-<version> of
 #   every repo key) of the lab's machine is the same as right before
 #   labctl start; for a multi-node lab the workstation and every
@@ -625,7 +626,7 @@ test_lab() {
 		fi
 	fi
 
-	remote "active lab" "test ! -e /opt/linux-labs/.current_lab"
+	remote "active lab" "test ! -e /opt/linux-labs/.current_lab && test ! -e /opt/linux-labs/.current_target"
 	expect_rc "No lab is active after reset" 0
 	[ "$RC" -eq 0 ] && ACTIVE_LAB=""
 }

@@ -49,6 +49,12 @@ user can run it through
 .BR sudo .
 If the lab setup fails, the lab is not started and labctl exits with the
 setup exit status.
+While another lab is active,
+.B start
+refuses with exit status 1 and asks to finish that lab first with
+.BR "sudo labctl reset" .
+Starting the active lab again is allowed and prepares it from the
+beginning.
 .TP
 .BI task " LAB"
 Print the task of the lab again: the header line, the category and level
@@ -68,6 +74,19 @@ the overall result and the number of criteria met.
 .BI reset " LAB"
 Undo the lab setup and the changes the solution makes, and clear the active
 lab. Requires root.
+.PP
+A lab that linux-labs 1.1.0 or older started cannot be graded or
+continued, because those versions ran every lab on the workstation:
+.BR task ,
+.B grade
+and
+.B start
+of that lab print "Error: lab LAB was started with an older version of
+linux-labs." and exit 1.
+.B reset
+of that lab cleans up both on the workstation, where the older version
+ran it, and on the lab's server, then clears the active lab. Start the lab
+again afterwards.
 .TP
 .B list [\-\-course \fICOURSE\fP] [\-\-level \fILEVEL\fP]
 List the installed labs with their objective.
@@ -142,6 +161,12 @@ exits 0 when all criteria are met and 1 otherwise.
 and
 .B labctl reset
 exit 0 on success.
+.B labctl start
+exits 1 when another lab is active, and
+.B labctl task
+and
+.B labctl grade
+exit 1 for a lab started by an older version.
 .SH ENVIRONMENT
 .TP
 .B NO_COLOR
@@ -154,6 +179,11 @@ Installed labs.
 .TP
 .I /opt/linux-labs/.current_lab
 Name of the active lab.
+.TP
+.I /opt/linux-labs/.current_target
+The active lab and the machine its setup ran on, one line
+"LAB TARGET". An active lab without this line was started by an older
+version of linux-labs.
 .TP
 .I /var/lib/linux-labs/
 On the workstation: labctl's SSH known_hosts for the servers. On a server:
