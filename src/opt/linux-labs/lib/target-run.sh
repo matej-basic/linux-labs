@@ -53,6 +53,8 @@ install_copy() {
 	cp -R "$BUNDLE/lib" "$dir/lib" || return 1
 	rm -f "$dir/labs/$LAB/solve.sh" "$dir/labs/$LAB/known-issues.md"
 	sed -i "s#/opt/linux-labs/lib/#$dir/lib/#g" "$dir/labs/$LAB"/*.sh || return 1
+	# Same modes as the installed RPM, so a script may run a sibling directly
+	chmod 0755 "$dir/labs/$LAB"/*.sh || return 1
 	if command -v restorecon >/dev/null 2>&1; then
 		restorecon -R "$dir" >/dev/null 2>&1
 	fi
