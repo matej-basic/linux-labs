@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>labctl commands - linux-labs</title>
+<meta name="description" content="linux-labs student guide: labctl
+commands">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../">linux<span>-</span>labs</a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="../#install">Install</a></li>
+      <li><a href="../catalog.html">Catalog</a></li>
+      <li><a href="getting-started.html" aria-current="page">Docs</a></li>
+      <li><a href="https://github.com/matej-basic/linux-labs">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main" class="page">
+<nav aria-label="Student guides">
+  <ul class="subnav">
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html" aria-current="page">Commands</a></li>
+    <li><a href="troubleshooting.html">Troubleshooting</a></li>
+  </ul>
+</nav>
+<article class="prose">
+<h1 id="labctl-commands">labctl commands</h1>
+<p>The full reference is the manual page:</p>
+<pre><code>man labctl</code></pre>
+<div class="table-wrap">
+<table>
+<thead>
+<tr class="header">
+<th>Command</th>
+<th>What it does</th>
+<th>sudo</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>labctl list</code></td>
+<td>lists all labs with what you do in them</td>
+<td>no</td>
+</tr>
+<tr class="even">
+<td><code>labctl list --level beginner</code></td>
+<td>only labs of one level: beginner, intermediate or advanced</td>
+<td>no</td>
+</tr>
+<tr class="odd">
+<td><code>labctl list --course aoos</code></td>
+<td>only the labs of one course</td>
+<td>no</td>
+</tr>
+<tr class="even">
+<td><code>sudo labctl start &lt;lab&gt;</code></td>
+<td>prepares the system and prints the task</td>
+<td>yes</td>
+</tr>
+<tr class="odd">
+<td><code>labctl task &lt;lab&gt;</code></td>
+<td>prints the task again, changes nothing</td>
+<td>no</td>
+</tr>
+<tr class="even">
+<td><code>labctl grade &lt;lab&gt;</code></td>
+<td>checks your work, one PASS or FAIL line per requirement</td>
+<td>no</td>
+</tr>
+<tr class="odd">
+<td><code>labctl hint &lt;lab&gt;</code></td>
+<td>shows the next hint; each call adds one, and the count is reset when
+the lab is started or reset</td>
+<td>no</td>
+</tr>
+<tr class="even">
+<td><code>labctl solution &lt;lab&gt;</code></td>
+<td>asks "Continue? [y/N]", then shows the reference solution (press q
+to leave)</td>
+<td>no</td>
+</tr>
+<tr class="odd">
+<td><code>labctl solution &lt;lab&gt; --yes</code></td>
+<td>shows the reference solution without asking</td>
+<td>no</td>
+</tr>
+<tr class="even">
+<td><code>sudo labctl reset &lt;lab&gt;</code></td>
+<td>undoes the lab and your changes, ends the lab</td>
+<td>yes</td>
+</tr>
+<tr class="odd">
+<td><code>labctl check</code></td>
+<td>checks that your machines are ready for the labs and says what to
+fix</td>
+<td>no</td>
+</tr>
+<tr class="even">
+<td><code>labctl --version</code></td>
+<td>prints the installed linux-labs version</td>
+<td>no</td>
+</tr>
+<tr class="odd">
+<td><code>labctl help</code></td>
+<td>prints a short summary of the commands</td>
+<td>no</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><code>--level</code> and <code>--course</code> can be combined, for
+example <code>labctl list --course aoos --level beginner</code>. Upper
+or lower case does not matter.</p>
+<p><code>labctl grade</code> needs root rights to check the system, but
+you run it without sudo: labctl gets the rights by itself.</p>
+<p>One lab is active at a time. Finish it with
+<code>sudo labctl reset &lt;lab&gt;</code> before you start the next
+one; <code>sudo labctl start</code> refuses another lab until then.
+Starting the active lab again is allowed and prepares it from the
+beginning.</p>
+<p>Run all labctl commands on the workstation, also for a lab that runs
+on servera. labctl does the setup, grading and reset on servera by
+itself; you only log in there to do the work.</p>
+<p><code>labctl check</code> looks at the setup the labs depend on: the
+lab configuration, your SSH key, the login to servera (and serverb and
+serverc when multi-node labs are on) and a few things only some labs
+need. Run it when a lab will not start; see "Checking the environment"
+in <a href="troubleshooting.html">troubleshooting.md</a>.</p>
+<p><code>labctl grade</code> exits with status 0 when every requirement
+is met and 1 otherwise. <code>echo $?</code> right after it shows the
+status.</p>
+<p>Your teacher may also use <code>labctl configure</code>, which sets
+up labs that run on several machines. You do not need it for the other
+labs.</p>
+<p>Other guides on this machine are in /usr/share/doc/linux-labs/: <a
+href="getting-started.html">getting-started.md</a> and <a
+href="troubleshooting.html">troubleshooting.md</a>.</p>
+</article>
+</main>
+
+<footer class="foot">
+  <span>linux-labs 2.0.0 &middot; <a href="../catalog.html">Catalog</a> &middot; <a href="getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
+</footer>
+</body>
+</html>

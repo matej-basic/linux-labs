@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Troubleshooting - linux-labs</title>
+<meta name="description" content="linux-labs student guide:
+Troubleshooting">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../">linux<span>-</span>labs</a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="../#install">Install</a></li>
+      <li><a href="../catalog.html">Catalog</a></li>
+      <li><a href="getting-started.html" aria-current="page">Docs</a></li>
+      <li><a href="https://github.com/matej-basic/linux-labs">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main" class="page">
+<nav aria-label="Student guides">
+  <ul class="subnav">
+    <li><a href="getting-started.html">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+    <li><a href="troubleshooting.html" aria-current="page">Troubleshooting</a></li>
+  </ul>
+</nav>
+<article class="prose">
+<h1 id="troubleshooting">Troubleshooting</h1>
+<p>Find the message you see, then follow the steps under it.</p>
+<h2 id="checking-the-environment">Checking the environment</h2>
+<p>Before you look for a single message below, run:</p>
+<pre><code>labctl check</code></pre>
+<p>It checks, one line each, what every lab depends on: the lab
+configuration, your SSH key, the login to servera without a password,
+sudo for opsadmin on servera and the Rocky Linux release. With
+multi-node labs on, it checks serverb and serverc too. For servera it
+also looks for two free network interfaces and for access to the package
+repositories. A FAIL line is followed by a line that says what to
+fix:</p>
+<pre><code>SSH as opsadmin to servera (172.25.250.10) works .................. FAIL
+    Fix: start servera, or set NODE_IPS (node 1) to its address.</code></pre>
+<p>WARN marks something that only some labs need, for example the
+network labs or the labs with "Needs: internet". The command changes
+nothing and needs no sudo. It exits with status 0 when no line says
+FAIL. A server that does not answer takes a few seconds, so the whole
+check can take up to half a minute. Send the full output to your teacher
+when you cannot fix a FAIL line yourself.</p>
+<h2 id="labctl-command-not-found">labctl: command not found</h2>
+<p>linux-labs is not installed on this machine. Install it, or ask your
+teacher:</p>
+<pre><code>curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash</code></pre>
+<h2 id="unknown-lab-files-1">Unknown lab: files-1</h2>
+<p>The lab name is wrong. Lab names have a two-digit number, for example
+files-01. Look up the right name:</p>
+<pre><code>labctl list</code></pre>
+<h2 id="error-labctl-start-requires-root">Error: 'labctl start' requires
+root</h2>
+<p>You forgot sudo. Run:</p>
+<pre><code>sudo labctl start files-01</code></pre>
+<p>The same goes for reset:</p>
+<pre><code>sudo labctl reset files-01</code></pre>
+<h2 id="sudo-asks-for-a-password">sudo asks for a password</h2>
+<p>The sudo rule that linux-labs installs works only for the user named
+student. Log in as student, or ask your teacher to add a rule for your
+user.</p>
+<h2 id="error-grading-needs-root-use-sudo-labctl-grade-files-01">Error:
+grading needs root. Use: sudo labctl grade files-01</h2>
+<p>labctl could not get root rights without a password. This happens
+when your user is not student. Run the command it suggests:</p>
+<pre><code>sudo labctl grade files-01</code></pre>
+<h2 id="error-lab-files-04-is-still-active">Error: lab files-04 is still
+active</h2>
+<pre><code>Error: lab files-04 is still active. Only one lab can be active at a time.
+Finish it first: sudo labctl reset files-04</code></pre>
+<p>You started another lab earlier and did not reset it. Reset it, then
+start the new lab. The reset removes your work in the old lab:</p>
+<pre><code>sudo labctl reset files-04
+sudo labctl start files-01</code></pre>
+<h2
+id="error-lab-files-01-was-started-with-an-older-version-of-linux-labs">Error:
+lab files-01 was started with an older version of linux-labs</h2>
+<pre><code>Error: lab files-01 was started with an older version of linux-labs.
+Reset it, then start it again: sudo labctl reset files-01</code></pre>
+<p>linux-labs was updated while the lab was active. The older version
+ran the lab on the workstation, and the new version runs it on servera,
+so the lab cannot be graded any more. Reset it and start it again. The
+reset cleans up both machines, and your work in that lab is removed:</p>
+<pre><code>sudo labctl reset files-01
+sudo labctl start files-01</code></pre>
+<h2 id="the-grade-shows-lab-was-started-with-labctl-start--fail">The
+grade shows "Lab was started with labctl start ... FAIL"</h2>
+<pre><code>Grading files-01 on servera
+
+Lab was started with labctl start ................................. FAIL
+
+Overall result .................................................... FAIL
+0 of 1 criteria met.</code></pre>
+<p>The lab is not started, or it was reset. Start it, then do the work
+again:</p>
+<pre><code>sudo labctl start files-01</code></pre>
+<h2 id="everything-looks-right-but-a-line-still-says-fail">Everything
+looks right, but a line still says FAIL</h2>
+<ul>
+<li>Read the FAIL line word by word. It names exactly what is checked: a
+path, an owner, a permission, a service state.</li>
+<li>Check the details with ls -l, cat or systemctl status. A typo in a
+file name, a wrong owner or a service that is running but not enabled
+are common causes.</li>
+<li>Some labs check that a setting survives a reboot. If the task says
+so, reboot and grade again.</li>
+<li>Read the task again with labctl task &lt;lab&gt;. The answer is
+often in a sentence you skipped.</li>
+</ul>
+<h2
+id="error-setup-of-lab--failed-exit-n-the-lab-was-not-started">Error:
+setup of lab &lt;lab&gt; failed (exit N). The lab was not started.</h2>
+<p>The lab could not prepare your machine. The lines above this message
+say why. Common causes:</p>
+<ul>
+<li><p>The lab needs internet (its task shows "Needs: internet") and the
+machine cannot reach the package repositories. Check with:</p>
+<pre><code>dnf repolist</code></pre></li>
+<li><p>The lab needs a free network interface ("Needs: free network
+interface") and your machine has none.</p></li>
+<li><p>The lab runs on several machines ("Needs: 3 nodes") and they are
+not configured or not reachable.</p></li>
+</ul>
+<p>The last two need your teacher.</p>
+<h2 id="i-want-to-start-over">I want to start over</h2>
+<p>Reset the lab and start it again. Your work in that lab is
+removed:</p>
+<pre><code>sudo labctl reset files-01
+sudo labctl start files-01</code></pre>
+<h2 id="error-cannot-connect-to-servera--over-ssh-as-opsadmin">Error:
+cannot connect to servera (...) over SSH as opsadmin.</h2>
+<p>The lab runs on servera, and labctl could not log in there. Check
+that servera is running and that you can log in yourself:</p>
+<pre><code>ssh opsadmin@servera</code></pre>
+<p>If that asks for a password or fails, tell your teacher. labctl needs
+the same login without a password.</p>
+<h2 id="my-prompt-still-shows-lab-after-a-reset">My prompt still shows
+[LAB:...] after a reset</h2>
+<p>The prompt updates when the next prompt is printed. Press Enter once.
+If it still shows the lab, run:</p>
+<pre><code>cat /opt/linux-labs/.current_lab</code></pre>
+<p>If that file exists, a lab is still active. Reset that lab.</p>
+<h2 id="error-cleanup-of-lab--failed-exit-n">Error: cleanup of lab
+&lt;lab&gt; failed (exit N).</h2>
+<p>The reset did not finish. The lab is no longer active, but some of
+its files or settings may still be there. For a lab that an older
+version started, the message names the machine, for example "cleanup of
+lab files-01 on servera failed". Run the reset again:</p>
+<pre><code>sudo labctl reset files-01</code></pre>
+<p>If it fails again, tell your teacher and include the full output.</p>
+<h2 id="still-stuck">Still stuck</h2>
+<p>Collect this information and send it to your teacher:</p>
+<ul>
+<li>the lab name</li>
+<li>the exact command you ran</li>
+<li>the full output, copied as text</li>
+<li>the output of cat /etc/os-release</li>
+<li>the output of labctl check</li>
+</ul>
+</article>
+</main>
+
+<footer class="foot">
+  <span>linux-labs 2.0.0 &middot; <a href="../catalog.html">Catalog</a> &middot; <a href="getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
+</footer>
+</body>
+</html>

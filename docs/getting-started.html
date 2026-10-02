@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Getting started with linux-labs - linux-labs</title>
+<meta name="description" content="linux-labs student guide: Getting
+started with linux-labs">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="../site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="../">linux<span>-</span>labs</a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="../#install">Install</a></li>
+      <li><a href="../catalog.html">Catalog</a></li>
+      <li><a href="getting-started.html" aria-current="page">Docs</a></li>
+      <li><a href="https://github.com/matej-basic/linux-labs">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main" class="page">
+<nav aria-label="Student guides">
+  <ul class="subnav">
+    <li><a href="getting-started.html" aria-current="page">Getting started</a></li>
+    <li><a href="commands.html">Commands</a></li>
+    <li><a href="troubleshooting.html">Troubleshooting</a></li>
+  </ul>
+</nav>
+<article class="prose">
+<h1 id="getting-started-with-linux-labs">Getting started with
+linux-labs</h1>
+<p>linux-labs gives you small Linux administration tasks on your own
+virtual machine. You start a lab, read the task, do the work with normal
+Linux commands, and let the grader check the result. Then you reset the
+lab and start the next one.</p>
+<p>Everything goes through one command: labctl.</p>
+<h2 id="what-you-need">What you need</h2>
+<ul>
+<li>A virtual machine with Rocky Linux, RHEL or AlmaLinux, version 8 or
+9.</li>
+<li>A user account. In most classrooms it is called student.</li>
+<li>A terminal on that machine.</li>
+</ul>
+<h2 id="install">Install</h2>
+<p>Skip this step if your teacher already installed linux-labs. To
+check, run:</p>
+<pre><code>labctl list</code></pre>
+<p>If you see a list of labs, it is installed. If you see "command not
+found", install it. You need sudo rights for this:</p>
+<pre><code>curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash</code></pre>
+<p>The installer prints a few lines that start with "==&gt;" and ends
+with:</p>
+<pre><code>Installed: linux-labs-2.0.0-1.noarch
+
+Next steps:
+  labctl list
+  sudo labctl start &lt;lab&gt;</code></pre>
+<p>Log out and log in again once. After that your prompt shows the name
+of the active lab.</p>
+<h2 id="your-first-lab">Your first lab</h2>
+<p>Start with files-01. It takes about five minutes.</p>
+<h3 id="1-find-a-lab">1. Find a lab</h3>
+<pre><code>labctl list</code></pre>
+<p>You see one line per lab, with its name and what you will do:</p>
+<pre><code>LAB               DESCRIPTION
+----------------  ----------------------------------------------
+files-01          Create a directory and a text file with the required content.
+files-02          Build a web application directory tree with the required owners and permissions.
+...</code></pre>
+<p>To see only the easy labs:</p>
+<pre><code>labctl list --level beginner</code></pre>
+<h3 id="2-start-the-lab">2. Start the lab</h3>
+<pre><code>sudo labctl start files-01</code></pre>
+<p>Starting a lab needs sudo, because labctl prepares the system as
+root. As the student user you need no password for it. labctl prints the
+task:</p>
+<pre><code>files-01: Directories and files
+Category: Files    Level: Beginner
+========================================================================
+
+OBJECTIVE
+  Create a directory and a text file with the required content.
+
+TASKS
+  1. Create the directory /tmp/data.
+  2. Create the regular file /tmp/data/info.txt.
+  3. The file /tmp/data/info.txt must contain the word hello.
+
+EXPECTED RESULT
+  /tmp/data holds the file info.txt, and info.txt contains the word
+  hello.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man mkdir and man bash (section Redirection).
+
+GRADING
+  labctl grade files-01</code></pre>
+<p>Some labs print a Needs line under the title, for example "Needs:
+internet". It tells you what the lab needs from your machine.</p>
+<p>From the next prompt on, your prompt starts with [LAB:files-01]. That
+is how you know which lab is active.</p>
+<p>The task says what the result must be, not which commands to type.
+Finding the commands is the exercise.</p>
+<h3 id="3-do-the-work">3. Do the work</h3>
+<p>Use any commands you like. Only the final state counts, not your
+command history.</p>
+<p>To read the task again at any time:</p>
+<pre><code>labctl task files-01</code></pre>
+<h3 id="4-grade-your-work">4. Grade your work</h3>
+<pre><code>labctl grade files-01</code></pre>
+<p>Run it without sudo. labctl gets the rights it needs by itself.</p>
+<p>The grader prints one line per check. Each line ends with PASS or
+FAIL:</p>
+<pre><code>Grading files-01 on servera
+
+Directory /tmp/data exists ........................................ PASS
+File /tmp/data/info.txt exists .................................... PASS
+File /tmp/data/info.txt contains the word hello ................... FAIL
+
+Overall result .................................................... FAIL
+2 of 3 criteria met.</code></pre>
+<p>How to read it:</p>
+<ul>
+<li>Each line before "Overall result" is one requirement from the task.
+The text says what must be true.</li>
+<li>PASS means that requirement is met. FAIL means it is not met
+yet.</li>
+<li>"Overall result" is PASS only when every line is PASS.</li>
+<li>The last line counts the requirements you met.</li>
+</ul>
+<p>Here the directory and the file exist, but the file does not contain
+the word hello. Fix that, then grade again. You can grade as often as
+you want; grading changes nothing on the system.</p>
+<p>When everything is right, you see:</p>
+<pre><code>Overall result .................................................... PASS
+3 of 3 criteria met.</code></pre>
+<h3 id="5-reset-the-lab">5. Reset the lab</h3>
+<pre><code>sudo labctl reset files-01</code></pre>
+<p>This removes what the lab and your work created, so the machine is
+clean for the next lab. The [LAB:files-01] part of the prompt
+disappears.</p>
+<p>Only one lab is active at a time. Always reset a lab before you start
+the next one.</p>
+<h2 id="labs-that-run-on-a-server">Labs that run on a server</h2>
+<p>Most labs need root rights, so they run on a server called servera,
+not on your workstation. You still run every labctl command on the
+workstation. The header of such a lab has one more line:</p>
+<pre><code>files-02: Web directory permissions and ownership
+Category: Files    Level: Intermediate
+Work on servera: ssh opsadmin@servera
+========================================================================</code></pre>
+<p>Type that ssh command on the workstation to log in to servera. There
+you work as opsadmin, who may use sudo. The prompt on servera shows
+[LAB:files-02] too, so you know you are in the right place.</p>
+<p>When you are done, type exit to come back to the workstation. Then
+grade and reset from there, as usual:</p>
+<pre><code>exit
+labctl grade files-02
+sudo labctl reset files-02</code></pre>
+<p>Some labs reboot servera. The ssh connection closes during the
+reboot. Wait a minute and run the ssh command again.</p>
+<h2 id="the-whole-cycle">The whole cycle</h2>
+<pre><code>labctl list
+sudo labctl start files-01
+labctl task files-01
+labctl grade files-01
+sudo labctl reset files-01</code></pre>
+<h2 id="stuck">Stuck?</h2>
+<p>Work through these steps in order. Each one gives away a little
+more.</p>
+<ol type="1">
+<li><p>Ask for a hint, if the lab has one:</p>
+<pre><code>labctl hint files-01</code></pre>
+<p>Each call shows one more hint, from a general direction to a specific
+detail. The first call shows hint 1, the second shows hints 1 and 2, and
+so on. Take them one at a time and try again after each. A lab without
+hints tells you so.</p></li>
+<li><p>Read the task again with labctl task files-01. Compare each FAIL
+line in the grade output with the task. The FAIL text names the thing
+that is not right yet.</p></li>
+<li><p>Read the manual pages named under NOTES in the task, for
+example:</p>
+<pre><code>man mkdir</code></pre>
+<p>Press q to leave a man page. Press / and type a word to search in
+it.</p></li>
+<li><p>Read the reference solution:</p>
+<pre><code>labctl solution files-01</code></pre>
+<p>labctl asks "This shows the full solution. Continue? [y/N]" first.
+Answer y to go on. The solution shows the commands, then explains why
+they work. Press q to leave it. Try to do the lab yourself first: you
+learn more that way.</p></li>
+</ol>
+<p>If labctl itself shows an error, run labctl check. It tests your
+connection to servera and the rest of the setup the labs need and says
+what to fix. Then see <a
+href="troubleshooting.html">troubleshooting.md</a>.</p>
+<h2 id="more">More</h2>
+<ul>
+<li><a href="commands.html">commands.md</a>: all labctl commands on one
+page.</li>
+<li><a href="troubleshooting.html">troubleshooting.md</a>: what to do
+when labctl shows an error.</li>
+<li>man labctl: the full command reference.</li>
+<li>The list of all labs: <a
+href="https://github.com/matej-basic/linux-labs/blob/main/docs/catalog.md">https://github.com/matej-basic/linux-labs/blob/main/docs/catalog.md</a></li>
+</ul>
+</article>
+</main>
+
+<footer class="foot">
+  <span>linux-labs 2.0.0 &middot; <a href="../catalog.html">Catalog</a> &middot; <a href="getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
+</footer>
+</body>
+</html>

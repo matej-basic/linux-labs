@@ -1,0 +1,221 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lab catalog - linux-labs</title>
+<meta name="description" content="All 55 linux-labs labs by category, with level, target, course, what each lab needs and known issues.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="site.css">
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="./">linux<span>-</span>labs</a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="./#install">Install</a></li>
+      <li><a href="catalog.html" aria-current="page">Catalog</a></li>
+      <li><a href="docs/getting-started.html">Docs</a></li>
+      <li><a href="https://github.com/matej-basic/linux-labs">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
+
+<main id="main" class="page">
+<h1>Lab catalog</h1>
+<p class="lead">All 55 labs by category. Start one with <code>sudo labctl start &lt;lab&gt;</code>. Needs lists what a lab requires from your machine, for example internet access or extra nodes.</p>
+<nav aria-label="Categories">
+<ul class="subnav"><li><a href="#database-replication">Database Replication</a></li><li><a href="#databases">Databases</a></li><li><a href="#dns">DNS</a></li><li><a href="#files">Files</a></li><li><a href="#firewall">Firewall</a></li><li><a href="#high-availability-clustering">High Availability Clustering</a></li><li><a href="#load-balancing">Load Balancing</a></li><li><a href="#logging">Logging</a></li><li><a href="#networking">Networking</a></li><li><a href="#packages">Packages</a></li><li><a href="#scheduling">Scheduling</a></li><li><a href="#selinux">SELinux</a></li><li><a href="#storage">Storage</a></li><li><a href="#systemd">Systemd</a></li><li><a href="#users">Users</a></li><li><a href="#web-servers">Web Servers</a></li></ul>
+</nav>
+<h2 id="database-replication">Database Replication</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>replication-01</code></td><td>MySQL source-replica replication</td><td>Beginner</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>replication-02</code></td><td>PostgreSQL streaming replication with WAL archiving</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>replication-03</code></td><td>MySQL multi-master circular replication</td><td>Advanced</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="databases">Databases</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>mysql-01</code></td><td>MySQL installation and root password</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>mysql-02</code></td><td>MySQL database and user management</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>mysql-03</code></td><td>MySQL backup and restore</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>postgres-01</code></td><td>PostgreSQL installation and first start</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>postgres-02</code></td><td>PostgreSQL database and role management</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>postgres-03</code></td><td>PostgreSQL backup and restore</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="dns">DNS</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>dns-01</code></td><td>Install and start the BIND DNS server</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>dns-02</code></td><td>DNS forward zone with A, CNAME and MX records</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>dns-03</code></td><td>DNSSEC signed zone with zone transfer</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="files">Files</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>files-01</code></td><td>Directories and files</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>files-02</code></td><td>Web directory permissions and ownership</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>files-03</code></td><td>Special permissions, ACLs and backup</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>files-04</code></td><td>Brace expansion and file organisation</td><td>Beginner</td><td>servera</td><td>aoos 01</td><td>-</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="firewall">Firewall</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>firewall-01</code></td><td>Firewalld services and ports</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>firewall-02</code></td><td>Rich rules and zone assignment</td><td>Intermediate</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+<tr><td><code>firewall-03</code></td><td>Masquerading, port forwarding and custom services</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="high-availability-clustering">High Availability Clustering</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>clustering-01</code></td><td>Basic three-node Pacemaker cluster</td><td>Beginner</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+<tr><td><code>clustering-02</code></td><td>STONITH fencing for a Pacemaker cluster</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td><a href="https://github.com/matej-basic/linux-labs/blob/main/labs/clustering-02/known-issues.md">1 workaround</a></td></tr>
+<tr><td><code>clustering-03</code></td><td>Quorum and split-brain protection</td><td>Advanced</td><td>nodes</td><td>-</td><td>3 nodes</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="load-balancing">Load Balancing</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>lb-01</code></td><td>HAProxy load balancing for three web servers</td><td>Beginner</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+<tr><td><code>lb-02</code></td><td>Nginx reverse proxy with health checks</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+<tr><td><code>lb-03</code></td><td>Highly available load balancer with keepalived</td><td>Advanced</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="logging">Logging</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>logging-01</code></td><td>Filtering the systemd journal with journalctl</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td><a href="https://github.com/matej-basic/linux-labs/blob/main/labs/logging-01/known-issues.md">2 workaround</a></td></tr>
+<tr><td><code>logging-02</code></td><td>Custom rsyslog rules and logrotate</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>logging-03</code></td><td>Persistent journal and a failing service</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="networking">Networking</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>networking-01</code></td><td>Static IP address and DNS with NetworkManager</td><td>Beginner</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+<tr><td><code>networking-02</code></td><td>VLAN interface and hostname</td><td>Intermediate</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+<tr><td><code>networking-03</code></td><td>Network bonding with failover</td><td>Advanced</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="packages">Packages</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>packages-01</code></td><td>Package management basics</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>packages-02</code></td><td>Enable the EPEL repository and install a package from it</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>packages-03</code></td><td>Package file lists</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>packages-04</code></td><td>RPM queries and installing from a file</td><td>Intermediate</td><td>servera</td><td>aoos 02</td><td>internet</td><td><a href="https://github.com/matej-basic/linux-labs/blob/main/labs/packages-04/known-issues.md">1 workaround</a></td></tr>
+<tr><td><code>packages-05</code></td><td>Build joe from source with a custom prefix</td><td>Advanced</td><td>servera</td><td>aoos 02</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="scheduling">Scheduling</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>scheduling-01</code></td><td>Cron jobs basics</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>scheduling-02</code></td><td>Systemd timers</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>scheduling-03</code></td><td>Anacron, persistent timers and cron variables</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="selinux">SELinux</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>selinux-01</code></td><td>SELinux enforcing mode</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>selinux-02</code></td><td>SELinux contexts for a web application</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>selinux-03</code></td><td>SELinux labels for Apache on a non-standard port</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="storage">Storage</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>storage-01</code></td><td>Loopback filesystem with persistent mount</td><td>Beginner</td><td>servera</td><td>-</td><td>reboot</td><td>-</td></tr>
+<tr><td><code>storage-02</code></td><td>LVM basics on a loopback device</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>storage-03</code></td><td>LVM snapshots on a loopback volume group</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="systemd">Systemd</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>systemd-01</code></td><td>Basic service management with systemd</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>systemd-02</code></td><td>Custom systemd service</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>systemd-03</code></td><td>Systemd timers and scheduled services</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>systemd-04</code></td><td>Default boot target</td><td>Beginner</td><td>servera</td><td>aoos 01</td><td>reboot</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="users">Users</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>users-01</code></td><td>Users, groups and shared directories</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>users-02</code></td><td>User accounts, password aging and limits</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>users-03</code></td><td>Users, groups and ACLs for shared directories</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="web-servers">Web Servers</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>webserver-01</code></td><td>Install and run Apache HTTP Server</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-02</code></td><td>Apache name-based virtual host</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-03</code></td><td>HTTPS with a self-signed certificate</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+</main>
+
+<footer class="foot">
+  <span>linux-labs 2.0.0 &middot; <a href="catalog.html">Catalog</a> &middot; <a href="docs/getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
+</footer>
+</body>
+</html>

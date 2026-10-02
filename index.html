@@ -4,37 +4,118 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>linux-labs</title>
-<style>
-  body { font-family: system-ui, sans-serif; max-width: 46rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; background: #fff; }
-  pre { background: #f4f4f4; padding: 0.75rem 1rem; overflow-x: auto; border-radius: 4px; }
-  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9rem; }
-  a { color: #0645ad; }
-  @media (prefers-color-scheme: dark) {
-    body { color: #ddd; background: #111; }
-    pre { background: #222; }
-    a { color: #8ab4f8; }
-  }
-</style>
+<meta name="description" content="Hands-on Linux administration labs for Rocky Linux, RHEL and AlmaLinux 8 and 9. Start a lab, do the task, and let labctl grade your work.">
+<meta name="color-scheme" content="light dark">
+<link rel="stylesheet" href="site.css">
 </head>
 <body>
-<h1>linux-labs</h1>
-<p>Hands-on Linux sysadmin labs for Rocky Linux, RHEL and AlmaLinux 8 and 9, driven by the <code>labctl</code> command.</p>
+<a class="skip" href="#main">Skip to content</a>
+<header class="top">
+  <a class="brand" href="./">linux<span>-</span>labs</a>
+  <nav aria-label="Main">
+    <ul>
+      <li><a href="#install">Install</a></li>
+      <li><a href="catalog.html">Catalog</a></li>
+      <li><a href="docs/getting-started.html">Docs</a></li>
+      <li><a href="https://github.com/matej-basic/linux-labs">GitHub</a></li>
+    </ul>
+  </nav>
+</header>
 
-<h2>Install</h2>
-<pre><code>curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash</code></pre>
-<p>The script adds the dnf repository, imports the signing key and installs the <code>linux-labs</code> package. Run it again to upgrade.</p>
+<main id="main">
+  <div class="hero">
+    <section id="install" aria-labelledby="hero-title">
+      <h1 id="hero-title">Start a lab. Do the task. Get graded.</h1>
+      <p class="lead">55 hands-on labs for Rocky Linux and RHEL 8 and 9, from files and users to SELinux, storage and clustering. One command installs everything.</p>
+      <div class="cmd"><code id="install-cmd">curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash</code></div>
+      <p class="req">Rocky Linux, RHEL or AlmaLinux 8 or 9 &middot; a user with sudo &middot; internet access</p>
+    </section>
+    <figure class="term" aria-label="Example terminal session: start lab files-04, then grade it with 3 of 6 criteria met">
+      <div class="term-bar" aria-hidden="true">student@workstation: ~</div>
+<pre tabindex="0"><span class="p">$</span> sudo labctl start files-04
+files-04: Brace expansion and file organisation
+Category: Files    Level: Beginner
+<span class="d">========================================================================</span>
 
-<h2>Manual install</h2>
+OBJECTIVE
+  Create many files with brace expansion and sort them into a
+  directory tree by name.
+<span class="d">...</span>
+
+<span class="p">$</span> labctl grade files-04
+Grading files-04 on workstation
+
+Directory /srv/archive exists ..................................... <span class="ok">PASS</span>
+All 12 &lt;type&gt;/&lt;month&gt; directories exist ........................... <span class="ok">PASS</span>
+All 108 files are in their &lt;type&gt;/&lt;month&gt; directory ............... <span class="no">FAIL</span>
+No loose files in /srv/archive or the type directories ............ <span class="no">FAIL</span>
+No extra files or directories in /srv/archive ..................... <span class="no">FAIL</span>
+Everything in /srv/archive is owned by student .................... <span class="ok">PASS</span>
+
+Overall result .................................................... <span class="no">FAIL</span>
+3 of 6 criteria met.</pre>
+    </figure>
+  </div>
+
+  <ol class="steps" aria-label="Your first lab">
+    <li class="step"><b>1. List</b><code>labctl list</code></li>
+    <li class="step"><b>2. Start</b><code>sudo labctl start files-01</code></li>
+    <li class="step"><b>3. Grade</b><code>labctl grade files-01</code></li>
+    <li class="step"><b>4. Reset</b><code>sudo labctl reset files-01</code></li>
+  </ol>
+
+  <div class="more">
+    <details>
+      <summary>Install by hand instead</summary>
+      <p>These three commands do the same as the install script: add the dnf repository, import the signing key and install the package.</p>
 <pre><code>sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://matej-basic.github.io/linux-labs/linux-labs.repo
 sudo rpm --import https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-labs
 sudo dnf install linux-labs</code></pre>
+    </details>
+  </div>
+</main>
 
-<h2>First lab</h2>
-<pre><code>labctl list
-sudo labctl start files-01
-labctl grade files-01
-sudo labctl reset files-01</code></pre>
+<footer class="foot">
+  <span>linux-labs 2.0.0 &middot; <a href="catalog.html">Catalog</a> &middot; <a href="docs/getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
+</footer>
 
-<p>Source, issues and lab list: <a href="https://github.com/matej-basic/linux-labs">github.com/matej-basic/linux-labs</a></p>
+<script>
+(function () {
+  var box = document.querySelector('.cmd');
+  var code = document.getElementById('install-cmd');
+  if (!box || !code) return;
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'copy';
+  btn.textContent = 'Copy';
+  btn.setAttribute('aria-label', 'Copy the install command');
+  var status = document.createElement('span');
+  status.setAttribute('role', 'status');
+  status.style.cssText = 'position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)';
+  box.appendChild(btn);
+  box.appendChild(status);
+  function show(text) {
+    btn.textContent = text;
+    status.textContent = text;
+    setTimeout(function () { btn.textContent = 'Copy'; status.textContent = ''; }, 2000);
+  }
+  function fallback() {
+    var r = document.createRange();
+    r.selectNodeContents(code);
+    var s = window.getSelection();
+    s.removeAllRanges();
+    s.addRange(r);
+    show('Press Ctrl+C');
+  }
+  btn.addEventListener('click', function () {
+    try {
+      navigator.clipboard.writeText(code.textContent).then(function () { show('Copied'); }, fallback);
+    } catch (e) {
+      fallback();
+    }
+  });
+})();
+</script>
 </body>
 </html>
