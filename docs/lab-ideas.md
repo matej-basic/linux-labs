@@ -34,7 +34,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Advanced networking
 
-- nfs-01 (Beginner): NFS server setup and mounting
 - nfs-02 (Intermediate): NFS security and permissions
 - nfs-03 (Advanced): NFS performance tuning
 - samba-01 (Beginner): Samba/CIFS file sharing basics

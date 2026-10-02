@@ -1,0 +1,5 @@
+title: NFS server and persistent client mount
+category: Storage
+complexity: Intermediate
+objective: Export a directory over NFS from node 1 to node 2 only and mount it persistently on node 2.
+needs: internet, nodes=2

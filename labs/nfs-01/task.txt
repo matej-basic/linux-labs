@@ -1,0 +1,72 @@
+OBJECTIVE
+  Share a directory of node 1 over NFS with node 2 only, and mount it
+  on node 2 so that the mount comes back after a reboot.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH.
+
+     workstation
+          |
+          | SSH to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     NFS server: exports /srv/nfsshare
+          |
+          | NFS, port 2049
+          |
+     node 2  {{NODE2_IP}}
+     NFS client: mounts the export at /mnt/nfsshare
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - SSH access to both nodes works from the workstation, and the SSH
+    user has sudo on the nodes.
+  - The nodes reach the Rocky Linux package repositories. The NFS
+    tools come from the package nfs-utils.
+  - Node 1 has the directory /srv/nfsshare with the file welcome.txt.
+    Both are owned by root. The directory is not exported, the NFS
+    server is not running and the firewall has no rule for NFS.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. The NFS server (service nfs-server) is enabled at boot and
+     running on node 1.
+  2. Node 1 exports /srv/nfsshare read-write to the address
+     {{NODE2_IP}} of node 2 and to no other client. Use the address,
+     not a host name or a network.
+  3. The export is configured in /etc/exports or in a file in
+     /etc/exports.d, so it survives a restart of the NFS server.
+  4. The firewall on node 1 allows the nfs service, at runtime and
+     permanently.
+  5. /etc/fstab on node 2 has an entry that mounts
+     {{NODE1_IP}}:/srv/nfsshare at /mnt/nfsshare with the file system
+     type nfs or nfs4.
+  6. The export is mounted at /mnt/nfsshare on node 2.
+  7. The user root on node 2 can create files in /mnt/nfsshare, and
+     those files appear in /srv/nfsshare on node 1. The export keeps
+     root squashing, the default.
+
+EXPECTED RESULT
+  On node 2, /mnt/nfsshare shows welcome.txt from node 1. A file that
+  root creates there on node 2 shows up in /srv/nfsshare on node 1,
+  owned by the user nobody.
+
+PRACTICE (not graded)
+  - Reboot node 2 and check that the mount comes back.
+  - Look at the NFS version of the mount on node 2.
+
+NOTES
+  - With root squashing the server maps the user root of the client
+    to the user nobody. Plan the ownership or permissions of
+    /srv/nfsshare on node 1 for that.
+  - NFS version 4 needs only TCP port 2049, which the firewall
+    service nfs covers. Rocky Linux 8 and 9 mount version 4.2 by
+    default.
+  - Reference: man exports, man exportfs, man nfs and man fstab.
+  - labctl reset removes the mount, the fstab entry, the export, the
+    firewall rule and /srv/nfsshare. Where the lab installed
+    nfs-utils, reset removes it again.
+
+GRADING
+  labctl grade nfs-01
