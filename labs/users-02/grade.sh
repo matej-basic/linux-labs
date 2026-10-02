@@ -29,17 +29,26 @@ max_age_is() {
 	[ "$(getent shadow "$1" | cut -d: -f5)" = "$2" ]
 }
 
-# password_is <user> <password>: compare the SHA-512 hash in /etc/shadow
+# password_is <user> <password>: hash the password with the settings of
+# the /etc/shadow entry through crypt(3). This covers every hash format
+# the system writes, including $6$rounds=N$ (EL9 sets
+# SHA_CRYPT_MAX_ROUNDS in login.defs), which openssl passwd cannot
+# reproduce. platform-python is on every EL8 system, python3 on EL9.
 password_is() {
-	local hash salt
+	local hash py
 	hash=$(getent shadow "$1" | cut -d: -f2)
 	case $hash in
-	"\$6\$"*) ;;
+	"\$"*) ;;
 	*) return 1 ;;
 	esac
-	salt=${hash#\$6\$}
-	salt=${salt%%\$*}
-	[ "$(openssl passwd -6 -salt "$salt" "$2" 2>/dev/null)" = "$hash" ]
+	for py in /usr/libexec/platform-python /usr/bin/python3; do
+		[ -x "$py" ] && break
+	done
+	[ -x "$py" ] || return 1
+	HASH=$hash PW=$2 "$py" -c '
+import crypt, os, sys
+h = os.environ["HASH"]
+sys.exit(0 if crypt.crypt(os.environ["PW"], h) == h else 1)'
 }
 
 chage_field_is() {

@@ -7,8 +7,11 @@
 # solve: path /usr/share/joe
 # solve: path /home/opsadmin/src
 # solve: path /home/opsadmin/joe-4.6.tar.gz
-# solve: package gcc
-# solve: package cpp
+#
+# gcc and make are not declared as packages: some base images already
+# have them (Rocky 9 with gcc from the installer), and then reset keeps
+# them. test-lab.sh compares the whole package set before and after,
+# which catches a gcc the lab installed and reset left behind.
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
