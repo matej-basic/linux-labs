@@ -21,7 +21,7 @@
 1. [sudo] Install Apache and enable it:
 
    ```bash
-   sudo dnf -y install httpd
+   rpm -q httpd || sudo dnf -y install httpd
    sudo systemctl enable httpd
    ```
 

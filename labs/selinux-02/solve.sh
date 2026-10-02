@@ -2,13 +2,14 @@
 # Reference solution for selinux-02, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
+# solve: package httpd
 # solve: path /webapp
 # solve: path /etc/httpd/conf.d/myapp.conf
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install httpd
+rpm -q httpd >/dev/null || dnf -y install httpd
 systemctl enable httpd
 
 # Step 2 [sudo]

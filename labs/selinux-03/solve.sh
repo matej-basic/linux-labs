@@ -2,6 +2,7 @@
 # Reference solution for selinux-03, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
+# solve: package httpd
 # solve: path /webapp
 # solve: path /etc/httpd/conf.d/lab-port.conf
 set -euo pipefail

@@ -1,8 +1,10 @@
 #!/bin/bash
-# selinux-03 cleanup: undo the lab and the solution, leave SELinux enforcing.
+# selinux-03 cleanup: undo the lab and the solution, leave SELinux
+# enforcing. httpd and the SELinux tools go through pkg_restore; an httpd
+# that was there before the lab keeps its enabled and running state.
+source /opt/linux-labs/lib/packages.sh
 STATE_FILE=/opt/linux-labs/state/selinux-03
 
-httpd_preinstalled=no
 httpd_was_enabled=no
 httpd_was_active=no
 # shellcheck disable=SC1090 # state file written by setup.sh
@@ -18,12 +20,30 @@ semanage fcontext -l -C 2>/dev/null | awk '$1 ~ "^/webapp" { print $1 }' |
 semodule -r myapp_custom >/dev/null 2>&1 || true
 rm -rf /webapp
 
-# Restore the state from before the lab
-if [ "$httpd_preinstalled" = no ]; then
-	dnf -y -q remove httpd >/dev/null 2>&1 || true
-else
-	[ "$httpd_was_enabled" = yes ] && systemctl enable httpd >/dev/null 2>&1
-	[ "$httpd_was_active" = yes ] && systemctl start httpd >/dev/null 2>&1
+httpd_before=yes
+if ! pkg_was_installed selinux-03 httpd; then
+	httpd_before=no
+	# New httpd: delete what the apache account owns, so that
+	# pkg_restore can remove the account
+	rm -rf /var/log/httpd/* /var/cache/httpd
+fi
+
+rc=0
+pkg_restore selinux-03 || rc=1
+
+# Empty directories rpm leaves behind after removing a new httpd
+if [ "$httpd_before" = no ] && ! rpm -q httpd >/dev/null 2>&1; then
+	rmdir /etc/httpd/conf.modules.d /etc/httpd 2>/dev/null || true
+fi
+
+# An httpd from before the lab gets its service state back
+if [ "$httpd_before" = yes ] && rpm -q httpd >/dev/null 2>&1; then
+	if [ "$httpd_was_enabled" = yes ]; then
+		systemctl enable httpd >/dev/null 2>&1 || true
+	fi
+	if [ "$httpd_was_active" = yes ]; then
+		systemctl start httpd >/dev/null 2>&1 || true
+	fi
 fi
 
 if [ "$(getenforce 2>/dev/null)" = Permissive ]; then
@@ -31,4 +51,4 @@ if [ "$(getenforce 2>/dev/null)" = Permissive ]; then
 fi
 
 rm -f "$STATE_FILE"
-exit 0
+exit "$rc"

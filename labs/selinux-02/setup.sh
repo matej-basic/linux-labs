@@ -2,6 +2,9 @@
 # selinux-02 setup: creates /webapp with default (unlabelled) SELinux
 # contexts and puts SELinux in enforcing mode. Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+
+pkg_snapshot selinux-02
 
 STATE_FILE=/opt/linux-labs/state/selinux-02
 MARKER='selinux-02 web application'
@@ -11,7 +14,8 @@ if ! command -v getenforce >/dev/null 2>&1 || [ "$(getenforce)" = Disabled ]; th
 	exit 1
 fi
 
-# semanage is needed by the solution and by cleanup
+# semanage is needed by the solution and by cleanup; reset removes the
+# package again when it was not there before
 if ! command -v semanage >/dev/null 2>&1; then
 	dnf -y -q install policycoreutils-python-utils >/dev/null 2>&1 || {
 		echo "selinux-02: cannot install policycoreutils-python-utils (semanage)." >&2
@@ -19,19 +23,16 @@ if ! command -v semanage >/dev/null 2>&1; then
 	}
 fi
 
-# Remember whether httpd was already installed, enabled and running, so
-# cleanup restores exactly that. Keep the first answer when setup runs
-# twice.
+# Remember whether an httpd that was already there was enabled and
+# running, so cleanup restores exactly that. Keep the first answer when
+# setup runs twice.
 if [ -r "$STATE_FILE" ]; then
-	preinstalled=$(sed -n 's/^httpd_preinstalled=//p' "$STATE_FILE")
 	was_enabled=$(sed -n 's/^httpd_enabled=//p' "$STATE_FILE")
 	was_active=$(sed -n 's/^httpd_active=//p' "$STATE_FILE")
 else
-	preinstalled=no
 	was_enabled=no
 	was_active=no
 	if rpm -q httpd >/dev/null 2>&1; then
-		preinstalled=yes
 		systemctl is-enabled --quiet httpd 2>/dev/null && was_enabled=yes
 		systemctl is-active --quiet httpd 2>/dev/null && was_active=yes
 	fi
@@ -64,7 +65,6 @@ sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config
 
 mkdir -p "$(dirname "$STATE_FILE")"
 {
-	echo "httpd_preinstalled=${preinstalled:-no}"
 	echo "httpd_enabled=${was_enabled:-no}"
 	echo "httpd_active=${was_active:-no}"
 } > "$STATE_FILE"

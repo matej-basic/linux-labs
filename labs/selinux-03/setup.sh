@@ -2,8 +2,11 @@
 # selinux-03 setup: Apache with a vhost on 8081, content labeled default_t,
 # port 8081 not labeled http_port_t, httpd stopped. Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
 LAB=selinux-03
+pkg_snapshot "$LAB"
+
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/$LAB"
 
@@ -12,18 +15,15 @@ if [ "$(getenforce)" = Disabled ]; then
 	exit 1
 fi
 
-# Remember what the system looked like before the lab, once, so that
-# cleanup only removes what the lab installed. A second run keeps it.
+# Remember whether an httpd that was already there was enabled and
+# running, once. A second run keeps the first answer.
 if [ ! -r "$STATE_FILE" ]; then
-	httpd_pkg=no
 	was_enabled=no
 	was_active=no
-	rpm -q httpd >/dev/null 2>&1 && httpd_pkg=yes
 	systemctl is-enabled --quiet httpd 2>/dev/null && was_enabled=yes
 	systemctl is-active --quiet httpd 2>/dev/null && was_active=yes
 	mkdir -p "$STATE_DIR"
 	{
-		echo "httpd_preinstalled=$httpd_pkg"
 		echo "httpd_was_enabled=$was_enabled"
 		echo "httpd_was_active=$was_active"
 	} > "$STATE_FILE"
