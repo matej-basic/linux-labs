@@ -7,11 +7,11 @@
 # restores it with pkg_restore, so a server the lab installs goes away
 # at reset with its dependencies. An existing server is used as it is.
 # The first run also records in /var/tmp/mysql-02.pre what else the lab
-# changes: whether a server, the mysql user and the mysql group were
-# there, the service state, the definition of root@localhost, a labdb
-# database and labuser account that already existed, and which mysql
-# history files existed. cleanup.sh puts all of it back. SQL run by
-# this script and cleanup.sh is kept out of the binary log.
+# changes: whether a server was there, the service state, the
+# definition of root@localhost, a labdb database and labuser account
+# that already existed, and which mysql history files existed.
+# cleanup.sh puts all of it back. SQL run by this script and cleanup.sh
+# is kept out of the binary log.
 set -eu
 source /opt/linux-labs/lib/packages.sh
 
@@ -53,10 +53,6 @@ if [ ! -d "$pre" ]; then
 		[ -n "$h" ] && [ -e "$h/.mysql_history" ] &&
 			echo "history $h" >> "$pre.tmp/flags"
 	done
-	# The server package creates the mysql user and group, and package
-	# removal leaves them
-	getent passwd mysql >/dev/null && echo "user-mysql" >> "$pre.tmp/flags"
-	getent group mysql >/dev/null && echo "group-mysql" >> "$pre.tmp/flags"
 	touch "$pre.tmp/flags"
 	mv "$pre.tmp" "$pre"
 fi

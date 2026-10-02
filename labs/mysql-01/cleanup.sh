@@ -20,6 +20,15 @@ state_value() {
 
 systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1
 
+# No server before the lab: delete the data and log files the student's
+# server created before pkg_restore, so the mysql user owns no files and
+# the helper can remove it.
+if [ -r "$STATE_FILE" ] && [ ! -d "$bak/datadir" ] \
+	&& [ "$(state_value datadir)" != yes ]; then
+	rm -rf "$datadir" /var/lib/mysql-files /var/lib/mysql-keyring
+	[ -f "$bak/files.tar" ] || rm -rf /var/log/mysql
+fi
+
 rc=0
 pkg_restore mysql-01 || rc=1
 

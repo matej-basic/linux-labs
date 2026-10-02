@@ -4,9 +4,11 @@
 # lab gets its root@localhost definition, any earlier labdb and labuser
 # and its service state back. Then the package set of the first start
 # comes back (pkg_restore), which removes a server the lab installed
-# with its dependencies; its data and log files and the mysql user and
-# group go afterwards. When the package set cannot be restored, the
-# records stay for the next reset and the exit status is 1.
+# with its dependencies and the mysql user and group it created. The
+# data and log files of such a server go before pkg_restore, since
+# pkg_restore keeps a user that still owns files. When the package set
+# cannot be restored, the records stay for the next reset and the exit
+# status is 1.
 source /opt/linux-labs/lib/packages.sh
 
 ROOT_PW=labpassword
@@ -86,7 +88,11 @@ if [ "$preinstalled" = yes ]; then
 		fi
 	fi
 else
+	# The lab installed the server: remove its data and log files, so
+	# that the mysql user owns no file when pkg_restore looks
 	systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1
+	rm -rf "$datadir" /var/log/mysql /var/log/mariadb /var/lib/mysql-files \
+		/var/lib/mysql-keyring
 fi
 
 pkg_restore mysql-02 || rc=1
@@ -106,27 +112,8 @@ if [ "$preinstalled" = yes ]; then
 		fi
 	done
 else
-	# The lab installed the server and pkg_restore removed it: remove
-	# the data and log files the packages left behind
-	if [ -d "$datadir" ] && ! rpm -qf "$datadir" >/dev/null 2>&1; then
-		rm -rf "$datadir"
-	fi
-	for d in /var/log/mysql /var/log/mariadb /var/lib/mysql-files /var/lib/mysql-keyring; do
-		[ -e "$d" ] && ! rpm -qf "$d" >/dev/null 2>&1 && rm -rf "$d"
-	done
+	# Configuration files the package removal saved
 	rm -f /etc/my.cnf.rpmsave /etc/my.cnf.d/*.rpmsave
-	# The mysql user and group the server package created, once no
-	# server package is left
-	left=no
-	for p in $servers; do
-		rpm -q "$p" >/dev/null 2>&1 && left=yes
-	done
-	if [ "$left" = no ]; then
-		had user-mysql || ! getent passwd mysql >/dev/null ||
-			userdel mysql >/dev/null 2>&1 || rc=1
-		had group-mysql || ! getent group mysql >/dev/null ||
-			groupdel mysql >/dev/null 2>&1 || rc=1
-	fi
 fi
 
 # mysql history files of the task user and root that the lab created
