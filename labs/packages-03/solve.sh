@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install curl
+rpm -q curl &>/dev/null || dnf -y install curl
 
 # Step 2 [user]
 run_as_student <<'STEPS'

@@ -12,10 +12,11 @@
 
 ## Solution
 
-1. [sudo] Make sure the curl package is installed (it normally is):
+1. [sudo] Make sure the curl package is installed (it normally is, and
+   then nothing is needed):
 
    ```bash
-   sudo dnf -y install curl
+   rpm -q curl || sudo dnf -y install curl
    ```
 
 2. [user] Save the file list of the installed package:

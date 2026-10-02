@@ -6,10 +6,17 @@ set -u
 
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/packages-04"
+PRE=/var/tmp/packages-04.pre
 
 if ! command -v dnf &>/dev/null; then
 	echo "packages-04: dnf not found" >&2
 	exit 1
+fi
+
+# First run only: remember whether joe and which repo keys were there
+if [ ! -f "$PRE" ]; then
+	if rpm -q joe &>/dev/null; then echo joe-installed > "$PRE"; else echo joe-missing > "$PRE"; fi
+	rpm -qa 'gpg-pubkey*' | sort | sed 's/^/key /' >> "$PRE"
 fi
 
 # The joe editor must not be installed at the start

@@ -16,6 +16,12 @@ fi
 rpm -q htop >/dev/null 2>&1 && dnf -y -q remove htop >/dev/null 2>&1
 rpm -q epel-release >/dev/null 2>&1 && dnf -y -q remove epel-release >/dev/null 2>&1
 rm -f /etc/yum.repos.d/epel*.repo
+# The EPEL signing key stays in the rpm database after the removal
+if [ "$epel_pre" = no ]; then
+	for k in $(rpm -qa 'gpg-pubkey*' --qf '%{NAME}-%{VERSION}-%{RELEASE} %{SUMMARY}\n' 2>/dev/null | awk '/EPEL/ { print $1 }'); do
+		rpm -e "$k" >/dev/null 2>&1
+	done
+fi
 
 if [ "$epel_pre" = yes ]; then
 	# Put EPEL back as it was, including local edits to the repo files

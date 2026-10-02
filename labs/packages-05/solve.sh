@@ -5,13 +5,13 @@
 # solve: path /usr/bin/joe
 # solve: path /etc/joe
 # solve: path /usr/share/joe
-# solve: path /home/student/src
-# solve: path /home/student/joe-4.6.tar.gz
+# solve: path /home/opsadmin/src
+# solve: path /home/opsadmin/joe-4.6.tar.gz
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install gcc make >/dev/null
+rpm -q gcc make &>/dev/null || dnf -y install gcc make >/dev/null
 
 # Steps 2 to 4 [user]
 run_as_student <<'STEPS'
@@ -24,4 +24,5 @@ make >/dev/null
 STEPS
 
 # Step 5 [sudo]
-make -C /home/student/src/joe-4.6 install >/dev/null
+home=$(getent passwd "${SOLVE_USER:-opsadmin}" | cut -d: -f6)
+make -C "$home/src/joe-4.6" install >/dev/null

@@ -15,11 +15,11 @@
 
 ## Solution
 
-1. [sudo] Install the compiler and build tools. gcc and make are enough
-   for joe 4.6:
+1. [sudo] Install the compiler and build tools if they are
+   missing. gcc and make are enough for joe 4.6:
 
    ```bash
-   sudo dnf -y install gcc make
+   rpm -q gcc make || sudo dnf -y install gcc make
    ```
 
 2. [user] Download the tarball. The SourceForge link redirects to a

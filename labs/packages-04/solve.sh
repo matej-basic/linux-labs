@@ -2,7 +2,7 @@
 # Reference solution for packages-04, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# solve: path /home/student/joe.rpm
+# solve: path /home/opsadmin/joe.rpm
 # solve: package joe
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
@@ -19,7 +19,7 @@ get -o joe.rpm "$URL$NAME"
 STEPS
 
 # Step 2 [sudo]: install from the file
-home=$(getent passwd student | cut -d: -f6)
+home=$(getent passwd "${SOLVE_USER:-opsadmin}" | cut -d: -f6)
 dnf -y install "$home/joe.rpm"
 
 # Step 3 is the interactive editor test and is skipped here.
