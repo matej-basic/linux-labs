@@ -17,7 +17,7 @@
    is used:
 
    ```bash
-   sudo dnf install -y postgresql-server
+   rpm -q postgresql-server || sudo dnf -y install postgresql-server
    ```
 
 2. [sudo] Initialise the cluster in /var/lib/pgsql/data:

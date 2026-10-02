@@ -4,16 +4,19 @@
 # Installs and initialises the server only when it is missing.
 # Prints nothing on success.
 #
-# An existing server (servera keeps PostgreSQL from the replication
-# labs) is used as it is. The first run records in /var/tmp/postgres-03.pre
-# what the lab may change: whether the server was installed, the
-# postgresql* packages, the module stream file, the user postgres and
-# /var/lib/pgsql, the service state, the firewall service postgresql,
-# the configuration files of the cluster, every role with its attributes
-# and password, the databases labdb and labdb_restore if they already
-# existed, and the psql history and .pgpass files of the task user, root
-# and postgres. cleanup.sh puts all of it back.
+# The first run records the package set (pkg_snapshot); cleanup.sh
+# restores it with pkg_restore, so a server the lab installs goes away
+# at reset with its dependencies, module stream and user postgres. An
+# existing server (a student machine may have one) is used as it is.
+# The first run also records in /var/tmp/postgres-03.pre what else the
+# lab may change: whether /var/lib/pgsql and a cluster existed, the
+# service state, the firewall service postgresql, the configuration
+# files of the cluster, every role with its attributes and password,
+# the databases labdb and labdb_restore if they already existed, and
+# the psql history and .pgpass files of the task user, root and
+# postgres. cleanup.sh puts all of it back.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/postgres-03"
@@ -21,7 +24,6 @@ BACKUP=/tmp/labdb_backup.sql
 pre=/var/tmp/postgres-03.pre
 home=/var/lib/pgsql
 DATA=$home/data
-modfile=/etc/dnf/modules.d/postgresql.module
 CONF_FILES="pg_hba.conf pg_ident.conf postgresql.conf postgresql.auto.conf"
 LAB_DBS="labdb labdb_restore"
 
@@ -35,6 +37,8 @@ die() {
 	echo "postgres-03 setup: $*" >&2
 	exit 1
 }
+
+pkg_snapshot postgres-03 || die "cannot record the package set"
 
 # client_min_messages=warning hides NOTICEs such as "does not exist, skipping"
 pgsu() {
@@ -53,10 +57,6 @@ if [ ! -d "$pre" ]; then
 	mkdir -m 0700 "$pre.tmp" "$pre.tmp/files"
 	flags="$pre.tmp/flags"
 	: > "$flags"
-	rpm -q postgresql-server >/dev/null 2>&1 && echo server >> "$flags"
-	rpm -qa 'postgresql*' 'libpq*' | sort > "$pre.tmp/rpms"
-	[ -f "$modfile" ] && cp -p "$modfile" "$pre.tmp/postgresql.module"
-	getent passwd postgres >/dev/null && echo user >> "$flags"
 	[ -e "$home" ] && echo home >> "$flags"
 	[ -f "$DATA/PG_VERSION" ] && echo data >> "$flags"
 	systemctl is-enabled --quiet postgresql 2>/dev/null && echo enabled >> "$flags"
@@ -95,7 +95,7 @@ restart=no
 if [ ! -d "$pre/conf" ]; then
 	mkdir -m 0700 "$pre/conf.tmp"
 	for f in $CONF_FILES; do
-		[ -f "$DATA/$f" ] && cp -p "$DATA/$f" "$pre/conf.tmp/$f"
+		[ -f "$DATA/$f" ] && cp "$DATA/$f" "$pre/conf.tmp/$f"
 	done
 	mv "$pre/conf.tmp" "$pre/conf"
 else

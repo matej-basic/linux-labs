@@ -1,103 +1,60 @@
 #!/bin/bash
-# postgres-01 cleanup: remove the PostgreSQL the lab installed and put
-# back what setup.sh recorded in /var/tmp/postgres-01.pre and
-# /var/tmp/postgres-01.bak: the postgresql* packages in their old
-# versions and install reasons, the module stream file, /var/lib/pgsql,
-# the user postgres and the service state.
+# postgres-01 cleanup: stop the server and restore the package set of the
+# first start (pkg_restore): the PostgreSQL the lab installed goes with
+# its dependencies and the user postgres, and packages that were there
+# before come back. Then put back what setup.sh recorded: /var/lib/pgsql
+# and the service state. When the package set cannot be restored, the
+# records stay for the next reset and the exit status is 1.
+source /opt/linux-labs/lib/packages.sh
 
 STATE_FILE=/opt/linux-labs/state/postgres-01
-pre=/var/tmp/postgres-01.pre
 bak=/var/tmp/postgres-01.bak
 home=/var/lib/pgsql
-modfile=/etc/dnf/modules.d/postgresql.module
 
-rm -f "$STATE_FILE"
-
-# setup.sh never ran: nothing to undo
-[ -f "$pre" ] || exit 0
-
-had() {
-	grep -qx "$1" "$pre"
-}
-
-# want <name>: the recorded name-version-release.arch, or nothing
-want() {
-	[ -f "$bak/rpms" ] || return 0
-	awk -v p="$1" '$1 == p { print $2 }' "$bak/rpms"
+state_value() {
+	[ -r "$STATE_FILE" ] || return 0
+	sed -n "s/^$1=//p" "$STATE_FILE" | head -n 1
 }
 
 systemctl disable --now postgresql </dev/null >/dev/null 2>&1
 rm -rf /etc/systemd/system/postgresql.service.d
 systemctl daemon-reload </dev/null >/dev/null 2>&1
 
-# Packages: remove every postgresql* package that is not exactly the
-# recorded version. Packages the lab installed go first, with their
-# dependencies; then the recorded ones in another version, without them.
-for pass in new old; do
-	for nevra in $(rpm -qa 'postgresql*'); do
-		rpm -q "$nevra" >/dev/null 2>&1 || continue
-		name=$(rpm -q --qf '%{NAME}' "$nevra")
-		w=$(want "$name")
-		if [ "$pass" = new ] && [ -z "$w" ]; then
-			dnf -y remove "$name" </dev/null >/dev/null 2>&1
-		elif [ "$pass" = old ] && [ -n "$w" ] && [ "$nevra" != "$w" ]; then
-			dnf -y --setopt=clean_requirements_on_remove=False \
-				remove "$name" </dev/null >/dev/null 2>&1
-		fi
-	done
-done
-
-# Module stream state as it was, before the old packages come back
-if [ -f "$bak/postgresql.module" ]; then
-	cp -p "$bak/postgresql.module" "$modfile"
-else
-	rm -f "$modfile"
+# Delete the student's /var/lib/pgsql before pkg_restore, so that a user
+# postgres the lab created owns no files and the helper can remove it. A
+# saved /var/lib/pgsql that is no longer in $bak was put back by an
+# earlier reset and stays.
+if [ -d "$bak/pgsql" ]; then
+	rm -rf "$home"
+elif [ -r "$STATE_FILE" ]; then
+	[ "$(state_value home)" = yes ] || rm -rf "$home"
+elif ! pkg_was_installed postgres-01 postgresql-server; then
+	rm -rf "$home"
 fi
 
-# Then install the recorded versions, from the saved RPM file when there
-# is one, and give them their old install reason
-install=""
-if [ -f "$bak/rpms" ]; then
-	while read -r name nevra reason; do
-		rpm -q "$nevra" >/dev/null 2>&1 && continue
-		if [ -f "$bak/rpms.d/$nevra.rpm" ]; then
-			install="$install $bak/rpms.d/$nevra.rpm"
-		else
-			install="$install $nevra"
-		fi
-	done < "$bak/rpms"
-fi
-if [ -n "$install" ]; then
-	# shellcheck disable=SC2086 # word splitting is intended
-	dnf -y install $install </dev/null >/dev/null 2>&1 || {
-		echo "Cannot reinstall$install" >&2
-		exit 1
-	}
-fi
-if [ -f "$bak/rpms" ]; then
-	while read -r name nevra reason; do
-		[ "$reason" = dependency ] || continue
-		dnf -y mark remove "$name" </dev/null >/dev/null 2>&1
-	done < "$bak/rpms"
-fi
+rc=0
+pkg_restore postgres-01 || rc=1
 
-# /var/lib/pgsql as it was (data directory included), else gone
-rm -rf "$home"
-if had home && [ -d "$bak/pgsql" ]; then
+# setup.sh never ran: nothing else to undo
+[ -r "$STATE_FILE" ] || exit "$rc"
+
+# /var/lib/pgsql as it was (data directory included)
+if [ -d "$bak/pgsql" ]; then
+	rm -rf "$home"
 	mv "$bak/pgsql" "$home" || exit 1
-fi
-
-# The user postgres only if it existed before the lab
-if ! had user && getent passwd postgres >/dev/null; then
-	userdel postgres >/dev/null 2>&1
-	getent group postgres >/dev/null && groupdel postgres >/dev/null 2>&1
+	restorecon -R "$home" 2>/dev/null
 fi
 
 systemctl daemon-reload </dev/null >/dev/null 2>&1
 if systemctl cat postgresql </dev/null >/dev/null 2>&1; then
-	had enabled && systemctl enable postgresql </dev/null >/dev/null 2>&1
-	had active && systemctl start postgresql </dev/null >/dev/null 2>&1
+	[ "$(state_value enabled)" = yes ] \
+		&& systemctl enable postgresql </dev/null >/dev/null 2>&1
+	[ "$(state_value active)" = yes ] \
+		&& systemctl start postgresql </dev/null >/dev/null 2>&1
 fi
 
-rm -rf "$pre" "$bak"
-exit 0
+if [ "$rc" -eq 0 ]; then
+	rm -rf "$bak"
+	rm -f "$STATE_FILE"
+fi
+exit "$rc"

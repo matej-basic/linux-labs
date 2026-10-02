@@ -2,15 +2,13 @@
 # Reference solution for postgres-01, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# postgresql-server and /var/lib/pgsql/data are not declared: on a server
-# that had PostgreSQL before the lab, labctl reset puts that installation
-# back.
-# solve: none
+# solve: package postgresql-server
+# solve: path /var/lib/pgsql
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf install -y postgresql-server
+rpm -q postgresql-server >/dev/null || dnf -y install postgresql-server
 
 # Step 2 [sudo]
 postgresql-setup --initdb

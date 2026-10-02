@@ -4,6 +4,8 @@
 #
 # solve: path /tmp/labdb_backup.sql
 # solve: path /var/tmp/postgres-03.pre
+# solve: path /var/lib/pgsql
+# solve: package postgresql-server
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
