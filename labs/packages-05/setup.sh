@@ -2,16 +2,12 @@
 # packages-05 setup: no joe on the system, neither the RPM nor a source
 # install left by an earlier attempt. Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
-# First run only: remember joe, the build tools and the repo keys
-PRE=/var/tmp/packages-05.pre
-if [ ! -f "$PRE" ]; then
-	{
-		if rpm -q joe &>/dev/null; then echo joe-installed; else echo joe-missing; fi
-		if rpm -q gcc make &>/dev/null; then echo build-tools-present; else echo build-tools-missing; fi
-		rpm -qa 'gpg-pubkey*' | sort | sed 's/^/key /'
-	} > "$PRE"
-fi
+# First start only: record the package set, so that reset removes gcc,
+# make and everything else the lab installs, and puts the joe RPM back
+# if it was installed
+pkg_snapshot packages-05
 
 # The joe RPM would collide with the source install
 if rpm -q joe &>/dev/null; then

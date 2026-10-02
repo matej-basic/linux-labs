@@ -7,6 +7,9 @@
 # solve: path /usr/share/joe
 # solve: path /home/opsadmin/src
 # solve: path /home/opsadmin/joe-4.6.tar.gz
+# solve: package gcc
+# solve: package make
+# solve: package cpp
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 

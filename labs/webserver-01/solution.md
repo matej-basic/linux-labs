@@ -13,11 +13,10 @@
 
 ## Solution
 
-1. [sudo] Install the Apache HTTP Server package (this changes
-   nothing if httpd is already installed):
+1. [sudo] Install the Apache HTTP Server package:
 
    ```bash
-   sudo dnf -y install httpd
+   rpm -q httpd || sudo dnf -y install httpd
    ```
 
 2. [sudo] Start the service and enable it at boot:
@@ -43,10 +42,12 @@ labctl grade webserver-01
 
 ## Explanation
 
-The httpd package ships a unit file that listens on port 80 by
-default, so no configuration change is needed. The command enable
---now both starts the service and creates the boot-time link, which
-covers two criteria in one step.
+The command rpm -q checks first, so dnf only installs httpd when it is
+missing and never upgrades an installed package. The httpd package
+ships a unit file that listens on port 80 by default, so no
+configuration change is needed. The command enable --now both starts
+the service and creates the boot-time link, which covers two criteria
+in one step.
 
 On a fresh install without content, Apache serves its test page, and
 depending on the release the status code can be 403 rather than 200.

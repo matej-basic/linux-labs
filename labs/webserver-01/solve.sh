@@ -2,12 +2,14 @@
 # Reference solution for webserver-01, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 #
-# solve: none
+# solve: package httpd
+# solve: path /etc/httpd
+# solve: path /var/www
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install httpd >/dev/null
+rpm -q httpd >/dev/null || dnf -y install httpd >/dev/null
 
 # Step 2 [sudo]
 systemctl enable --now httpd

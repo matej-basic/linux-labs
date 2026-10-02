@@ -8,7 +8,7 @@ PREREQUISITES
   - Root access through sudo.
 
 TASKS
-  1. Make sure the Apache HTTP Server package, httpd, is installed.
+  1. Install the Apache HTTP Server package, httpd.
   2. Run the httpd service now, and make it start at every boot.
   3. Make Apache listen on TCP port 80, and make sure it answers
      HTTP requests to http://localhost.
@@ -20,6 +20,8 @@ EXPECTED RESULT
   content is required.
 
 NOTES
+  - Setup removes httpd if it is installed. labctl reset puts back
+    the packages that were installed before the lab started.
   - Use any valid Linux commands. Only the final state is graded;
     command history is not evaluated.
   - The firewall is not part of this lab and is not graded.
