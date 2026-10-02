@@ -35,12 +35,11 @@ PREREQUISITES
     least 3 nodes, and the workstation reaches all nodes over SSH.
   - Rocky Linux 8 or 9 on every node, SELinux enforcing, firewalld
     running. All nodes are in the same IP network and subnet.
-  - At the start, the lab stops and disables httpd, haproxy and
-    keepalived on all three nodes, removes the index page and the
-    HAProxy and keepalived configuration, and removes the 8080/tcp
-    port, the http service and the vrrp protocol from the permanent
-    firewall configuration of the nodes. The reset puts the nodes
-    back into the state they had before the lab.
+  - At the start, the lab stops and removes httpd, haproxy and
+    keepalived on all three nodes, removes the index page, and removes
+    the 8080/tcp port, the http service and the vrrp protocol from the
+    permanent firewall configuration of the nodes. The reset puts the
+    nodes back into the state they had before the lab.
   - The grader runs on the workstation and connects to the nodes
     over SSH.
 

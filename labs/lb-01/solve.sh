@@ -1,9 +1,11 @@
 #!/bin/bash
 # Reference solution for lb-01, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
-# The nodes are reset by labctl reset; no path on this host needs checking.
+# The packages are installed on the nodes; test-lab.sh checks the package
+# set of every node after reset.
 #
-# solve: none
+# solve: package haproxy
+# solve: package httpd
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
@@ -17,9 +19,9 @@ rn() { run_on_node "$@" </dev/null; }
 N1=$(get_node_ip 1); N2=$(get_node_ip 2); N3=$(get_node_ip 3)
 
 # Step 2
-rn "$N1" "sudo -n dnf -y install haproxy httpd"
-rn "$N2" "sudo -n dnf -y install httpd"
-rn "$N3" "sudo -n dnf -y install httpd"
+rn "$N1" "rpm -q haproxy httpd >/dev/null || sudo -n dnf -y install haproxy httpd >/dev/null"
+rn "$N2" "rpm -q httpd >/dev/null || sudo -n dnf -y install httpd >/dev/null"
+rn "$N3" "rpm -q httpd >/dev/null || sudo -n dnf -y install httpd >/dev/null"
 
 # Step 3
 i=0

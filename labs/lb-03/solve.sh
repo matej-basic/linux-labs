@@ -2,9 +2,13 @@
 # Reference solution for lb-03, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
 # The work happens on nodes 1 to 3 over SSH (run_on_node); the workstation
-# only holds the state file, which labctl reset removes.
+# only holds the state file, which labctl reset removes. The packages are
+# installed on the nodes; test-lab.sh checks the package set of every
+# node after reset.
 #
-# solve: none
+# solve: package httpd
+# solve: package haproxy
+# solve: package keepalived
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
@@ -38,7 +42,7 @@ n=0
 for ip in "$NODE1_IP" "$NODE2_IP" "$NODE3_IP"; do
 	n=$((n + 1))
 	node_script "$ip" "N=$n" <<'STEP'
-dnf -y install httpd
+rpm -q httpd >/dev/null || dnf -y install httpd
 sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
 echo "Backend Server - Node $N" > /var/www/html/index.html
 systemctl enable --now httpd
@@ -50,7 +54,7 @@ done
 # Steps 2 and 3 [sudo]: HAProxy on nodes 1 and 2
 for ip in "$NODE1_IP" "$NODE2_IP"; do
 	node_script "$ip" "NODE1_IP=$NODE1_IP NODE2_IP=$NODE2_IP NODE3_IP=$NODE3_IP" <<'STEP'
-dnf -y install haproxy keepalived
+rpm -q haproxy keepalived >/dev/null || dnf -y install haproxy keepalived
 setsebool -P haproxy_connect_any 1
 cat > /etc/haproxy/haproxy.cfg <<EOF
 global

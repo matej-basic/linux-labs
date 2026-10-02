@@ -28,9 +28,10 @@
    node 1:
 
    ```bash
-   run_on_node "$N1" "sudo -n dnf -y install haproxy httpd"
-   run_on_node "$N2" "sudo -n dnf -y install httpd"
-   run_on_node "$N3" "sudo -n dnf -y install httpd"
+   run_on_node "$N1" \
+     "rpm -q haproxy httpd || sudo -n dnf -y install haproxy httpd"
+   run_on_node "$N2" "rpm -q httpd || sudo -n dnf -y install httpd"
+   run_on_node "$N3" "rpm -q httpd || sudo -n dnf -y install httpd"
    ```
 
 3. [user] On each node, move Apache to port 8080, give it a page that

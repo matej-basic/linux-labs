@@ -30,7 +30,7 @@ shows if yours differ.
    and open the port in the firewall:
 
    ```bash
-   sudo dnf -y install httpd
+   rpm -q httpd || sudo dnf -y install httpd
    sudo sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
    sudo firewall-cmd --permanent --add-port=8080/tcp
    sudo firewall-cmd --reload
@@ -62,7 +62,7 @@ shows if yours differ.
    nginx.conf, which would otherwise take over port 80:
 
    ```bash
-   sudo dnf -y install nginx
+   rpm -q nginx || sudo dnf -y install nginx
    sudo sed -i '/^    server {/,/^    }/ s/^/#/' /etc/nginx/nginx.conf
    ```
 

@@ -37,7 +37,7 @@ VIP=<address of node 1 with last octet 100>
 
    ```bash
    N=1
-   sudo dnf -y install httpd
+   rpm -q httpd || sudo dnf -y install httpd
    sudo sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
    echo "Backend Server - Node $N" | sudo tee /var/www/html/index.html
    sudo systemctl enable --now httpd
@@ -49,7 +49,7 @@ VIP=<address of node 1 with last octet 100>
    HAProxy connect to the backends on port 8080 under SELinux:
 
    ```bash
-   sudo dnf -y install haproxy keepalived
+   rpm -q haproxy keepalived || sudo dnf -y install haproxy keepalived
    sudo setsebool -P haproxy_connect_any 1
    ```
 

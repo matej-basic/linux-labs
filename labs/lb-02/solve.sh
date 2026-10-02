@@ -1,10 +1,11 @@
 #!/bin/bash
 # Reference solution for lb-02, the same steps as solution.md.
 # Run as root by scripts/test-lab.sh; not shipped in the RPM.
-# The work happens on Nodes 1 to 3 over SSH, so there is nothing local
-# for the runtime test to check after the reset.
+# The packages are installed on the nodes; test-lab.sh checks the package
+# set of every node after reset.
 #
-# solve: none
+# solve: package httpd
+# solve: package nginx
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 source /opt/linux-labs/lib/load-config.sh
@@ -18,7 +19,7 @@ for n in 2 3; do
 	ip=$(get_node_ip "$n")
 	run_on_node "$ip" "sudo -n env NODE=$n bash -s" <<'REMOTE'
 set -e
-dnf -y install httpd >/dev/null
+rpm -q httpd >/dev/null || dnf -y install httpd >/dev/null
 sed -i 's/^Listen 80$/Listen 8080/' /etc/httpd/conf/httpd.conf
 firewall-cmd --permanent --add-port=8080/tcp >/dev/null
 firewall-cmd --reload >/dev/null
@@ -31,7 +32,7 @@ done
 # Steps 5 to 8 [sudo]: proxy
 run_on_node "$N1" "sudo -n env NODE2_IP=$N2 NODE3_IP=$N3 bash -s" <<'REMOTE'
 set -e
-dnf -y install nginx >/dev/null
+rpm -q nginx >/dev/null || dnf -y install nginx >/dev/null
 sed -i '/^    server {/,/^    }/ s/^/#/' /etc/nginx/nginx.conf
 cat > /etc/nginx/conf.d/lb.conf <<CONF
 upstream backend_servers {

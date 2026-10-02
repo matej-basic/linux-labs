@@ -1,13 +1,15 @@
 #!/bin/bash
 # lb-01 cleanup: puts every node back into the state that the first
-# setup.sh run recorded. HAProxy and Apache are removed where setup.sh
-# found them missing; where they were already installed, their config
-# files, index page, boot state and running state are restored. The
-# firewall rules and the SELinux boolean of the solution go back to their
-# recorded values.
+# setup.sh run recorded. The package set goes back through
+# lib/packages.sh (httpd and HAProxy are removed where they were missing
+# and installed again where setup.sh removed them). Where they were
+# installed before, their config files, index page, boot state and
+# running state are restored. The firewall rules and the SELinux boolean
+# of the solution go back to their recorded values.
 # No "set -u": load-config.sh reads variables that may be unset.
 
 source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/packages.sh
 load_lab_config
 
 rm -f /tmp/haproxy.cfg
@@ -19,6 +21,14 @@ rm -f /tmp/haproxy.cfg
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+# Before the package restore: stop the services, remove the lab files
+cat > "$tmp/stop.sh" <<'REMOTE'
+systemctl disable --now haproxy httpd </dev/null >/dev/null 2>&1
+rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave /etc/haproxy/haproxy.cfg.rpmsave
+exit 0
+REMOTE
+
+# After the package restore: configuration, services, firewall, SELinux
 cat > "$tmp/node.sh" <<'REMOTE'
 pre=/var/tmp/lb-01.pre
 bak=/var/tmp/lb-01.bak
@@ -30,27 +40,26 @@ had() {
 	grep -qx "$1" "$pre"
 }
 
-# rmunowned <dir>: remove a directory that no installed package owns
-rmunowned() {
-	[ -d "$1" ] || return 0
-	rpm -qf "$1" >/dev/null 2>&1 || rm -rf "$1"
+# undir <dir>: unless an installed package owns the directory, put it
+# back as setup.sh found it: removed, or the copy setup.sh saved
+undir() {
+	rpm -qf "$1" >/dev/null 2>&1 && return 0
+	rm -rf "$1"
+	if [ -d "$bak/dirs$1" ]; then
+		mkdir -p "$(dirname "$1")" && cp -a "$bak/dirs$1" "$1" && restorecon -R "$1" 2>/dev/null
+	fi
+	return 0
 }
 
-systemctl disable --now haproxy httpd </dev/null >/dev/null 2>&1
-rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave /etc/haproxy/haproxy.cfg.rpmsave
-
-if ! had haproxy-installed; then
-	rpm -q haproxy >/dev/null 2>&1 && dnf -y remove haproxy </dev/null >/dev/null 2>&1
-	rm -f /etc/haproxy/haproxy.cfg.rpmsave
-	rmunowned /etc/haproxy
-	rmunowned /var/lib/haproxy
+rm -f /etc/httpd/conf/httpd.conf.rpmsave /etc/haproxy/haproxy.cfg.rpmsave
+if ! rpm -q haproxy >/dev/null 2>&1; then
+	undir /etc/haproxy
+	undir /var/lib/haproxy
 fi
-if ! had httpd-installed; then
-	rpm -q httpd >/dev/null 2>&1 && dnf -y remove httpd </dev/null >/dev/null 2>&1
-	rm -f /etc/httpd/conf/httpd.conf.rpmsave
-	rmunowned /etc/httpd
-	rmunowned /var/log/httpd
-	rmunowned /var/www
+if ! rpm -q httpd >/dev/null 2>&1; then
+	undir /etc/httpd
+	undir /var/log/httpd
+	undir /var/www
 fi
 
 for f in /etc/httpd/conf/httpd.conf /var/www/html/index.html /etc/haproxy/haproxy.cfg; do
@@ -61,7 +70,7 @@ for f in /etc/httpd/conf/httpd.conf /var/www/html/index.html /etc/haproxy/haprox
 done
 
 for p in httpd haproxy; do
-	had "$p-installed" || continue
+	rpm -q "$p" >/dev/null 2>&1 || continue
 	had "$p-enabled" && systemctl enable "$p" </dev/null >/dev/null 2>&1
 	had "$p-active" && systemctl start "$p" </dev/null >/dev/null 2>&1
 done
@@ -87,6 +96,18 @@ REMOTE
 rc=0
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
+	if ! run_on_node "$ip" "sudo -n bash -s" < "$tmp/stop.sh" > /dev/null 2>&1; then
+		echo "Cleanup of node $n ($ip) failed" >&2
+		rc=1
+		continue
+	fi
+	pkg_restore_node "$ip" lb-01 2>"$tmp/err" || {
+		echo "Restoring the packages of node $n ($ip) failed:" >&2
+		grep -v "^Warning: Permanently added" "$tmp/err" >&2
+		# Keep the records of this node for the next reset
+		rc=1
+		continue
+	}
 	run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > /dev/null 2>&1 || {
 		echo "Cleanup of node $n ($ip) failed" >&2
 		rc=1
