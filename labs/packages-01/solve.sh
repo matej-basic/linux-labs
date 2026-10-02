@@ -12,7 +12,7 @@ dnf search git > /dev/null
 STEPS
 
 # Step 2 [sudo]
-dnf -y install git
+rpm -q git >/dev/null || dnf -y install git
 
 # Step 3 [user]
 run_as_student <<'STEPS'

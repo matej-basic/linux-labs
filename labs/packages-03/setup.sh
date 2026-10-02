@@ -1,7 +1,12 @@
 #!/bin/bash
 # packages-03 setup: make sure curl is installed and remove any file
-# list left over from an earlier run. Prints nothing on success.
+# list left over from an earlier run. Prints nothing on success. The
+# package set is recorded on the first start for reset.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+
+# First start only: record the package set before any dnf change
+pkg_snapshot packages-03
 
 rm -f /tmp/curl-files.txt
 

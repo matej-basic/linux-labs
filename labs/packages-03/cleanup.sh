@@ -1,5 +1,10 @@
 #!/bin/bash
-# packages-03 cleanup: remove the file list. curl stays installed (it is
-# part of the base system and other tools depend on it).
+# packages-03 cleanup: remove the file list. pkg_restore puts the package
+# set back as at the first start (curl stays, it is part of the base
+# system, and goes only if setup had to install it).
+source /opt/linux-labs/lib/packages.sh
+
 rm -f /tmp/curl-files.txt
-exit 0
+rc=0
+pkg_restore packages-03 || rc=1
+exit "$rc"

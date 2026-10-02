@@ -1,19 +1,8 @@
 #!/bin/bash
-# packages-04 cleanup: put joe back as it was before the first setup.sh
-# run, remove downloaded joe RPM files, repo keys imported during the
-# lab, and the state file.
-PRE=/var/tmp/packages-04.pre
-
-rpm -q joe &>/dev/null && dnf -y remove joe &>/dev/null
-if [ -f "$PRE" ]; then
-	if grep -qx joe-installed "$PRE"; then
-		dnf -y install joe &>/dev/null || true
-	fi
-	for k in $(rpm -qa 'gpg-pubkey*'); do
-		grep -qx "key $k" "$PRE" || rpm -e "$k" &>/dev/null || true
-	done
-	rm -f "$PRE"
-fi
+# packages-04 cleanup: remove downloaded joe RPM files and the state
+# file. pkg_restore removes joe and repo keys imported during the lab, or
+# puts joe back if it was installed at the first start.
+source /opt/linux-labs/lib/packages.sh
 
 user=${LAB_USER:-student}
 getent passwd "$user" &>/dev/null || user=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
@@ -24,4 +13,6 @@ for dir in /tmp /root "$user_home"; do
 done
 
 rm -f /opt/linux-labs/state/packages-04
-exit 0
+rc=0
+pkg_restore packages-04 || rc=1
+exit "$rc"

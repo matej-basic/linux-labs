@@ -2,22 +2,19 @@
 # packages-04 setup: make sure joe is not installed and record the newest
 # dnf history transaction, so the grader only looks at what happens after
 # the start. Prints nothing on success.
-set -u
+set -eu
+source /opt/linux-labs/lib/packages.sh
 
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/packages-04"
-PRE=/var/tmp/packages-04.pre
 
 if ! command -v dnf &>/dev/null; then
 	echo "packages-04: dnf not found" >&2
 	exit 1
 fi
 
-# First run only: remember whether joe and which repo keys were there
-if [ ! -f "$PRE" ]; then
-	if rpm -q joe &>/dev/null; then echo joe-installed > "$PRE"; else echo joe-missing > "$PRE"; fi
-	rpm -qa 'gpg-pubkey*' | sort | sed 's/^/key /' >> "$PRE"
-fi
+# First start only: record the package set before any dnf change
+pkg_snapshot packages-04
 
 # The joe editor must not be installed at the start
 if rpm -q joe &>/dev/null; then

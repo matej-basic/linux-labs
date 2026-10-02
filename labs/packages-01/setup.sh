@@ -1,21 +1,16 @@
 #!/bin/bash
 # packages-01 setup: make sure git is not installed. Prints nothing on
-# success. Records whether git was installed before the first run, so
-# that cleanup.sh can put it back.
+# success. The package set is recorded on the first start, so that
+# reset can remove what the solution installs and put git back if it
+# was installed before.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/packages-01"
-PRE=/var/tmp/packages-01.pre
 
-# Only the first run sees the real starting state
-if [ ! -f "$PRE" ]; then
-	if rpm -q git &>/dev/null; then
-		echo git-installed > "$PRE"
-	else
-		echo git-missing > "$PRE"
-	fi
-fi
+# First start only: record the package set before any dnf change
+pkg_snapshot packages-01
 
 if rpm -q git &>/dev/null; then
 	if ! dnf -y remove git &>/dev/null; then

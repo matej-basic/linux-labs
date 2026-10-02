@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install epel-release
+rpm -q epel-release >/dev/null || dnf -y install epel-release
 
 # Step 2 [user]
 run_as_student <<'STEPS'
@@ -17,7 +17,7 @@ dnf info htop
 STEPS
 
 # Step 3 [sudo]
-dnf -y install htop
+rpm -q htop >/dev/null || dnf -y install htop
 
 # Step 4 [user]
 run_as_student <<'STEPS'

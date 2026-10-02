@@ -20,7 +20,7 @@
 2. [sudo] Install the git package:
 
    ```bash
-   sudo dnf -y install git
+   rpm -q git || sudo dnf -y install git
    ```
 
 3. [user] Check the installation:

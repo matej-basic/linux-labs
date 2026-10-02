@@ -16,7 +16,7 @@
    Linux extras repository, so no URL is needed:
 
    ```bash
-   sudo dnf -y install epel-release
+   rpm -q epel-release || sudo dnf -y install epel-release
    ```
 
 2. [user] Check that the epel repository is enabled and that it
@@ -30,7 +30,7 @@
 3. [sudo] Install htop:
 
    ```bash
-   sudo dnf -y install htop
+   rpm -q htop || sudo dnf -y install htop
    ```
 
 4. [user] Check the package and the command:
