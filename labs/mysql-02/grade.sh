@@ -4,7 +4,7 @@ source /opt/linux-labs/lib/grading.sh
 
 # Run SQL as the database root user and print rows without headers
 rootsql() {
-	mysql -u root -plabpassword -N -B -e "$1" 2>/dev/null
+	mysql --no-defaults -u root -plabpassword -N -B -e "$1" 2>/dev/null
 }
 
 server_running() {

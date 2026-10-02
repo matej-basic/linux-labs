@@ -36,7 +36,7 @@ had() {
 rootsql() {
 	local sql
 	sql=$(cat)
-	MYSQL_PWD=$ROOT_PW mysql -u root --init-command='SET sql_log_bin=0' \
+	MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root --init-command='SET sql_log_bin=0' \
 		<<<"$sql" >/dev/null 2>&1 ||
 		mysql -u root --init-command='SET sql_log_bin=0' \
 			<<<"$sql" >/dev/null 2>&1

@@ -34,7 +34,7 @@ pkg_snapshot mysql-02 || die "cannot record the package set"
 # rootsql <sql>: run SQL as the database root user, labpassword first,
 # then without a password (socket, or root's own option file)
 rootsql() {
-	MYSQL_PWD=$ROOT_PW mysql -u root -N -B -e "$1" </dev/null 2>/dev/null ||
+	MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root -N -B -e "$1" </dev/null 2>/dev/null ||
 		mysql -u root -N -B -e "$1" </dev/null 2>/dev/null
 }
 
@@ -91,7 +91,7 @@ if [ ! -f "$pre/saved" ] && grep -q -- '-installed$' "$pre/flags"; then
 		rootsql "SHOW CREATE USER 'root'@'localhost'" > "$pre/root.sql" ||
 		die "cannot read the definition of root@localhost"
 	if [ "$(rootsql "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='labdb'")" = 1 ]; then
-		MYSQL_PWD=$ROOT_PW mysqldump -u root --set-gtid-purged=OFF --databases labdb \
+		MYSQL_PWD=$ROOT_PW mysqldump --no-defaults -u root --set-gtid-purged=OFF --databases labdb \
 			> "$pre/labdb.sql" 2>/dev/null </dev/null ||
 			mysqldump -u root --set-gtid-purged=OFF --databases labdb \
 				> "$pre/labdb.sql" 2>/dev/null </dev/null ||
@@ -109,12 +109,12 @@ if [ ! -f "$pre/saved" ] && grep -q -- '-installed$' "$pre/flags"; then
 fi
 
 # Root password: set it when it is not labpassword yet
-if ! MYSQL_PWD=$ROOT_PW mysql -u root -e 'SELECT 1' </dev/null >/dev/null 2>&1; then
+if ! MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root -e 'SELECT 1' </dev/null >/dev/null 2>&1; then
 	rootsql "SET sql_log_bin=0; ALTER USER 'root'@'localhost' IDENTIFIED BY '$ROOT_PW'" >/dev/null ||
 		die "cannot set the database root password to $ROOT_PW"
 fi
 
 # Reset lab state
-MYSQL_PWD=$ROOT_PW mysql -u root -e "SET sql_log_bin=0; DROP DATABASE IF EXISTS labdb; DROP USER IF EXISTS 'labuser'@'localhost'" \
+MYSQL_PWD=$ROOT_PW mysql --no-defaults -u root -e "SET sql_log_bin=0; DROP DATABASE IF EXISTS labdb; DROP USER IF EXISTS 'labuser'@'localhost'" \
 	</dev/null >/dev/null 2>&1 || die "cannot reset labdb and labuser"
 exit 0
