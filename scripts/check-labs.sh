@@ -54,6 +54,23 @@ SCRIPTS="setup.sh grade.sh cleanup.sh solve.sh"
 TASK_COMMANDS="touch mkdir mv cp rm rmdir ln chmod chown chgrp setfacl useradd groupadd usermod userdel groupdel passwd dnf yum rpm systemctl firewall-cmd nmcli semanage restorecon setsebool chcon mount umount mkswap swapon lvcreate pvcreate vgcreate lvextend tar curl wget crontab sed awk echo cat find grep sudo"
 # Escape for false positives: scripts/check-labs.allow (see the file)
 TASK_ALLOW="$ROOT_DIR/scripts/check-labs.allow"
+# A lab installs packages when setup.sh or solve.sh has a line (not a
+# comment, echo or printf) that matches this pattern. Such a lab must
+# restore the package set with lib/packages.sh: setup.sh sources it and
+# calls pkg_snapshot (or pkg_snapshot_node), cleanup.sh sources it and
+# calls pkg_restore (or pkg_restore_node). See "Packages" in
+# docs/author/framework.md.
+PKG_INSTALL_RE='(dnf|yum)( [^|;&]*)? (install|localinstall|reinstall|groupinstall|module install)([^a-z-]|$)|rpm +(-[iU]|--install|--upgrade)'
+# Labs that install packages and still have their own package code. The
+# per-lab pass converts them to lib/packages.sh one at a time and removes
+# each from this list; the criterion fails for a listed lab that already
+# uses the helper or no longer installs packages, so the list only shrinks.
+PKG_HELPER_PENDING="clustering-01 clustering-02 clustering-03 dns-01 dns-02 dns-03
+	files-03 firewall-02 lb-01 lb-02 lb-03 logging-02 mysql-01 mysql-02
+	mysql-03 packages-01 packages-02 packages-03 packages-04 postgres-01
+	postgres-02 postgres-03 replication-01 replication-02 replication-03
+	scheduling-01 scheduling-03 selinux-02 selinux-03 storage-02 users-03
+	webserver-02 webserver-03"
 # Allowed shellcheck exclusions for lab scripts:
 #   SC1091  not following a sourced file (lab scripts source absolute
 #           /opt/linux-labs paths that do not exist in the checkout)
@@ -705,6 +722,49 @@ c_solve_directives() {
 	return 0
 }
 
+# Lines of setup.sh and solve.sh that install packages
+pkg_install_lines() {
+	local f
+	for f in setup.sh solve.sh; do
+		[ -f "$D/$f" ] || continue
+		grep -nE "$PKG_INSTALL_RE" "$D/$f" | grep -vE '^[0-9]+:[[:space:]]*#|echo |printf ' | sed "s|^|$f:|"
+	done
+}
+
+c_packages() {
+	local installs uses=0 pending=0 f
+	installs=$(pkg_install_lines | head -n 1)
+	for f in setup.sh cleanup.sh; do
+		[ -f "$D/$f" ] && grep -qE '^[[:space:]]*(source|\.) /opt/linux-labs/lib/packages\.sh$' "$D/$f" && uses=1
+	done
+	for f in $PKG_HELPER_PENDING; do
+		[ "$f" = "$LAB" ] && pending=1
+	done
+	if [ "$pending" -eq 1 ]; then
+		if [ "$uses" -eq 1 ]; then
+			echo "uses lib/packages.sh: remove $LAB from PKG_HELPER_PENDING in scripts/check-labs.sh"
+		elif [ -z "$installs" ]; then
+			echo "installs no packages: remove $LAB from PKG_HELPER_PENDING in scripts/check-labs.sh"
+		fi
+		return 0
+	fi
+	[ -n "$installs" ] || [ "$uses" -eq 1 ] || return 0
+	[ -n "$installs" ] && installs=" (${installs%%:[0-9]*}: $(printf '%s\n' "$installs" | cut -d: -f3- | sed 's/^[[:space:]]*//' | cut -c1-40))"
+	for f in setup.sh cleanup.sh; do
+		[ -f "$D/$f" ] || continue
+		grep -qE '^[[:space:]]*(source|\.) /opt/linux-labs/lib/packages\.sh$' "$D/$f" \
+			|| echo "$f does not source /opt/linux-labs/lib/packages.sh$installs"
+	done
+	# Calls outside comment lines, with the lab name literally or as $LAB
+	[ -f "$D/setup.sh" ] && ! grep -vE '^[[:space:]]*#' "$D/setup.sh" \
+		| grep -qE "(^|[^a-z_])pkg_snapshot(_node)?[[:space:]].*($LAB|\\\$LAB|\\\$\\{LAB\\})|pkg_node_script[[:space:]]+snapshot[[:space:]]" \
+		&& echo "setup.sh does not call pkg_snapshot $LAB"
+	[ -f "$D/cleanup.sh" ] && ! grep -vE '^[[:space:]]*#' "$D/cleanup.sh" \
+		| grep -qE "(^|[^a-z_])pkg_restore(_node)?[[:space:]].*($LAB|\\\$LAB|\\\$\\{LAB\\})|pkg_node_script[[:space:]]+restore[[:space:]]" \
+		&& echo "cleanup.sh does not call pkg_restore $LAB"
+	return 0
+}
+
 c_bash_n() {
 	local f
 	for f in $SCRIPTS; do
@@ -796,6 +856,7 @@ check_lab() {
 	check "grade.sh has no legacy pass/fail helpers" c_grade_legacy
 	check "setup.sh prints no task banner" c_setup_quiet
 	check "solve.sh declares its leftovers and sources solve-lib.sh" c_solve_directives
+	check "Package installs are undone with lib/packages.sh" c_packages
 	check "Scripts pass bash -n" c_bash_n
 	if [ "$SC_MODE" != "none" ]; then
 		check "Scripts pass shellcheck" c_shellcheck

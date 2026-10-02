@@ -146,11 +146,71 @@ Any other `{{...}}` fails `check-labs.sh`; at runtime labctl prints it unchanged
 - Use `set -eu` (not `pipefail` with pipelines that end early, such as `getent passwd | awk '... exit'`).
 - Per-lab state (owner name, start transaction id, generated values) goes in the file `/opt/linux-labs/state/<lab>` (or a directory of that name), mode `0644`. `cleanup.sh` removes it.
 - The task user is `$LAB_USER`, which labctl exports to `setup.sh`, `grade.sh` and `cleanup.sh` (see "Targets"): `student` on the workstation, `opsadmin` on a server. Use `${LAB_USER:-student}`, falling back to the first regular user if that account does not exist (see `files-04`), and never `SUDO_USER` or a literal `student`. Record it in the state file if the grader needs it.
+- A lab that installs or removes packages (in `setup.sh`, in its solution, or by the student's own choice) calls `pkg_snapshot <lab>` from `lib/packages.sh` before it changes any package (see "Packages").
 
 ### cleanup.sh
 
 - Runs as root from `labctl reset`. Undoes everything `setup.sh` did and everything `solve.sh` or a student following `solution.md` creates: files, users, packages, services, firewall rules, SELinux settings, the state file. It must leave the VM usable for the next lab and must not fail when the lab was never started or only half done (use `|| true` and `rm -f` where needed).
 - It may print short progress lines but should normally print nothing. Exit 0 on success; for a converted lab a non-zero exit makes `labctl reset` report the failure (`.current_lab` is removed either way).
+- A lab that took a package snapshot calls `pkg_restore <lab>` after its own cleanup (services stopped, files removed) and before it restores configuration that belongs to a package installed before the lab, since `pkg_restore` may install that package again. A failed `pkg_restore` makes `cleanup.sh` exit non-zero. Packages are never removed by hand in `cleanup.sh`.
+
+### Packages
+
+The rule: `labctl reset` removes every package that was not installed when the lab first started, including dependencies, repo keys (`gpg-pubkey`) imported during the lab and anything the student installed beyond the task. Packages that were installed before stay. A package that was installed at the first start and is missing at reset (removed by `setup.sh` or by the student) is installed again, in the current repository version. So a lab never leaks into the next one: httpd from a web lab does not change an SELinux lab, and MySQL from the replication labs does not change mysql-01.
+
+Reset never downgrades. An upgrade pulled in during the lab stays: on Rocky 8.7, installing gcc upgrades glibc, libgcc and libgomp, and those versions remain after reset. A new package that a package from before the lab now needs (an upgraded package with a new dependency) stays as well, since removing it would remove the older package too. This is a known limit; downgrading glibc or httpd can break the system, and the old RPMs are often gone from the repositories.
+
+`lib/packages.sh` implements the rule for every lab. Lab scripts source it like the other libraries:
+
+```bash
+source /opt/linux-labs/lib/packages.sh
+
+pkg_snapshot packages-05    # setup.sh, before any package change
+pkg_restore packages-05     # cleanup.sh, after the lab's own cleanup
+```
+
+| Function | Meaning |
+|---|---|
+| `pkg_snapshot <lab>` | first start only: record the package set, the repo keys, `/etc/dnf/modules.d` and `/etc/yum.repos.d` in `/opt/linux-labs/state/<lab>.packages` (mode 0700); a restarted lab keeps the snapshot of its first start |
+| `pkg_restore <lab>` | restore the snapshot and delete it; without a snapshot (the lab was never started) it does nothing; on a failure it keeps the snapshot, so the next reset tries again |
+| `pkg_snapshot_node <ip> <lab>`, `pkg_restore_node <ip> <lab>` | the same on a node of a multi-node lab, through `run_on_node <ip> "sudo -n bash -s"` (source `load-config.sh` first) |
+| `pkg_node_script <snapshot\|restore> <lab>` | print the self-contained script the `_node` functions send, for a lab that runs it on the node in its own way |
+
+All functions are quiet on success, print errors to stderr and return non-zero on failure, and are safe under `set -eu`. The snapshot lives on the lab's machine, next to the state file, where it survives from `start` to `reset`: labctl removes `/opt/linux-labs/state` on a server only when it is empty, after `cleanup.sh`.
+
+How it compares and restores:
+
+- The package set is `<name>.<arch>` of every package plus `gpg-pubkey-<version>` of every repo key. The version is not compared, so an upgrade is not a new package, and a second kernel (or other install-only package) is not new either. Each repo key is its own `gpg-pubkey` package, so keys are compared by name and version.
+- New packages are removed with `dnf remove` and `clean_requirements_on_remove=False` and every repository disabled, so dnf removes exactly the new packages (their new dependencies are new packages themselves) and needs no network. A new package that something from before the lab needs is left out (see the limit above).
+- `/etc/dnf/modules.d` and `/etc/yum.repos.d` go back to their recorded content: files the lab added and no installed package owns are deleted (repo files written by `dnf config-manager --add-repo` or by hand, `.rpmsave` files), and recorded files that changed are written back (a stream enabled with `dnf module enable postgresql:13`, a repository enabled with `dnf config-manager --set-enabled`). This happens before the missing packages are installed, so they come from the streams and repositories of the first start, and once more afterwards. Labs do not save or restore these two directories themselves.
+- Missing packages are installed with `dnf install`, and when that fails once more with every repository enabled (a package from a repository that is disabled by default, such as the High Availability repo).
+- Repo keys imported since the snapshot are removed with `rpm -e`, removed keys are imported again from the recorded copy.
+- The install reason (`dnf history userinstalled`) of the packages from before the lab is put back with `dnf mark`, so `dnf autoremove` sees the system as it was.
+
+What stays the lab's job: services, configuration files, data directories, users and firewall rules. A lab that removes a package that was there before (webserver-01 removes httpd so the student installs it) records that package's configuration and service state itself and restores them after `pkg_restore` has installed it again.
+
+Solutions follow the same rule from the other side: `solution.md` and `solve.sh` install only what is missing, with `rpm -q X || dnf -y install X` (`rpm -q X || sudo dnf -y install X` in `solution.md`), so a solution never upgrades a package on purpose. `solve.sh` declares the main packages it installs with `# solve: package <name>`.
+
+#### Multi-node labs
+
+The nodes have no `lib/`. `setup.sh` and `cleanup.sh` run on the workstation, source both `load-config.sh` and `packages.sh`, and call the `_node` functions once per node:
+
+```bash
+source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/packages.sh
+
+# setup.sh, before the node preparation
+for n in 1 2 3; do
+	pkg_snapshot_node "$(get_node_ip "$n")" clustering-01 || exit 1
+done
+
+# cleanup.sh, after the node cleanup
+for n in 1 2 3; do
+	pkg_restore_node "$(get_node_ip "$n")" clustering-01 || rc=1
+done
+```
+
+`pkg_node_script` prints a script that carries the functions of `packages.sh` (written with `declare -f`) and calls `pkg_snapshot` or `pkg_restore`, so the node runs exactly the code a server target runs. The snapshot is in `/opt/linux-labs/state/<lab>.packages` on the node, and a successful restore also removes `/opt/linux-labs/state` and `/opt/linux-labs` on the node when they are empty. A lab that already sends its own node script with `bash -s` may append the output of `pkg_node_script snapshot <lab>` to it instead, as long as the snapshot comes before any package change.
 
 ### Network labs
 
@@ -277,7 +337,7 @@ Legacy single-node graders source `colors.sh`, redefine `pass`/`fail` with count
 
 ## Multi-node labs
 
-`lb-01..03`, `replication-01..03` and `clustering-01..03` source `load-config.sh` and call `load_lab_config`. They check `NODES_ENABLED=true` and `NODE_COUNT`, then use `get_node_ip N`, `get_all_node_ips` and `run_on_node IP "cmd"` (SSH with `SSH_USER`/`SSH_KEY_PATH`/`SSH_PORT`). Their `task.txt` has a `TOPOLOGY` section with an ASCII drawing and uses `{{NODEn_IP}}` for addresses.
+`lb-01..03`, `replication-01..03` and `clustering-01..03` source `load-config.sh` and call `load_lab_config`. Packages on the nodes follow the same rule as on a single machine, through `pkg_snapshot_node` and `pkg_restore_node` (see "Packages"). They check `NODES_ENABLED=true` and `NODE_COUNT`, then use `get_node_ip N`, `get_all_node_ips` and `run_on_node IP "cmd"` (SSH with `SSH_USER`/`SSH_KEY_PATH`/`SSH_PORT`). Their `task.txt` has a `TOPOLOGY` section with an ASCII drawing and uses `{{NODEn_IP}}` for addresses.
 
 The clustering labs are a 3-node Pacemaker/Corosync series (basic cluster, STONITH fencing, quorum and split-brain protection). Use `pcs` and `crm_node` in scripts, not `crm`: crmsh is not installed on the student VMs. Pacemaker, pcs and fence agents come from the High Availability repo, which is disabled by default: its id is `ha` on EL8 and `highavailability` on EL9 (`dnf install --enablerepo=ha ...` on EL8). Nodes have no root SSH to each other, so solutions copy files between nodes through the workstation. `fence_virsh` in clustering-02 cannot reach a real hypervisor in this environment; the solution sets `migration-threshold=INFINITY` so failing fence devices don't block the resource.
 
@@ -378,6 +438,7 @@ STEPS
 ```
 
 - It performs the same steps as `solution.md`, in the same order, and the comments name the step numbers. `[user]` steps go through `run_as_student`; `[sudo]` steps run directly (the script is root).
+- It installs only what is missing, `rpm -q X >/dev/null || dnf -y install X >/dev/null`, like `solution.md` (see "Packages").
 - `run_as_student` (from `scripts/solve-lib.sh`) runs its argument, or its standard input when there is no argument, as the task user in a login shell (`runuser -l`, working directory the user's home) with `bash -euo pipefail`. The task user is `SOLVE_USER`, which `test-lab.sh` sets to `student` for workstation and multi-node labs and to `opsadmin` (`SSH_USER`) for a server target; `LAB_USER` is set to the same value. Code passed on stdin must not read stdin itself.
 - It runs as root from a temporary directory on the lab's machine (the workstation, or the server target), after `sudo labctl start <lab>`, so it can rely on the state `setup.sh` created. It must exit 0 on success and non-zero on any failure (`set -euo pipefail`).
 - Safe to re-run: after `labctl reset` and `labctl start` it must work again, so it does not depend on anything left over from an earlier run.
@@ -386,7 +447,7 @@ STEPS
   - `# solve: package <name>`: a package the solution installs; it must not be installed after `labctl reset`.
   - `# solve: reboot`: the lab needs a reboot after solving (for example to prove that a setting persists); `test-lab.sh` reboots the lab's machine (the server target), waits for SSH, a new `/proc/sys/kernel/random/boot_id` and the end of the boot, and grades afterwards.
   - `# solve: none`: nothing to declare (only allowed on its own).
-- `/opt/linux-labs/state/<lab>` and `/opt/linux-labs/.current_lab` are always checked (on a server target also the server's marker and `/var/lib/linux-labs`); do not declare them. Paths and packages are checked on the lab's machine.
+- `/opt/linux-labs/state/<lab>`, the package snapshot `/opt/linux-labs/state/<lab>.packages` and `/opt/linux-labs/.current_lab` are always checked (on a server target also the server's marker and `/var/lib/linux-labs`), and so is the whole package set of the lab's machine (see "Packages" and [testing.md](testing.md)); do not declare them. Paths and packages are checked on the lab's machine.
 
 ## known-issues.md
 

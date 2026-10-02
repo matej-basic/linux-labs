@@ -40,6 +40,8 @@ install -m 0755 opt/linux-labs/lib/load-config.sh %{buildroot}/opt/linux-labs/li
 install -m 0755 opt/linux-labs/lib/colors.sh %{buildroot}/opt/linux-labs/lib/colors.sh
 install -m 0755 opt/linux-labs/lib/grading.sh %{buildroot}/opt/linux-labs/lib/grading.sh
 install -m 0755 opt/linux-labs/lib/target-run.sh %{buildroot}/opt/linux-labs/lib/target-run.sh
+# Package snapshot and restore for setup.sh and cleanup.sh (only sourced)
+install -m 0644 opt/linux-labs/lib/packages.sh %{buildroot}/opt/linux-labs/lib/packages.sh
 
 # labctl's SSH known_hosts for labs on a server target (servera...)
 mkdir -p %{buildroot}/var/lib/linux-labs
@@ -58,6 +60,8 @@ find %{buildroot}/opt/linux-labs/labs -type f -name known-issues.md -delete
 
 # Ensure all shell scripts in the labs tree are executable
 find %{buildroot}/opt/linux-labs -type f -name '*.sh' -exec chmod 0755 {} +
+# lib/packages.sh is a library that lab scripts source, never run
+chmod 0644 %{buildroot}/opt/linux-labs/lib/packages.sh
 
 # Install sudoers rule to allow student to run labctl without password
 mkdir -p %{buildroot}/etc/sudoers.d

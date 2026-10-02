@@ -16,6 +16,9 @@
 # the Mac needs root SSH access to the server too. solve.sh, the reboot
 # and the leftover checks then happen on the server. Workstation and
 # multi-node labs run as before on <host>, with student as the task user.
+# A multi-node lab ("needs: nodes=N") also needs root SSH access from the
+# Mac to every configured node (NODE_COUNT nodes, addresses from the same
+# configuration).
 #
 # Strictly one lab after the other, it runs:
 #
@@ -31,8 +34,15 @@
 #   su - student -c "sudo labctl reset <lab>"    expect exit 0
 #   su - student -c "labctl grade <lab>"         expect exit 1
 #   the paths and packages declared in solve.sh, the state file
-#   /opt/linux-labs/state/<lab> and /opt/linux-labs/.current_lab are gone
-#   (on a server target also the server's marker and /var/lib/linux-labs)
+#   /opt/linux-labs/state/<lab>, the package snapshot
+#   /opt/linux-labs/state/<lab>.packages and /opt/linux-labs/.current_lab
+#   are gone (on a server target also the server's marker and
+#   /var/lib/linux-labs; for a multi-node lab the snapshot on every node)
+#   the package set (name.arch of every package, gpg-pubkey-<version> of
+#   every repo key) of the lab's machine is the same as right before
+#   labctl start; for a multi-node lab the workstation and every
+#   configured node are compared. The log lists added and missing
+#   packages.
 #
 # A lab without task.txt or solve.sh is a legacy lab and is skipped with a
 # message. The run aborts before deploying anything if a lab is active on
@@ -57,9 +67,15 @@ source "$ROOT_DIR/src/opt/linux-labs/lib/grading.sh"
 
 LAB_USER=student
 REBOOT_TIMEOUT=600
-# Server targets, filled in by the preflight from the workstation's config
-TARGET_IPS=()
+# Server targets and multi-node nodes, filled in by the preflight from
+# the workstation's config: NODE_IPS_ALL[0] is node 1 (servera)
+NODE_IPS_ALL=()
+NODE_COUNT_CFG=0
 TARGET_USER=""
+# Package set of a machine: name.arch of every package, gpg-pubkey-<version>
+# of every repo key (one gpg-pubkey package per key), sorted on the Mac
+PKGSET_CMD="rpm -qa --qf '%{NAME}.%{ARCH}\\n' | grep -v '^gpg-pubkey\\.'; rpm -qa gpg-pubkey --qf '%{NAME}-%{VERSION}\\n'"
+PKGDIR=""
 
 usage() {
 	echo "Usage: $0 <host> <lab>..." >&2
@@ -136,10 +152,26 @@ lab_target() {
 # target_ip <target>: the server's address from the workstation's config
 target_ip() {
 	case "$1" in
-		servera) echo "${TARGET_IPS[0]:-}" ;;
-		serverb) echo "${TARGET_IPS[1]:-}" ;;
-		serverc) echo "${TARGET_IPS[2]:-}" ;;
+		servera) echo "${NODE_IPS_ALL[0]:-}" ;;
+		serverb) echo "${NODE_IPS_ALL[1]:-}" ;;
+		serverc) echo "${NODE_IPS_ALL[2]:-}" ;;
 	esac
+}
+
+# lab_nodes <lab>: N from "needs: ... nodes=N", empty for a single-node lab
+lab_nodes() {
+	sed -n 's/^needs: .*nodes=\([0-9][0-9]*\).*/\1/p' "$ROOT_DIR/labs/$1/description.txt"
+}
+
+# pkg_set <host> <file>: save the package set of a host, sorted
+pkg_set() {
+	local rc
+	log ""
+	log "---- package set on $1 into ${2##*/} ($(date +%H:%M:%S))"
+	hssh "$1" "$PKGSET_CMD" </dev/null 2>>"$LOG" | LC_ALL=C sort -u >"$2"
+	rc=${PIPESTATUS[0]}
+	log "$(wc -l <"$2" | tr -d ' ') entries"
+	[ "$rc" -eq 0 ] && [ -s "$2" ]
 }
 
 # as_student <description> <command>
@@ -168,6 +200,9 @@ cleanup_stage() {
 	fi
 	if [ -n "$TSTAGE" ]; then
 		hssh "$TSTAGE_HOST" "rm -rf '$TSTAGE'" </dev/null >/dev/null 2>&1
+	fi
+	if [ -n "$PKGDIR" ]; then
+		rm -rf "$PKGDIR"
 	fi
 	if [ -n "$ACTIVE_LAB" ]; then
 		echo "Warning: lab $ACTIVE_LAB may still be active on $HOST. Run: sudo labctl reset $ACTIVE_LAB" >&2
@@ -205,22 +240,41 @@ if [ "${#TESTABLE[@]}" -gt 0 ]; then
 		abort "lab '$OUT' is active on $HOST. Reset it first: sudo labctl reset $OUT"
 	fi
 
-	# Server targets: addresses and task user from the workstation's
-	# config, root access from here, no active lab there
+	# Server targets and multi-node labs: addresses and task user from the
+	# workstation's config, root access from here, no active lab there
 	targets=""
+	multinode=0
 	for lab in "${TESTABLE[@]}"; do
+		[ -n "$(lab_nodes "$lab")" ] && multinode=1
 		t=$(lab_target "$lab")
 		[ "$t" = workstation ] && continue
 		case " $targets " in *" $t "*) ;; *) targets="$targets $t" ;; esac
 	done
-	if [ -n "$targets" ]; then
-		# The config may hold "$HOME"; use student's home as labctl does
-		remote "server targets from the lab config" "HOME=/home/$LAB_USER; source /opt/linux-labs/lib/load-config.sh >/dev/null 2>&1; get_node_ip 1; get_node_ip 2; get_node_ip 3; echo \"\$SSH_USER\""
+	if [ -n "$targets" ] || [ "$multinode" -eq 1 ]; then
+		# The config may hold "$HOME"; use student's home as labctl does.
+		# Output: SSH_USER, NODE_COUNT, then nodes 1 to max(3, NODE_COUNT)
+		remote "nodes from the lab config" "HOME=/home/$LAB_USER; source /opt/linux-labs/lib/load-config.sh >/dev/null 2>&1; echo \"\$SSH_USER\"; echo \"\$NODE_COUNT\"; n=\$NODE_COUNT; [ \"\$n\" -ge 3 ] 2>/dev/null || n=3; for i in \$(seq 1 \$n); do get_node_ip \$i; done"
 		[ "$RC" -eq 0 ] || abort "cannot read the lab configuration on $HOST (see log)"
-		TARGET_IPS=()
-		while IFS= read -r line; do TARGET_IPS+=("$line"); done <<<"$OUT"
-		TARGET_USER="${TARGET_IPS[3]:-}"
+		NODE_IPS_ALL=()
+		n=0
+		while IFS= read -r line; do
+			n=$((n + 1))
+			case "$n" in
+				1) TARGET_USER="$line" ;;
+				2) NODE_COUNT_CFG="$line" ;;
+				*) NODE_IPS_ALL+=("$line") ;;
+			esac
+		done <<<"$OUT"
 		[ -n "$TARGET_USER" ] || abort "SSH_USER is empty in the lab configuration on $HOST"
+		printf '%s\n' "$NODE_COUNT_CFG" | grep -qxE '[0-9]+' || NODE_COUNT_CFG=0
+		if [ "$multinode" -eq 1 ]; then
+			for ((i = 0; i < NODE_COUNT_CFG; i++)); do
+				tip="${NODE_IPS_ALL[$i]:-}"
+				[ -n "$tip" ] || abort "no address for node $((i + 1)) in the lab configuration on $HOST"
+				remote_at "$tip" "connectivity to node $((i + 1))" "rpm -q rpm"
+				[ "$RC" -eq 0 ] || abort "cannot reach root@$tip (node $((i + 1))) for the package check (see log)"
+			done
+		fi
 		for t in $targets; do
 			tip=$(target_ip "$t")
 			[ -n "$tip" ] || abort "no address for $t in the lab configuration on $HOST"
@@ -236,6 +290,7 @@ if [ "${#TESTABLE[@]}" -gt 0 ]; then
 	remote "create staging directory" "mktemp -d /tmp/test-lab.XXXXXX"
 	[ "$RC" -eq 0 ] || abort "cannot create a temporary directory on $HOST"
 	STAGE="$OUT"
+	PKGDIR=$(mktemp -d "${TMPDIR:-/tmp}/test-lab-pkg.XXXXXX") || abort "cannot create a local temporary directory"
 
 	files=(src/usr/bin/labctl scripts/solve-lib.sh src/usr/share/man/man1/labctl.1 src/etc/profile.d/labctl.sh)
 	for f in "$ROOT_DIR"/src/opt/linux-labs/lib/*.sh; do
@@ -256,7 +311,9 @@ if [ "${#TESTABLE[@]}" -gt 0 ]; then
 	remote "install labctl and lib" "set -e
 install -m 0755 -o root -g root '$STAGE/src/usr/bin/labctl' /usr/bin/labctl
 for f in '$STAGE'/src/opt/linux-labs/lib/*.sh; do
-  install -m 0755 -o root -g root \"\$f\" /opt/linux-labs/lib/
+  # Same modes as the RPM: packages.sh is only sourced
+  case \"\${f##*/}\" in packages.sh) m=0644 ;; *) m=0755 ;; esac
+  install -m \$m -o root -g root \"\$f\" /opt/linux-labs/lib/
 done
 man=/usr/share/man/man1/labctl.1.gz
 if [ \"\$(zcat \$man 2>/dev/null | sha256sum)\" != \"\$(sha256sum < '$STAGE/src/usr/share/man/man1/labctl.1')\" ]; then
@@ -365,6 +422,26 @@ test_lab() {
 	fi
 	criterion_result "Lab files are installed on the host" 0
 
+	# Machines whose package set must survive start to reset: the lab's
+	# machine, and for a multi-node lab every configured node as well
+	local -a pkg_hosts=("$lab_host") pkg_names=("$target") pkg_ok=()
+	local i nodes
+	nodes=$(lab_nodes "$lab")
+	if [ -n "$nodes" ]; then
+		for ((i = 0; i < NODE_COUNT_CFG; i++)); do
+			pkg_hosts+=("${NODE_IPS_ALL[$i]}")
+			pkg_names+=("node $((i + 1))")
+		done
+	fi
+	for i in "${!pkg_hosts[@]}"; do
+		if pkg_set "${pkg_hosts[$i]}" "$PKGDIR/$lab.$i.before"; then
+			pkg_ok+=(1)
+		else
+			pkg_ok+=(0)
+			log "!! cannot read the package set of ${pkg_names[$i]} (${pkg_hosts[$i]})"
+		fi
+	done
+
 	ACTIVE_LAB="$lab"
 	as_student "start" "sudo labctl start $lab"
 	expect_rc "labctl start exits 0" 0
@@ -472,8 +549,33 @@ test_lab() {
 		log "!! leftovers:$leftover"
 	fi
 
-	remote_at "$lab_host" "state file" "test ! -e /opt/linux-labs/state/$lab"
-	expect_rc "State file /opt/linux-labs/state/$lab is gone" 0
+	remote_at "$lab_host" "state file and package snapshot" "test ! -e /opt/linux-labs/state/$lab && test ! -e /opt/linux-labs/state/$lab.packages"
+	if [ "$RC" -eq 0 ] && [ -n "$nodes" ]; then
+		for ((i = 0; i < NODE_COUNT_CFG; i++)); do
+			remote_at "${NODE_IPS_ALL[$i]}" "package snapshot on node $((i + 1))" "test ! -e /opt/linux-labs/state/$lab.packages"
+			[ "$RC" -eq 0 ] || break
+		done
+	fi
+	expect_rc "State file and package snapshot of $lab are gone" 0
+
+	local after added missing
+	for i in "${!pkg_hosts[@]}"; do
+		after="$PKGDIR/$lab.$i.after"
+		if [ "${pkg_ok[$i]}" -eq 1 ] && pkg_set "${pkg_hosts[$i]}" "$after"; then
+			added=$(LC_ALL=C comm -13 "$PKGDIR/$lab.$i.before" "$after" | tr '\n' ' ')
+			missing=$(LC_ALL=C comm -23 "$PKGDIR/$lab.$i.before" "$after" | tr '\n' ' ')
+			if [ -z "$added$missing" ]; then
+				criterion_result "Package set on ${pkg_names[$i]} is unchanged after reset" 0
+			else
+				criterion_result "Package set on ${pkg_names[$i]} is unchanged after reset" 1
+				log "!! packages added on ${pkg_names[$i]} (${pkg_hosts[$i]}): ${added:-none}"
+				log "!! packages missing on ${pkg_names[$i]} (${pkg_hosts[$i]}): ${missing:-none}"
+			fi
+		else
+			criterion_result "Package set on ${pkg_names[$i]} is unchanged after reset" 1
+			log "!! cannot compare the package set of ${pkg_names[$i]} (${pkg_hosts[$i]})"
+		fi
+	done
 
 	if [ "$target" != workstation ]; then
 		remote_at "$lab_host" "lab copy and marker on $target" "test ! -e /var/lib/linux-labs && test ! -e /opt/linux-labs/.current_lab"
