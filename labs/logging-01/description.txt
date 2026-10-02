@@ -2,3 +2,4 @@ title: Filtering the systemd journal with journalctl
 category: Logging
 complexity: Beginner
 objective: Filter the systemd journal by identifier, priority, output format and order, and save the results to files.
+target: servera

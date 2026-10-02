@@ -3,3 +3,4 @@ category: Networking
 complexity: Advanced
 objective: Configure an active-backup network bond from two free interfaces with a static address.
 needs: free-nic
+target: servera

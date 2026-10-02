@@ -12,9 +12,10 @@ Every lab follows lab framework 2.0, specified in `docs/author/framework.md` and
 
 `src/` mirrors the target filesystem. Paths inside it are the paths on the student VM:
 
-- `src/usr/bin/labctl`: the CLI (`start|task|grade|reset|list|solution|configure|help`). `start` and `reset` require root; `/etc/sudoers.d/labctl` gives the `student` user passwordless sudo for labctl only.
-- `src/opt/linux-labs/lib/`: `grading.sh` (grading library for all 2.0 graders), `load-config.sh` (config loader plus multi-node helpers) and `colors.sh` (used only by legacy graders; delete it once no lab uses it).
-- `src/etc/profile.d/labctl.sh`: adds `[LAB:<name>]` to PS1 by reading `/opt/linux-labs/.current_lab`, the state file `labctl start` writes and `labctl reset` removes.
+- `src/usr/bin/labctl`: the CLI (`start|task|grade|reset|list|solution|configure|help`). `start` and `reset` require root; `/etc/sudoers.d/labctl` gives the `student` user passwordless sudo for labctl only. The student has no other sudo on the workstation.
+- `src/opt/linux-labs/lib/`: `grading.sh` (grading library for all 2.0 graders), `load-config.sh` (config loader plus multi-node helpers), `target-run.sh` (runs a lab script on a server target; labctl sends it over SSH) and `colors.sh` (used only by legacy graders; delete it once no lab uses it).
+- `src/etc/profile.d/labctl.sh`: adds `[LAB:<name>]` to PS1 by reading `/opt/linux-labs/.current_lab`, the state file `labctl start` writes and `labctl reset` removes. For a server target labctl also installs it and a marker on the server.
+- Lab targets: `target:` in `description.txt` is `workstation` (files-01, files-04: no root needed) or `servera` (every other single-node lab); multi-node labs have none. For a server target labctl copies the lab and `lib/` to `/var/lib/linux-labs/` on the server and runs setup/grade/cleanup there as root through `ssh <SSH_USER>@<server> sudo -n` (servera is node 1 of the config). Lab state lives on the server. Details: "Targets" in `docs/author/framework.md`.
 - `src/usr/share/man/man1/labctl.1`: the man page. Update it when labctl commands change, together with `docs/student/commands.md`.
 - `labs/<topic>-NN/` installs to `/opt/linux-labs/labs/` (without `solve.sh`).
 - `scripts/`: `build-rpm-linux.sh`, `check-labs.sh` (with its allowlist `check-labs.allow`), `gen-catalog.sh` (writes `docs/catalog.md`, or an HTML catalog with `--html <file>`), `test-lab.sh`, `solve-lib.sh` (helpers for `solve.sh`), and the release helpers `sign-rpm.sh` and `update-pages.sh`. None of these are shipped.
@@ -37,6 +38,9 @@ Every lab script hardcodes the installed paths (`/opt/linux-labs/...`), so labs 
 ## Pitfalls
 
 - Counters in `&& ... ||` chains: `((passcount++))` from 0 returns status 1, so a passing check also runs the `||` branch. Legacy graders must use `((++passcount))` (fixed in commit 262e8b4); 2.0 graders have no counters at all, the library uses `$((n + 1))`.
+- The task user is `$LAB_USER` (labctl exports it; `student` on the workstation, `opsadmin` on a server) and `{{LAB_USER}}` in task.txt. Lab scripts must not use `SUDO_USER` or a literal `student` for it, and `run_as_student` in `solve.sh` runs as the task user.
+- On a server target the lab scripts run from a copy in `/var/lib/linux-labs/`, where labctl rewrites `/opt/linux-labs/lib/` to `/var/lib/linux-labs/lib/`. Keep writing `source /opt/linux-labs/lib/grading.sh` literally; use `$(dirname "$0")` for files next to the script.
+- labctl reaches servers as root on the workstation with student's key (`SSH_KEY_PATH`, read with `HOME` set to the sudo caller's home) and its own `/var/lib/linux-labs/known_hosts` (`accept-new`). Never use root's or student's `known_hosts` for it.
 - sudo resets the environment. `labctl start`, `reset` and `grade` (which re-executes itself through `sudo -n`) see only the config file and the defaults, not exported variables, even though `load_lab_config` gives environment variables precedence.
 - `labctl configure` writes `~/.config/linux-labs/config` of the sudo caller unless `/etc/linux-labs/config` already exists; it never creates the system file. The interactive wizard rewrites `SSH_KEY_PATH`, `SSH_USER` and `SSH_PORT` to their defaults, and `configure set` refuses an empty value.
 - The clustering labs use `pcs` and `crm_node`, never `crm` (crmsh is not installed). The High Availability repo id is `ha` on EL8 and `highavailability` on EL9.
@@ -46,7 +50,8 @@ Every lab script hardcodes the installed paths (`/opt/linux-labs/...`), so labs 
 
 Details are in `docs/author/testing.md`. The essentials:
 
-- Workstation `10.0.0.188`: Rocky 8.7, SELinux enforcing, `linux-labs` RPM installed, user `student`, root SSH key access from the Mac. `ens192` carries the default route and is never touched; `ens224` and `ens256` are free NICs on an isolated network. servera, serverb and serverc are 10.0.0.189 to .191.
+- Workstation `10.0.0.188`: Rocky 8.7, SELinux enforcing, `linux-labs` RPM installed, user `student`, root SSH key access from the Mac. `ens192` carries the default route and is never touched. servera, serverb and serverc are 10.0.0.189 to .191 (Rocky 8.7, `opsadmin` with passwordless sudo, student's key logs in as `opsadmin`, root SSH from the Mac). On servera `ens192` carries SSH and the default route; `ens224` and `ens256` are the free NICs for the network labs.
+- Server-target labs all run on servera, so the one-lab-at-a-time rule covers servera too; reboot and network labs can break servera rather than the workstation.
 - Labs are tested strictly one at a time: never two `test-lab.sh` runs against the same host, never in parallel with another session, never while a person works through a lab there. If a lab is active on the host, report it and stop; do not reset someone else's lab.
 - Build and test one new lab before starting the next (`.claude/skills/new-lab/`).
 - `SHELLCHECK=docker scripts/check-labs.sh --strict` must exit 0 before anything is committed; CI uses the same docker image.
@@ -86,7 +91,8 @@ description starts with "linux-labs "); the user's own snapshots such as
 
 ## Known issues
 
-- There is no "Tested clustering-NN" commit for the clustering labs, and SSH key access to servera, serverb and serverc (10.0.0.189 to .191) still fails, so the multi-node labs cannot be runtime-tested yet.
+- There is no "Tested clustering-NN" commit for the clustering labs.
+- The per-lab pass for the target model is pending: most server-target labs still assume `student` as the task user and have not been runtime-tested on servera (files-02 and files-04 were the pilots).
 - Earlier "Tested <lab>." / "Confirmed <lab> works as intended" commits predate several bulk changes and do not count as evidence; `test-lab.sh` runs replace them.
 - `brainstorm/` holds design notes and plans (class dashboard, break-fix labs, hub/spoke multi-node, the framework 2.0 plan, the docs plan). They are plans, not implemented behaviour.
 

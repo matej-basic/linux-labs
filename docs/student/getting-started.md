@@ -150,6 +150,31 @@ disappears.
 Only one lab is active at a time. Always reset a lab before you start
 the next one.
 
+## Labs that run on a server
+
+Most labs need root rights, so they run on a server called servera,
+not on your workstation. You still run every labctl command on the
+workstation. The header of such a lab has one more line:
+
+    files-02: Web directory permissions and ownership
+    Category: Files    Level: Intermediate
+    Work on servera: ssh opsadmin@servera
+    ========================================================================
+
+Type that ssh command on the workstation to log in to servera. There
+you work as opsadmin, who may use sudo. The prompt on servera shows
+[LAB:files-02] too, so you know you are in the right place.
+
+When you are done, type exit to come back to the workstation. Then
+grade and reset from there, as usual:
+
+    exit
+    labctl grade files-02
+    sudo labctl reset files-02
+
+Some labs reboot servera. The ssh connection closes during the reboot.
+Wait a minute and run the ssh command again.
+
 ## The whole cycle
 
     labctl list

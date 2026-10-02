@@ -6,9 +6,10 @@ set -eu
 STATE_DIR=/opt/linux-labs/state
 STATE_FILE="$STATE_DIR/files-04"
 
-# Lab owner: the user who ran sudo, else "student". If that user does not
-# exist, use the first regular user (UID >= 1000), else root.
-owner="${SUDO_USER:-student}"
+# Lab owner: the task user labctl exports as LAB_USER (the user who ran
+# sudo labctl start), else "student". If that user does not exist, use the
+# first regular user (UID >= 1000), else root.
+owner="${LAB_USER:-student}"
 if ! id "$owner" &>/dev/null; then
 	owner=$(getent passwd | awk -F: '$3 >= 1000 && $3 < 60000 { print $1; exit }')
 	owner="${owner:-root}"

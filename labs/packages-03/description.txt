@@ -3,3 +3,4 @@ category: Packages
 complexity: Advanced
 objective: Query and extract file lists from installed packages for inventory and auditing.
 needs: internet
+target: servera

@@ -3,3 +3,4 @@ category: Web Servers
 complexity: Intermediate
 objective: Configure an Apache virtual host that serves /var/www/lab2/html for the name lab2.local.
 needs: internet
+target: servera

@@ -16,7 +16,7 @@ SHELLCHECK=docker scripts/check-labs.sh   # shellcheck from the docker image, as
 It runs on macOS bash 3.2 and on Linux. For each converted lab it checks:
 
 - the file set, executable bits on disk and in the git index (untracked files: disk only), and shebangs
-- `description.txt` keys and values, including `needs:` and its cross-checks against `# solve: reboot` and the `TOPOLOGY` section
+- `description.txt` keys and values, including `needs:` and its cross-checks against `# solve: reboot` and the `TOPOLOGY` section, and `target:` (criterion "description.txt target: is valid": required for a single-node lab and one of `workstation`, `servera`, `serverb`, `serverc`; forbidden together with `needs: nodes=N`; `needs: reboot` or `free-nic` need a server target)
 - the `task.txt` sections, numbering, placeholders, `GRADING` line, text rules and the no-solving-commands rule
 - the `solution.md` headings, step markers, `Verification` line and text rules
 - the optional `## Hints` section: before `## Solution`, 2 to 4 numbered hints, no solving commands (the same heuristic as `task.txt`)
@@ -55,32 +55,38 @@ scripts/test-lab.sh 10.0.0.188 files-04            # one lab
 scripts/test-lab.sh 10.0.0.188 files-04 users-01   # several, strictly one after the other
 ```
 
-It runs from the Mac against a host that has the `linux-labs` RPM installed, a `student` user and root SSH access with a key (BatchMode). It copies the working tree's `labctl`, `lib/*.sh` and the lab directories (without `solve.sh`) over the installed RPM files, plus the man page and the profile script when they differ, and runs `restorecon` on them. Then, per lab:
+It runs from the Mac against the workstation, which has the `linux-labs` RPM installed, a `student` user and root SSH access with a key (BatchMode). It copies the working tree's `labctl`, `lib/*.sh` and the lab directories (without `solve.sh`) over the installed RPM files, plus the man page and the profile script when they differ, and runs `restorecon` on them. labctl always runs on the workstation; for a lab with a server target it runs the lab scripts on the server itself (see "Targets" in [framework.md](framework.md)).
 
-| Step | Expected exit |
-|---|---|
-| `sudo labctl start <lab>` as student (header and task printed) | 0 |
-| `labctl task <lab>` as student | 0 |
-| `labctl grade <lab>` as student | 1 |
-| `solve.sh` as root from a temporary directory | 0 |
-| reboot, wait for SSH, a new boot id and the end of the boot (only with `# solve: reboot`) | |
-| `labctl grade <lab>` as student and as root | 0 |
-| `sudo labctl reset <lab>` as student | 0 |
-| `labctl grade <lab>` as student | 1 |
+For a server target the script reads the server's address and the task user (`SSH_USER`, `opsadmin`) from the workstation's lab configuration (servera is node 1, the first `NODE_IPS` entry), and needs root SSH access from the Mac to the server as well. Before deploying it checks that it can reach the server and that no lab is active there.
 
-After the reset the paths and packages declared in `solve.sh`, the state file `/opt/linux-labs/state/<lab>` and `/opt/linux-labs/.current_lab` must be gone.
+Then, per lab:
+
+| Step | Runs on | Expected exit |
+|---|---|---|
+| `sudo labctl start <lab>` as student (header and task printed) | workstation | 0 |
+| header check: a server target ends the header with `Work on <target>: ssh <user>@<target or address>`, a workstation lab has no such line | | |
+| server target: the server has `/var/lib/linux-labs/labs/<lab>`, `/etc/profile.d/labctl.sh` and the marker with the lab name | server | |
+| `labctl task <lab>` as student | workstation | 0 |
+| `labctl grade <lab>` as student | workstation | 1 |
+| `solve.sh` as root from a temporary directory, `run_as_student` as the task user (`student`, or `opsadmin` on a server) | lab's machine | 0 |
+| reboot, wait for SSH, a new boot id and the end of the boot (only with `# solve: reboot`) | lab's machine | |
+| `labctl grade <lab>` as student and as root | workstation | 0 |
+| `sudo labctl reset <lab>` as student | workstation | 0 |
+| `labctl grade <lab>` as student | workstation | 1 |
+
+After the reset the paths and packages declared in `solve.sh` and the state file `/opt/linux-labs/state/<lab>` must be gone on the lab's machine, `/opt/linux-labs/.current_lab` must be gone on the workstation, and on a server target the server's marker and `/var/lib/linux-labs` must be gone too.
 
 The output is one criterion block per lab and a summary. The full log, with every command, its output and its exit status, goes to `packaging/test-logs/<timestamp>-<host>.log`.
 
 - Exit status: 0 all labs passed, 1 a lab failed or the run aborted, 2 nothing failed but at least one lab was skipped, 3 usage error. Exit 2 is not a pass.
 - A legacy lab (no `task.txt` or no `solve.sh`) is skipped with a message, not failed.
-- The run aborts before touching the host if a lab is active there, and stops if a lab is still active after its reset. Do not reset a lab someone else started; report it and wait.
+- The run aborts before touching the host if a lab is active there or on a server target of the labs to test, and stops if a lab is still active after its reset. Do not reset a lab someone else started; report it and wait.
 - It deletes nothing on the host except through the lab's own `cleanup.sh` and its own temporary directory. Afterwards `rpm -V linux-labs` lists the replaced files, and `dnf reinstall linux-labs` restores the packaged versions.
 - Runtime tests do not run in CI: most labs need systemd, firewalld or SELinux. Results go into the release notes (for example "Verified on Rocky 8.7 workstation: N of 55 PASS"), not into commits or files in git.
 
 ### One lab at a time
 
-labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LAB:...]` prompt reads it. Two runs against the same host overwrite each other's state, so labs are tested strictly one at a time:
+labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LAB:...]` prompt reads it (on the workstation, and for a server target on the server too). Two runs against the same host overwrite each other's state, so labs are tested strictly one at a time, also across targets: all server-target labs share servera.
 
 - never two `test-lab.sh` runs against the same host, in parallel or from two sessions
 - never a test while a person is working through a lab on that host
@@ -94,14 +100,16 @@ labctl keeps a single active lab in `/opt/linux-labs/.current_lab`, and the `[LA
 | Package | `linux-labs` RPM installed |
 | Users | `student`; root SSH access with a key from the Mac |
 | Default route | `ens192`, never touched by a lab |
-| Free NICs | `ens224` and `ens256`, on an isolated network for network labs |
-| Nodes | servera, serverb and serverc (10.0.0.189 to .191) |
+| Free NICs | `ens224` and `ens256`, no longer used by any lab |
+| Lab config | `/etc/linux-labs/config`: `NODES_ENABLED=true`, `NODE_COUNT=3`, `NODE_IPS="10.0.0.189 10.0.0.190 10.0.0.191"`, `SSH_USER=opsadmin`, `SSH_KEY_PATH=/home/student/.ssh/id_rsa` |
+| Servers | servera, serverb and serverc (10.0.0.189 to .191), Rocky 8.7; `opsadmin` with full passwordless sudo; student's key logs in as `opsadmin`; root SSH access from the Mac |
+| servera NICs | `ens192` carries SSH and the default route and is never touched; `ens224` and `ens256` are free NICs on the isolated `Local_NO_DHCP` network for the network labs |
 
-SSH key access to servera, serverb and serverc has been failing, so the multi-node labs (`lb-*`, `replication-*`, `clustering-*`) cannot be runtime-tested yet. Check SSH to the nodes before promising a multi-node test; if it fails, stop at the static check and say so.
+servera is the target of every single-node lab except files-01 and files-04, and node 1 of the multi-node labs.
 
 ### Snapshots of the lab VMs
 
-Before a test run that can break a VM (network, storage, firewall, reboot labs), snapshot the four lab VMs: `scripts/lab-vms.sh snapshot <name>`.
+Before a test run that can break a VM (network, storage, firewall, reboot labs, which now break servera rather than the workstation), snapshot the four lab VMs: `scripts/lab-vms.sh snapshot <name>`.
 If a lab leaves a VM unreachable, `scripts/lab-vms.sh revert <name> --yes` puts all four back; a single wedged guest takes `scripts/lab-vms.sh power-cycle <vm> --yes`.
 `scripts/lab-vms.sh status` shows power state and the existing snapshots.
 The script needs `.config/vcenter_creds` and govc, and only ever touches workstation, servera, serverb and serverc.

@@ -39,6 +39,9 @@ CATEGORIES="Database Replication|Databases|DNS|Files|Firewall|High Availability 
 # docs/author/testing.md.
 ROOT_ALLOWED="README.md CHANGELOG LICENSE CLAUDE.md .github .gitignore .claude labs src rpm scripts pages docs"
 NEEDS_ITEM='(internet|reboot|free-nic|nodes=[0-9]+)'
+# Machines a single-node lab can run on (description.txt target:). Keep in
+# sync with target_node in src/usr/bin/labctl.
+TARGETS="workstation servera serverb serverc"
 LAB_FILES="setup.sh grade.sh cleanup.sh description.txt task.txt solution.md solve.sh"
 # Optional extra file, repo only (see docs/author/framework.md)
 OPTIONAL_FILES="known-issues.md"
@@ -195,11 +198,11 @@ c_desc_format() {
 	keys=$(sed -n 's/^\([a-z_]*\): .*/\1/p' "$f")
 	for key in $keys; do
 		case "$key" in
-			title|category|complexity|objective|course|course_lab|needs) ;;
+			title|category|complexity|objective|course|course_lab|needs|target) ;;
 			*) echo "unknown key: $key" ;;
 		esac
 	done
-	for key in title category complexity objective course course_lab needs; do
+	for key in title category complexity objective course course_lab needs target; do
 		n=$(printf '%s\n' "$keys" | grep -cx "$key")
 		[ "$n" -gt 1 ] && echo "duplicate key: $key"
 	done
@@ -279,6 +282,37 @@ c_desc_needs() {
 	grep -qx 'TOPOLOGY' "$D/task.txt" 2>/dev/null && topology=1
 	[ "$has_reboot" -eq "$solve_reboot" ] || echo "needs reboot and '# solve: reboot' in solve.sh must go together"
 	[ "$has_nodes" -eq "$topology" ] || echo "needs nodes=N and a TOPOLOGY section in task.txt must go together"
+	return 0
+}
+
+# target: required for a single-node lab, one of $TARGETS, and forbidden
+# together with needs: nodes=N (a multi-node lab runs on the workstation
+# and reaches its nodes itself). Labs that reboot or use a free NIC need a
+# server target: the student has no root on the workstation.
+c_desc_target() {
+	local v needs
+	[ -f "$D/description.txt" ] || return 0
+	v=$(desc_value target)
+	needs=$(desc_value needs)
+	case "$needs" in
+		*nodes=*)
+			[ -z "$v" ] || echo "target: $v together with needs: nodes=N (multi-node labs have no target)"
+			return 0
+			;;
+	esac
+	if [ -z "$v" ]; then
+		echo "missing key: target (one of: $TARGETS)"
+		return 0
+	fi
+	case " $TARGETS " in
+		*" $v "*) ;;
+		*) echo "target '$v' is not one of: $TARGETS"; return 0 ;;
+	esac
+	if [ "$v" = workstation ]; then
+		case "$needs" in
+			*reboot*|*free-nic*) echo "needs: $needs requires a server target, not workstation" ;;
+		esac
+	fi
 	return 0
 }
 
@@ -742,6 +776,7 @@ check_lab() {
 	check "description.txt has title, category, complexity, objective" c_desc_required
 	check "description.txt values are valid" c_desc_values
 	check "description.txt needs: is valid and matches the lab" c_desc_needs
+	check "description.txt target: is valid" c_desc_target
 	check "task.txt follows the text rules" c_text_rules task.txt
 	check "task.txt has the required sections in order" c_task_sections
 	check "TASKS are numbered from 1" c_task_numbering

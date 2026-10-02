@@ -3,3 +3,4 @@ category: SELinux
 complexity: Intermediate
 objective: Serve a web application from a custom directory by giving it a persistent SELinux file context.
 needs: internet
+target: servera

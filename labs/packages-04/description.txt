@@ -5,3 +5,4 @@ objective: Query the RPM database, then install and remove a package from a down
 course: aoos
 course_lab: 02
 needs: internet
+target: servera

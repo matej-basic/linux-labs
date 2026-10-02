@@ -2,3 +2,4 @@ title: Firewalld services and ports
 category: Firewall
 complexity: Beginner
 objective: Open a service and a custom port in the public zone of the running firewalld.
+target: servera

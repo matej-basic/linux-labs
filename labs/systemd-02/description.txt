@@ -2,3 +2,4 @@ title: Custom systemd service
 category: Systemd
 complexity: Intermediate
 objective: Create a custom systemd service unit for a looping script, then enable and start it.
+target: servera

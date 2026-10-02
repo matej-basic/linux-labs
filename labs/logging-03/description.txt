@@ -2,3 +2,4 @@ title: Persistent journal and a failing service
 category: Logging
 complexity: Advanced
 objective: Enable persistent journald storage, create a failing unit and analyse boots and services with journalctl and systemd-analyze.
+target: servera

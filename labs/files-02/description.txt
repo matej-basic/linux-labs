@@ -2,3 +2,4 @@ title: Web directory permissions and ownership
 category: Files
 complexity: Intermediate
 objective: Build a web application directory tree with the required owners and permissions.
+target: servera

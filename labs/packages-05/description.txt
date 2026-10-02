@@ -5,3 +5,4 @@ objective: Build and install the joe editor from a source tarball with a custom 
 course: aoos
 course_lab: 02
 needs: internet
+target: servera

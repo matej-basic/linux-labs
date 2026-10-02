@@ -3,3 +3,4 @@ category: Databases
 complexity: Intermediate
 objective: Create a MySQL database and user with specific privileges for application access.
 needs: internet
+target: servera

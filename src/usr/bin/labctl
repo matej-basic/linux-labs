@@ -1,7 +1,11 @@
 #!/bin/bash
 
 LAB_ROOT="/opt/linux-labs/labs"
+LIB_DIR="/opt/linux-labs/lib"
 STATE_FILE="/opt/linux-labs/.current_lab"
+PROFILE_SCRIPT="/etc/profile.d/labctl.sh"
+# labctl's own SSH known_hosts for server targets (not root's)
+KNOWN_HOSTS="/var/lib/linux-labs/known_hosts"
 # The invoking user's home. Under sudo this is SUDO_USER's home, not /root,
 # so "sudo labctl start" reads the same config that "labctl configure" saved.
 _lab_user_home="${HOME:-/root}"
@@ -123,23 +127,22 @@ needs_text() {
 render_task() (
   local lab="$1"
   local file="$LAB_ROOT/$lab/task.txt"
-  local text el_major arch host lab_user n ip unknown
+  local text el_major arch host lab_user n ip unknown target
 
   text=$(cat "$file")
 
+  # EL_MAJOR and ARCH come from the workstation even for a server target:
+  # the classroom servers run the same release, and the task needs no SSH.
   # shellcheck source=/dev/null
   el_major=$(. /etc/os-release 2>/dev/null && echo "${VERSION_ID%%.*}")
   arch=$(uname -m)
-  host=$(uname -n)
-  # The user who runs the lab: the sudo caller, else the current non-root
-  # user, else student
-  if [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
-    lab_user="$SUDO_USER"
-  elif [ "$EUID" -ne 0 ]; then
-    lab_user=$(id -un)
+  target=$(lab_target "$lab")
+  if is_server_target "$target"; then
+    host="$target"
   else
-    lab_user="student"
+    host=$(uname -n)
   fi
+  lab_user=$(task_user "$lab")
 
   text=${text//"{{EL_MAJOR}}"/"$el_major"}
   text=${text//"{{ARCH}}"/"$arch"}
@@ -169,6 +172,166 @@ render_task() (
 
   printf '%s\n' "$text"
 )
+
+# --- Lab targets ------------------------------------------------------------
+#
+# description.txt "target:" names the machine a single-node lab runs on:
+# workstation (the machine labctl runs on) or servera, serverb, serverc.
+# A server is a node of the configuration: servera is node 1 (the first
+# NODE_IPS entry, or <network base>.10), serverb node 2, serverc node 3,
+# so classroom DNS names are not required. Multi-node labs have no target
+# and run their scripts on the workstation, like workstation labs.
+
+# Print the target of a lab; no target: line means workstation
+lab_target() {
+  local t
+  t=$(lab_field "$1" target)
+  printf '%s\n' "${t:-workstation}"
+}
+
+# Print the node number of a server target, fail for anything else
+target_node() {
+  case "$1" in
+    servera) echo 1 ;;
+    serverb) echo 2 ;;
+    serverc) echo 3 ;;
+    *) return 1 ;;
+  esac
+}
+
+is_server_target() {
+  target_node "$1" >/dev/null
+}
+
+# Print the address, SSH user, key and port for a server target, one per
+# line. Runs in a subshell so load-config.sh leaks nothing into labctl.
+# HOME is the invoking user's home, so the default key and "$HOME" in the
+# config file mean the key of the sudo caller (student), not root's.
+target_settings() (
+  HOME="$_lab_user_home"
+  # shellcheck source=/dev/null
+  source "$LIB_DIR/load-config.sh" >/dev/null 2>&1 || exit 1
+  printf '%s\n' "$(get_node_ip "$(target_node "$1")")" "$SSH_USER" "$SSH_KEY_PATH" "$SSH_PORT"
+)
+
+# Set T_NAME, T_IP, T_USER, T_KEY and T_PORT for a server target
+load_target() {
+  local out
+  T_NAME="$1"
+  if ! out=$(target_settings "$1"); then
+    echo "Error: cannot read the lab configuration ($LIB_DIR/load-config.sh)." >&2
+    return 1
+  fi
+  { read -r T_IP; read -r T_USER; read -r T_KEY; read -r T_PORT; } <<< "$out"
+  if [ -z "$T_IP" ]; then
+    echo "Error: no address for $T_NAME (node $(target_node "$T_NAME")). Set NODE_IPS: labctl configure set NODE_IPS \"<servera> <serverb> <serverc>\"" >&2
+    return 1
+  fi
+  return 0
+}
+
+# The user who does the task (exported to the lab scripts as LAB_USER and
+# shown as {{LAB_USER}}): SSH_USER on a server target; on the workstation
+# the sudo caller, else the current non-root user, else student
+task_user() {
+  local target
+  target=$(lab_target "$1")
+  if is_server_target "$target"; then
+    target_settings "$target" | sed -n 2p
+  elif [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != "root" ]; then
+    printf '%s\n' "$SUDO_USER"
+  elif [ "$EUID" -ne 0 ]; then
+    id -un
+  else
+    echo student
+  fi
+}
+
+# Print "Work on servera: ssh opsadmin@servera" for a server target. The
+# target name is used when it resolves to the configured address from
+# here, else the address itself. Needs no SSH.
+connect_line() {
+  local target out ip user port host port_opt=""
+  target=$(lab_target "$1")
+  is_server_target "$target" || return 0
+  out=$(target_settings "$target") || return 0
+  { read -r ip; read -r user; read -r _; read -r port; } <<< "$out"
+  [ -n "$ip" ] || return 0
+  host="$ip"
+  if getent ahosts "$target" 2>/dev/null | awk '{ print $1 }' | grep -qxF "$ip"; then
+    host="$target"
+  fi
+  [ "${port:-22}" = 22 ] || port_opt="-p $port "
+  printf 'Work on %s: ssh %s%s@%s\n' "$target" "$port_opt" "$user" "$host"
+}
+
+# ssh to the loaded target as SSH_USER with the configured key. BatchMode:
+# never a password prompt; host keys go to labctl's own known_hosts.
+target_ssh() {
+  mkdir -p "${KNOWN_HOSTS%/*}" 2>/dev/null
+  ssh -o BatchMode=yes -o ConnectTimeout=10 \
+    -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+    -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$KNOWN_HOSTS" \
+    -o IdentitiesOnly=yes -o LogLevel=ERROR \
+    -i "$T_KEY" -p "$T_PORT" "$T_USER@$T_IP" "$@"
+}
+
+# bundle_file <file> <path in the bundle>: one file of the target bundle
+bundle_file() {
+  # shellcheck disable=SC2016 # $d is expanded on the target
+  printf 'base64 -d > "$d/%s" <<'"'"'LABCTL_EOF'"'"'\n' "$2"
+  base64 < "$1"
+  printf 'LABCTL_EOF\n'
+}
+
+# Print a bash script that recreates the lab directory (without solve.sh
+# and known-issues.md), the library and the prompt script in a temporary
+# directory on the target, runs lib/target-run.sh there and removes the
+# directory. It needs only bash and base64 on the target. The whole script
+# is one brace group, so bash reads all of it before anything runs and no
+# command can read the rest of the script from stdin.
+target_bundle() {
+  local lab="$1" mode="$2" colour="$3" f name
+  # shellcheck disable=SC2016 # $d is expanded on the target
+  printf '%s\n' '{' 'set -u' 'd=$(mktemp -d /tmp/labctl.XXXXXX) || exit 1' \
+    "mkdir -p \"\$d/labs/$lab\" \"\$d/lib\""
+  for f in "$LAB_ROOT/$lab"/*; do
+    [ -f "$f" ] || continue
+    name="${f##*/}"
+    case "$name" in
+      solve.sh|known-issues.md) continue ;;
+    esac
+    bundle_file "$f" "labs/$lab/$name"
+  done
+  for f in "$LIB_DIR"/*.sh; do
+    [ -f "$f" ] && bundle_file "$f" "lib/${f##*/}"
+  done
+  [ -f "$PROFILE_SCRIPT" ] && bundle_file "$PROFILE_SCRIPT" profile.sh
+  # shellcheck disable=SC2016 # expanded on the target
+  printf 'bash "$d/lib/target-run.sh" "$d" %q %q %q %q\n' "$mode" "$lab" "$T_USER" "$colour"
+  # shellcheck disable=SC2016 # expanded on the target
+  printf '%s\n' 'rc=$?' 'rm -rf "$d"' 'exit "$rc"' '} </dev/null'
+}
+
+# run_on_target <lab> <start|grade|reset>
+# Run the lab script on the loaded target as root. Output streams through,
+# and the exit status is that of the lab script.
+run_on_target() {
+  local lab="$1" mode="$2" colour=0 rc
+  if [ ! -r "$T_KEY" ]; then
+    echo "Error: cannot read the SSH key $T_KEY for $T_USER@$T_NAME. Set SSH_KEY_PATH: labctl configure set SSH_KEY_PATH <file>" >&2
+    return 1
+  fi
+  if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+    colour=1
+  fi
+  target_bundle "$lab" "$mode" "$colour" | target_ssh "sudo -n bash -s"
+  rc=${PIPESTATUS[1]}
+  if [ "$rc" -eq 255 ]; then
+    echo "Error: cannot connect to $T_NAME ($T_IP) over SSH as $T_USER." >&2
+  fi
+  return "$rc"
+}
 
 # Hints: the "## Hints" section of solution.md
 #
@@ -288,6 +451,7 @@ print_task() {
   if [ -n "$needs" ]; then
     printf 'Needs: %s\n' "$(needs_text "$needs")"
   fi
+  connect_line "$lab"
   printf '%s\n\n' "========================================================================"
   render_task "$lab"
   if lab_has_hints "$lab"; then
@@ -488,6 +652,25 @@ case "$1" in
       exit 1
     fi
     clear_hint_counter "$2"
+    target=$(lab_target "$2")
+    if is_server_target "$target"; then
+      # Server target: setup.sh runs on the server as root over SSH. The
+      # server keeps the lab copy, the lab state and its own prompt marker
+      # until reset; the workstation keeps the marker for its prompt.
+      load_target "$target" || exit 1
+      run_on_target "$2" start
+      rc=$?
+      if [ "$rc" -ne 0 ]; then
+        echo "Error: setup of lab $2 failed (exit $rc). The lab was not started." >&2
+        exit "$rc"
+      fi
+      mkdir -p "$(dirname "$STATE_FILE")"
+      echo "$2" > "$STATE_FILE"
+      print_task "$2"
+      exit 0
+    fi
+    LAB_USER=$(task_user "$2")
+    export LAB_USER
     if [ -f "$LAB_ROOT/$2/task.txt" ]; then
       # Framework 2.0 lab: setup prints nothing, labctl prints the task.
       # A failed setup leaves the lab not started.
@@ -530,6 +713,14 @@ case "$1" in
       echo "Error: grading needs root. Use: sudo labctl grade $2" >&2
       exit 1
     fi
+    target=$(lab_target "$2")
+    if is_server_target "$target"; then
+      load_target "$target" || exit 1
+      run_on_target "$2" grade
+      exit $?
+    fi
+    LAB_USER=$(task_user "$2")
+    export LAB_USER
     "$LAB_ROOT/$2/grade.sh"
     ;;
   reset)
@@ -538,6 +729,23 @@ case "$1" in
       echo "Error: 'labctl reset' requires root. Use: sudo labctl reset $2" >&2
       exit 1
     fi
+    target=$(lab_target "$2")
+    if is_server_target "$target"; then
+      # cleanup.sh runs on the server, which then drops its lab copy and
+      # its prompt marker
+      load_target "$target" || exit 1
+      run_on_target "$2" reset
+      rc=$?
+      rm -f "$STATE_FILE"
+      clear_hint_counter "$2"
+      if [ "$rc" -ne 0 ]; then
+        echo "Error: cleanup of lab $2 failed (exit $rc)." >&2
+        exit "$rc"
+      fi
+      exit 0
+    fi
+    LAB_USER=$(task_user "$2")
+    export LAB_USER
     "$LAB_ROOT/$2/cleanup.sh"
     rc=$?
     rm -f "$STATE_FILE"

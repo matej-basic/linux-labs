@@ -3,3 +3,4 @@ category: Databases
 complexity: Beginner
 objective: Install MySQL Server, start the service and set the root password.
 needs: internet
+target: servera

@@ -2,3 +2,4 @@ title: Directories and files
 category: Files
 complexity: Beginner
 objective: Create a directory and a text file with the required content.
+target: workstation

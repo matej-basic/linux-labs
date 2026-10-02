@@ -49,7 +49,10 @@
 # to 64 characters or less so it fits on one line.
 #
 # Colour applies only to the result word, and only when stdout is a
-# terminal and NO_COLOR is unset or empty.
+# terminal and NO_COLOR is unset or empty. LABCTL_COLOR=1 or 0 overrides
+# that test: labctl sets it for a grader on a server target, whose stdout
+# is the SSH channel, so the colours match what the student's terminal
+# would show for a local grader.
 #
 # The library is compatible with bash 3.2 (macOS, used by the repo tools)
 # and safe under "set -u". It does not depend on colors.sh.
@@ -111,9 +114,12 @@ grade_line() {
 		dots="$dots."
 	done
 
-	# Test the terminal here, not in a $(...) subshell where stdout is a pipe
+	# Test the terminal here, not in a $(...) subshell where stdout is a pipe.
+	# LABCTL_COLOR (1 or 0), set by labctl for graders that run on a server
+	# target over SSH, overrides the terminal test.
 	colour=""
-	if [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; then
+	if [ "${LABCTL_COLOR:-}" = 1 ] ||
+		{ [ -z "${LABCTL_COLOR:-}" ] && [ -t 1 ] && [ -z "${NO_COLOR:-}" ]; }; then
 		case "$label" in
 			PASS) colour=$'\033[32m' ;;
 			FAIL) colour=$'\033[31m' ;;

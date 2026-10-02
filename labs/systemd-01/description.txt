@@ -2,3 +2,4 @@ title: Basic service management with systemd
 category: Systemd
 complexity: Beginner
 objective: Enable a systemd service so it starts at boot and start it with systemctl.
+target: servera

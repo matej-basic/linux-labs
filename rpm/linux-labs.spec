@@ -9,6 +9,8 @@ Source0:        %{name}-%{version}.tar.gz
 BuildRequires:  sudo
 # students run labctl start/reset through the sudoers rule
 Requires:       sudo
+# labs on a server target run their scripts there over SSH
+Requires:       openssh-clients
 
 %description
 Minimal lab framework for teaching basic Linux filesystem tasks.
@@ -37,6 +39,10 @@ mkdir -p %{buildroot}/opt/linux-labs/lib
 install -m 0755 opt/linux-labs/lib/load-config.sh %{buildroot}/opt/linux-labs/lib/load-config.sh
 install -m 0755 opt/linux-labs/lib/colors.sh %{buildroot}/opt/linux-labs/lib/colors.sh
 install -m 0755 opt/linux-labs/lib/grading.sh %{buildroot}/opt/linux-labs/lib/grading.sh
+install -m 0755 opt/linux-labs/lib/target-run.sh %{buildroot}/opt/linux-labs/lib/target-run.sh
+
+# labctl's SSH known_hosts for labs on a server target (servera...)
+mkdir -p %{buildroot}/var/lib/linux-labs
 
 mkdir -p %{buildroot}/opt/linux-labs
 cp -pr opt/linux-labs/* %{buildroot}/opt/linux-labs/
@@ -74,6 +80,7 @@ visudo -cf %{buildroot}/etc/sudoers.d/labctl
 %dir /etc/linux-labs
 /etc/linux-labs/config.template
 /opt/linux-labs
+%dir %attr(0755,root,root) /var/lib/linux-labs
 %config(noreplace) %attr(0440,root,root) /etc/sudoers.d/labctl
 %{_mandir}/man1/labctl.1*
 %doc %{_docdir}/%{name}

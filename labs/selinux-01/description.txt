@@ -2,3 +2,4 @@ title: SELinux enforcing mode
 category: SELinux
 complexity: Beginner
 objective: Switch SELinux to enforcing mode, immediately and persistently, and confirm the targeted policy is loaded.
+target: servera

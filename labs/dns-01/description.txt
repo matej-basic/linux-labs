@@ -3,3 +3,4 @@ category: DNS
 complexity: Beginner
 objective: Install BIND and start the named service, then verify it listens on port 53.
 needs: internet
+target: servera

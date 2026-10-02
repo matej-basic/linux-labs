@@ -3,24 +3,36 @@
 #
 # Usage: scripts/test-lab.sh <host> <lab>...
 #
-# The host must have the linux-labs RPM installed, a "student" user and
-# root SSH access with a key (BatchMode). The script copies the working
-# tree's labctl, lib/*.sh and the lab directories (without solve.sh) over
-# the installed RPM files, plus the man page and the profile script when
-# they differ, and runs restorecon on them. Then, strictly one lab after
-# the other, it runs:
+# <host> is the workstation. It must have the linux-labs RPM installed, a
+# "student" user and root SSH access with a key (BatchMode). The script
+# copies the working tree's labctl, lib/*.sh and the lab directories
+# (without solve.sh) over the installed RPM files, plus the man page and
+# the profile script when they differ, and runs restorecon on them.
+#
+# A lab with "target: servera" (serverb, serverc) in description.txt runs
+# on that server through labctl on the workstation. The server's address
+# and the task user (SSH_USER, opsadmin) come from the workstation's lab
+# configuration (servera is node 1, serverb node 2, serverc node 3), and
+# the Mac needs root SSH access to the server too. solve.sh, the reboot
+# and the leftover checks then happen on the server. Workstation and
+# multi-node labs run as before on <host>, with student as the task user.
+#
+# Strictly one lab after the other, it runs:
 #
 #   su - student -c "sudo labctl start <lab>"    expect exit 0
 #   su - student -c "labctl task <lab>"          expect exit 0
 #   su - student -c "labctl grade <lab>"         expect exit 1
 #   solve.sh as root from a temporary directory  expect exit 0
-#   (reboot and wait for a new boot_id if solve.sh has "# solve: reboot")
+#     on the lab's machine; run_as_student runs as the task user
+#   (reboot that machine and wait for a new boot_id if solve.sh has
+#   "# solve: reboot")
 #   su - student -c "labctl grade <lab>"         expect exit 0
 #   labctl grade <lab> as root                   expect exit 0
 #   su - student -c "sudo labctl reset <lab>"    expect exit 0
 #   su - student -c "labctl grade <lab>"         expect exit 1
 #   the paths and packages declared in solve.sh, the state file
 #   /opt/linux-labs/state/<lab> and /opt/linux-labs/.current_lab are gone
+#   (on a server target also the server's marker and /var/lib/linux-labs)
 #
 # A lab without task.txt or solve.sh is a legacy lab and is skipped with a
 # message. The run aborts before deploying anything if a lab is active on
@@ -45,6 +57,9 @@ source "$ROOT_DIR/src/opt/linux-labs/lib/grading.sh"
 
 LAB_USER=student
 REBOOT_TIMEOUT=600
+# Server targets, filled in by the preflight from the workstation's config
+TARGET_IPS=()
+TARGET_USER=""
 
 usage() {
 	echo "Usage: $0 <host> <lab>..." >&2
@@ -80,23 +95,51 @@ log() {
 	printf '%s\n' "$*" >>"$LOG"
 }
 
-rssh() {
+# hssh <host> <command>: ssh to a host as root
+hssh() {
+	local h="$1"
+	shift
 	# shellcheck disable=SC2029 # commands are built locally on purpose
-	ssh "${SSH_OPTS[@]}" "root@$HOST" "$@"
+	ssh "${SSH_OPTS[@]}" "root@$h" "$@"
 }
 
-# remote <description> <command>
-# Run a command on the host as root, log it, set OUT and RC.
+rssh() {
+	hssh "$HOST" "$@"
+}
+
+# remote_at <host> <description> <command>
+# Run a command on a host as root, log it, set OUT and RC.
 OUT=""
 RC=0
-remote() {
+remote_at() {
 	log ""
-	log "---- $1 ($(date +%H:%M:%S))"
-	log "\$ $2"
-	OUT=$(rssh "$2" </dev/null 2>&1)
+	log "---- $2 on $1 ($(date +%H:%M:%S))"
+	log "\$ $3"
+	OUT=$(hssh "$1" "$3" </dev/null 2>&1)
 	RC=$?
 	[ -n "$OUT" ] && printf '%s\n' "$OUT" >>"$LOG"
 	log "[exit $RC]"
+}
+
+# remote <description> <command>: on the workstation
+remote() {
+	remote_at "$HOST" "$1" "$2"
+}
+
+# lab_target <lab>: workstation, servera, serverb or serverc
+lab_target() {
+	local t
+	t=$(sed -n 's/^target: //p' "$ROOT_DIR/labs/$1/description.txt")
+	echo "${t:-workstation}"
+}
+
+# target_ip <target>: the server's address from the workstation's config
+target_ip() {
+	case "$1" in
+		servera) echo "${TARGET_IPS[0]:-}" ;;
+		serverb) echo "${TARGET_IPS[1]:-}" ;;
+		serverc) echo "${TARGET_IPS[2]:-}" ;;
+	esac
 }
 
 # as_student <description> <command>
@@ -115,11 +158,16 @@ expect_rc() {
 }
 
 STAGE=""
+TSTAGE=""
+TSTAGE_HOST=""
 ACTIVE_LAB=""
 # shellcheck disable=SC2329 # called from the EXIT trap
 cleanup_stage() {
 	if [ -n "$STAGE" ]; then
 		rssh "rm -rf '$STAGE'" </dev/null >/dev/null 2>&1
+	fi
+	if [ -n "$TSTAGE" ]; then
+		hssh "$TSTAGE_HOST" "rm -rf '$TSTAGE'" </dev/null >/dev/null 2>&1
 	fi
 	if [ -n "$ACTIVE_LAB" ]; then
 		echo "Warning: lab $ACTIVE_LAB may still be active on $HOST. Run: sudo labctl reset $ACTIVE_LAB" >&2
@@ -155,6 +203,34 @@ if [ "${#TESTABLE[@]}" -gt 0 ]; then
 	remote "active lab check" "cat /opt/linux-labs/.current_lab 2>/dev/null"
 	if [ -n "$OUT" ]; then
 		abort "lab '$OUT' is active on $HOST. Reset it first: sudo labctl reset $OUT"
+	fi
+
+	# Server targets: addresses and task user from the workstation's
+	# config, root access from here, no active lab there
+	targets=""
+	for lab in "${TESTABLE[@]}"; do
+		t=$(lab_target "$lab")
+		[ "$t" = workstation ] && continue
+		case " $targets " in *" $t "*) ;; *) targets="$targets $t" ;; esac
+	done
+	if [ -n "$targets" ]; then
+		# The config may hold "$HOME"; use student's home as labctl does
+		remote "server targets from the lab config" "HOME=/home/$LAB_USER; source /opt/linux-labs/lib/load-config.sh >/dev/null 2>&1; get_node_ip 1; get_node_ip 2; get_node_ip 3; echo \"\$SSH_USER\""
+		[ "$RC" -eq 0 ] || abort "cannot read the lab configuration on $HOST (see log)"
+		TARGET_IPS=()
+		while IFS= read -r line; do TARGET_IPS+=("$line"); done <<<"$OUT"
+		TARGET_USER="${TARGET_IPS[3]:-}"
+		[ -n "$TARGET_USER" ] || abort "SSH_USER is empty in the lab configuration on $HOST"
+		for t in $targets; do
+			tip=$(target_ip "$t")
+			[ -n "$tip" ] || abort "no address for $t in the lab configuration on $HOST"
+			remote_at "$tip" "connectivity to $t" "id $TARGET_USER && getenforce"
+			[ "$RC" -eq 0 ] || abort "cannot reach root@$tip ($t), or user $TARGET_USER is missing there (see log)"
+			remote_at "$tip" "active lab check on $t" "cat /opt/linux-labs/.current_lab 2>/dev/null"
+			if [ -n "$OUT" ]; then
+				abort "lab '$OUT' is active on $t ($tip). Reset it first: sudo labctl reset $OUT"
+			fi
+		done
 	fi
 
 	remote "create staging directory" "mktemp -d /tmp/test-lab.XXXXXX"
@@ -226,24 +302,25 @@ directives() {
 }
 
 boot_id() {
-	rssh "cat /proc/sys/kernel/random/boot_id" </dev/null 2>/dev/null
+	hssh "$1" "cat /proc/sys/kernel/random/boot_id" </dev/null 2>/dev/null
 }
 
+# reboot_host <host>: reboot, wait for SSH, a new boot_id and the boot end
 reboot_host() {
-	local old new waited=0
-	old=$(boot_id)
+	local h="$1" old new waited=0
+	old=$(boot_id "$h")
 	log ""
-	log "---- reboot (boot_id $old)"
-	rssh "systemctl reboot" </dev/null >>"$LOG" 2>&1
+	log "---- reboot $h (boot_id $old)"
+	hssh "$h" "systemctl reboot" </dev/null >>"$LOG" 2>&1
 	while [ "$waited" -lt "$REBOOT_TIMEOUT" ]; do
 		sleep 10
 		waited=$((waited + 10))
-		new=$(boot_id)
+		new=$(boot_id "$h")
 		if [ -n "$new" ] && [ "$new" != "$old" ]; then
 			log "host is back after ${waited}s (boot_id $new)"
 			# systemd 239 (EL8) has no "is-system-running --wait": poll
 			# until the boot is no longer initializing or starting
-			remote "wait for boot to finish" "for i in \$(seq 60); do
+			remote_at "$h" "wait for boot to finish" "for i in \$(seq 60); do
   state=\$(systemctl is-system-running)
   case \$state in initializing|starting) sleep 5 ;; *) echo \$state; exit 0 ;; esac
 done
@@ -256,9 +333,31 @@ echo \$state; exit 1"
 	return 1
 }
 
+# stage_solve <host> <lab>: copy solve.sh and solve-lib.sh to a temporary
+# directory on a server target, set TSTAGE
+stage_solve() {
+	local h="$1" lab="$2"
+	remote_at "$h" "create staging directory" "mktemp -d /tmp/test-lab.XXXXXX"
+	[ "$RC" -eq 0 ] || return 1
+	TSTAGE="$OUT"
+	TSTAGE_HOST="$h"
+	log "---- upload solve.sh and solve-lib.sh to $h:$TSTAGE"
+	(cd "$ROOT_DIR" && COPYFILE_DISABLE=1 tar --no-xattrs -cf - "labs/$lab/solve.sh" scripts/solve-lib.sh) \
+		| hssh "$h" "tar --warning=no-unknown-keyword -xf - -C '$TSTAGE' && cp '$TSTAGE/scripts/solve-lib.sh' '$TSTAGE/labs/$lab/'" >>"$LOG" 2>&1
+}
+
 test_lab() {
-	local lab="$1" title first leftover kind value
+	local lab="$1" title first leftover kind value target lab_host task_user solve_dir header
 	title=$(sed -n 's/^title: //p' "$ROOT_DIR/labs/$lab/description.txt")
+	target=$(lab_target "$lab")
+	lab_host="$HOST"
+	task_user="$LAB_USER"
+	solve_dir="$STAGE/labs/$lab"
+	if [ "$target" != workstation ]; then
+		lab_host=$(target_ip "$target")
+		task_user="$TARGET_USER"
+		log "target $target ($lab_host), task user $task_user"
+	fi
 
 	if ! install_lab "$lab"; then
 		criterion_result "Lab files are installed on the host" 1
@@ -276,6 +375,28 @@ test_lab() {
 	else
 		criterion_result "labctl start prints the header and the task" 1
 	fi
+	# The header ends at the ==== line; a server target has the connect
+	# line as its last line, a workstation lab has none
+	header=$(printf '%s\n' "$OUT" | sed -n '1,/^====/p' | sed '$d')
+	if [ "$target" = workstation ]; then
+		if printf '%s\n' "$header" | grep -q '^Work on '; then
+			criterion_result "Header has no connect line (workstation lab)" 1
+		else
+			criterion_result "Header has no connect line (workstation lab)" 0
+		fi
+	else
+		if printf '%s\n' "$header" | tail -n 1 | grep -qE "^Work on $target: ssh ([^ ]+ )*$task_user@($target|$lab_host)\$"; then
+			criterion_result "Header ends with the connect line for $target" 0
+		else
+			criterion_result "Header ends with the connect line for $target" 1
+		fi
+		remote_at "$lab_host" "marker on $target" "cat /opt/linux-labs/.current_lab && test -f /etc/profile.d/labctl.sh && test -d /var/lib/linux-labs/labs/$lab"
+		if [ "$started" -ne 0 ] || { [ "$RC" -eq 0 ] && [ "$OUT" = "$lab" ]; }; then
+			criterion_result "$target has the lab copy, prompt script and marker" 0
+		else
+			criterion_result "$target has the lab copy, prompt script and marker" 1
+		fi
+	fi
 
 	if [ "$started" -eq 0 ]; then
 		as_student "task" "labctl task $lab"
@@ -289,11 +410,23 @@ test_lab() {
 			criterion_result "Grade output ends with Overall result FAIL" 1
 		fi
 
-		remote "solve.sh" "bash '$STAGE/labs/$lab/solve.sh'"
+		if [ "$target" != workstation ]; then
+			if stage_solve "$lab_host" "$lab"; then
+				solve_dir="$TSTAGE/labs/$lab"
+			else
+				solve_dir=""
+				log "!! cannot stage solve.sh on $target"
+			fi
+		fi
+		if [ -n "$solve_dir" ]; then
+			remote_at "$lab_host" "solve.sh" "SOLVE_USER='$task_user' LAB_USER='$task_user' bash '$solve_dir/solve.sh'"
+		else
+			RC=1
+		fi
 		expect_rc "solve.sh exits 0" 0
 
 		if directives "$lab" | grep -q '^reboot'; then
-			if reboot_host; then
+			if reboot_host "$lab_host"; then
 				criterion_result "Host reboots and comes back with a new boot_id" 0
 			else
 				criterion_result "Host reboots and comes back with a new boot_id" 1
@@ -323,11 +456,11 @@ test_lab() {
 	while read -r kind value; do
 		case "$kind" in
 			path)
-				remote "leftover path $value" "test ! -e '$value' && test ! -L '$value'"
+				remote_at "$lab_host" "leftover path $value" "test ! -e '$value' && test ! -L '$value'"
 				[ "$RC" -eq 0 ] || leftover="$leftover $value"
 				;;
 			package)
-				remote "leftover package $value" "! rpm -q '$value'"
+				remote_at "$lab_host" "leftover package $value" "! rpm -q '$value'"
 				[ "$RC" -eq 0 ] || leftover="$leftover $value"
 				;;
 		esac
@@ -339,8 +472,17 @@ test_lab() {
 		log "!! leftovers:$leftover"
 	fi
 
-	remote "state file" "test ! -e /opt/linux-labs/state/$lab"
+	remote_at "$lab_host" "state file" "test ! -e /opt/linux-labs/state/$lab"
 	expect_rc "State file /opt/linux-labs/state/$lab is gone" 0
+
+	if [ "$target" != workstation ]; then
+		remote_at "$lab_host" "lab copy and marker on $target" "test ! -e /var/lib/linux-labs && test ! -e /opt/linux-labs/.current_lab"
+		expect_rc "$target has no lab copy and no marker after reset" 0
+		if [ -n "$TSTAGE" ]; then
+			hssh "$TSTAGE_HOST" "rm -rf '$TSTAGE'" </dev/null >/dev/null 2>&1
+			TSTAGE=""
+		fi
+	fi
 
 	remote "active lab" "test ! -e /opt/linux-labs/.current_lab"
 	expect_rc "No lab is active after reset" 0

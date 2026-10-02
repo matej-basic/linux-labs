@@ -3,3 +3,4 @@ category: Networking
 complexity: Beginner
 objective: Configure a static IPv4 address and DNS server on a free network interface using NetworkManager.
 needs: free-nic
+target: servera

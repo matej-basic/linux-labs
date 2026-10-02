@@ -1,18 +1,39 @@
 # Classroom environment
 
-This page is for teachers who run linux-labs in a course. It lists what a student VM needs and which labs need more than the basics. Multi-node labs have their own page, [multi-node.md](multi-node.md).
+This page is for teachers who run linux-labs in a course. It lists what a student's machines need and which labs need more than the basics. Multi-node labs have their own page, [multi-node.md](multi-node.md).
 
-## The student VM
+Each student needs a workstation and a server, servera. Students run labctl on the workstation, where they have no sudo except for labctl. Every lab that needs root runs on servera: labctl prepares, grades and resets it there over SSH, and the student logs in to servera to do the work. Only files-01 and files-04 run on the workstation itself. The multi-node labs use servera, serverb and serverc.
 
-One VM per student, with:
+## The workstation
+
+One workstation VM per student, with:
 
 - Rocky Linux, RHEL or AlmaLinux 8 or 9. The installer rejects other distributions and EL10.
-- SELinux enforcing, as installed. The SELinux labs expect it.
+- SELinux enforcing, as installed.
 - A user named `student`. The package installs `/etc/sudoers.d/labctl` with the rule `student ALL=(ALL) NOPASSWD: /usr/bin/labctl`, so `student` can run labctl as root without a password and nothing else.
-- Internet access for the many labs that install packages (see below).
-- A short host name you recognise. The grade output starts with `Grading <lab> on <host name>`, which helps when students send screenshots.
+- A short host name you recognise. The grade output starts with `Grading <lab> on <host name>` (for a lab on servera: `on servera`), which helps when students send screenshots.
 
-The labs were designed for the Red Hat classroom layout: a workstation at 172.25.250.9 in the network `172.25.250.0/24`, gateway `172.25.250.254`, and the servers servera, serverb and serverc at .10, .11 and .12. Single-node labs run on any VM that meets the list above.
+The labs were designed for the Red Hat classroom layout: a workstation at 172.25.250.9 in the network `172.25.250.0/24`, gateway `172.25.250.254`, and the servers servera, serverb and serverc at .10, .11 and .12.
+
+### The servers
+
+servera is needed for every lab except files-01 and files-04; serverb and serverc only for the multi-node labs. Each server needs:
+
+- the same release as the workstation, with bash and coreutils (nothing from linux-labs is installed there; labctl copies what a lab needs)
+- SELinux enforcing, as installed; the SELinux labs expect it
+- internet access for the many labs that install packages (see below)
+- a user `opsadmin` with full passwordless sudo, for example `/etc/sudoers.d/opsadmin` with `opsadmin ALL=(ALL) NOPASSWD: ALL`
+- the workstation's `student` key in `~opsadmin/.ssh/authorized_keys`, so `ssh opsadmin@servera` from the workstation logs in without a password. Create the key on the workstation as student (`ssh-keygen`) and copy it to every server (`ssh-copy-id opsadmin@servera`)
+
+labctl finds the servers through the lab configuration, not through DNS: servera is node 1, serverb node 2, serverc node 3. On the workstation, `/etc/linux-labs/config` needs at least:
+
+```
+NODE_IPS="172.25.250.10 172.25.250.11 172.25.250.12"
+SSH_USER="opsadmin"
+SSH_KEY_PATH="/home/student/.ssh/id_rsa"
+```
+
+Without `NODE_IPS`, node N is `<network base>.<N+9>`, which matches the classroom layout. `labctl start` and `labctl task` show the student the line `Work on servera: ssh opsadmin@servera`; when the name servera does not resolve to the configured address on the workstation, the line shows the address instead. labctl keeps the servers' host keys in its own `/var/lib/linux-labs/known_hosts` on the workstation and accepts a new server's key on first use.
 
 ### A user other than student
 
@@ -28,7 +49,7 @@ The rule must be passwordless. `labctl grade` runs the grader as root by calling
 
 ## Installing
 
-On every student VM:
+On every workstation (not on the servers):
 
 ```bash
 curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
@@ -53,7 +74,8 @@ What the package installs:
 | `/opt/linux-labs/lib/` | grading and configuration libraries |
 | `/etc/linux-labs/config.template` | configuration template |
 | `/etc/sudoers.d/labctl` | the sudo rule for `student` |
-| `/etc/profile.d/labctl.sh` | adds `[LAB:<name>]` to the prompt while a lab is active |
+| `/etc/profile.d/labctl.sh` | adds `[LAB:<name>]` to the prompt while a lab is active; labctl also copies it to servera when a lab starts there |
+| `/var/lib/linux-labs/` | labctl's `known_hosts` for the servers |
 | `/usr/share/doc/linux-labs/` | the student guides |
 | `man labctl` | the command reference |
 
@@ -86,13 +108,13 @@ labctl list --level beginner
 
 ### Free network interfaces
 
-The network labs never touch the interface that carries the default route. They look for an ethernet interface that is not the default-route interface and is not enslaved to a bond or team. If there is none, `labctl start` stops with a message and the lab is not started. networking-03 needs two.
+The network labs run on servera. They never touch the interface that carries the default route, which on servera also carries the student's SSH session. They look for an ethernet interface that is not the default-route interface and is not enslaved to a bond or team. If there is none, `labctl start` stops with a message and the lab is not started. networking-03 needs two.
 
-Give each student VM one or two extra NICs on an isolated network. NetworkManager creates automatic profiles named `Wired connection 1`, `Wired connection 2` on them; that is fine. Setup removes or deactivates those profiles on the interfaces the lab uses, and `labctl reset` deletes every profile the lab created.
+Give each servera two extra NICs on an isolated network without DHCP (in the test environment `ens224` and `ens256` on `Local_NO_DHCP`; `ens192` carries SSH). Extra NICs on the workstation are not used any more and do no harm. NetworkManager creates automatic profiles named `Wired connection 1`, `Wired connection 2` on them; that is fine. Setup removes or deactivates those profiles on the interfaces the lab uses, and `labctl reset` deletes every profile the lab created.
 
 ### Reboots
 
-storage-01 and systemd-04 are checked after a reboot. Students reboot their own VM, so they need a console (or SSH that comes back) and enough time in the session.
+storage-01 and systemd-04 are checked after a reboot of servera. The student's SSH session closes during the reboot, and the student logs in again when servera is back. The task says so.
 
 ### Storage
 
@@ -100,7 +122,7 @@ The storage labs work on loop devices backed by image files, for example `/srv/d
 
 ## One lab at a time
 
-A VM has one active lab, recorded in `/opt/linux-labs/.current_lab` and shown in the prompt as `[LAB:<name>]`. Students finish a lab with `sudo labctl reset <lab>` before they start the next one. `reset` undoes the setup and the solution: files, users, packages, services, firewall rules, SELinux settings and network profiles.
+A student has one active lab, recorded in `/opt/linux-labs/.current_lab` on the workstation and shown in the prompt as `[LAB:<name>]`. For a lab on servera, servera has the same file and prompt while the lab is active, plus the lab's working copy in `/var/lib/linux-labs/`. Students finish a lab with `sudo labctl reset <lab>` before they start the next one. `reset` undoes the setup and the solution: files, users, packages, services, firewall rules, SELinux settings and network profiles.
 
 ## Solutions
 

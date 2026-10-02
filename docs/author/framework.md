@@ -10,9 +10,9 @@ A converted lab directory has exactly these seven files and nothing else:
 
 | File | Shipped | Called by | Purpose |
 |---|---|---|---|
-| `setup.sh` | yes | `labctl start` (as root) | prepares the system, prints nothing |
-| `grade.sh` | yes | `labctl grade` (always as root; labctl re-runs itself through sudo for the student) | checks the final state with `lib/grading.sh` |
-| `cleanup.sh` | yes | `labctl reset` (as root) | undoes setup and solution |
+| `setup.sh` | yes | `labctl start` (as root, on the lab's target) | prepares the system, prints nothing |
+| `grade.sh` | yes | `labctl grade` (always as root on the lab's target; labctl re-runs itself through sudo for the student) | checks the final state with `lib/grading.sh` |
+| `cleanup.sh` | yes | `labctl reset` (as root, on the lab's target) | undoes setup and solution |
 | `description.txt` | yes | `labctl list`, task header | metadata |
 | `task.txt` | yes | `labctl start`, `labctl task` | the task text shown to the student |
 | `solution.md` | yes | `labctl solution`, `labctl hint` | optional hints and the reference solution for students |
@@ -33,6 +33,7 @@ complexity: Beginner
 objective: Create many files with brace expansion and sort them into a directory tree by name.
 course: aoos
 course_lab: 01
+target: workstation
 ```
 
 - `title` (required): sentence case, at most 60 characters, no final period. Shown in the task header and as the `solution.md` heading.
@@ -40,6 +41,7 @@ course_lab: 01
 - `complexity` (required): `Beginner`, `Intermediate` or `Advanced`. Shown as `Level:` in the header.
 - `objective` (required): one sentence, shown by `labctl list`.
 - `course` and `course_lab` (optional, together): course code and two-digit lab number.
+- `target` (required for a single-node lab, forbidden in a multi-node lab): the machine the lab runs on, `workstation` or `servera` (`serverb` and `serverc` are valid too). `workstation` is only for labs that need no root, because the student has no sudo there except for labctl (today `files-01` and `files-04`). Every other single-node lab uses `servera`, where the student works as `opsadmin` with full sudo. A lab with `needs: nodes=N` has no `target:` line; it runs its scripts on the workstation and reaches its nodes itself. See "Targets" below.
 - `needs` (optional, omit it when the lab needs nothing special): what the student environment must provide, separated by a comma and a space, in this fixed order: `internet` (the lab installs packages or downloads files), `reboot` (the solution reboots the machine, so it must match `# solve: reboot` in `solve.sh`), `free-nic` (a network interface with no connection, used by network labs), `nodes=N` (the lab uses N nodes, N at least 2, so it must match a `TOPOLOGY` section in `task.txt`). `labctl start` and `labctl task` show it as a `Needs:` line; the catalog has a column for it. Example: `needs: internet, nodes=3`.
 
 The legacy keys `estimated_time`, `requirements` and `skills` are retired. Move anything a student needs to know into `task.txt` (PREREQUISITES or NOTES).
@@ -55,6 +57,15 @@ Category: Files    Level: Beginner
 
 OBJECTIVE
   ...
+```
+
+For a lab on a server target, labctl adds the connect line as the last header line (see "Targets"). It is generated, never written into `task.txt`:
+
+```
+files-02: Web directory permissions and ownership
+Category: Files    Level: Intermediate
+Work on servera: ssh opsadmin@servera
+========================================================================
 ```
 
 Format rules (all enforced by `check-labs.sh`):
@@ -118,10 +129,12 @@ Placeholders are the only dynamic content. The full list (keep `render_task` in 
 |---|---|
 | `{{EL_MAJOR}}` | major release from `/etc/os-release`, e.g. `8` |
 | `{{ARCH}}` | `uname -m`, e.g. `x86_64` |
-| `{{HOSTNAME}}` | `uname -n` |
-| `{{LAB_USER}}` | `SUDO_USER` if set and not root, else the current user if not root, else `student` |
+| `{{HOSTNAME}}` | the target name (`servera`) for a server target, else `uname -n` of the workstation |
+| `{{LAB_USER}}` | the task user, the same value labctl exports as `LAB_USER` (see "Targets"): `SSH_USER` for a server target; otherwise `SUDO_USER` if set and not root, else the current user if not root, else `student` |
 | `{{NODE_COUNT}}` | `NODE_COUNT` from `load-config.sh` |
 | `{{NODE1_IP}}` .. `{{NODE9_IP}}` | `get_node_ip N` from `load-config.sh`; `(node N not configured)` when N > `NODE_COUNT` |
+
+`{{EL_MAJOR}}` and `{{ARCH}}` always come from the workstation, also for a server target: `labctl task` needs no SSH, and the classroom servers run the same release as the workstation.
 
 Any other `{{...}}` fails `check-labs.sh`; at runtime labctl prints it unchanged and warns on stderr. Values the lab computes at setup time (random names, ports) are not placeholders: write the task so it does not need them, or have setup put them in a file the task points to.
 
@@ -132,7 +145,7 @@ Any other `{{...}}` fails `check-labs.sh`; at runtime labctl prints it unchanged
 - Idempotent: running it twice, or after a partial solution, gives the same starting state. Start by removing what a previous run or the solution left behind.
 - Use `set -eu` (not `pipefail` with pipelines that end early, such as `getent passwd | awk '... exit'`).
 - Per-lab state (owner name, start transaction id, generated values) goes in the file `/opt/linux-labs/state/<lab>` (or a directory of that name), mode `0644`. `cleanup.sh` removes it.
-- The lab user is `${SUDO_USER:-student}`, falling back to the first regular user if that account does not exist (see `files-04`). Record it in the state file if the grader needs it.
+- The task user is `$LAB_USER`, which labctl exports to `setup.sh`, `grade.sh` and `cleanup.sh` (see "Targets"): `student` on the workstation, `opsadmin` on a server. Use `${LAB_USER:-student}`, falling back to the first regular user if that account does not exist (see `files-04`), and never `SUDO_USER` or a literal `student`. Record it in the state file if the grader needs it.
 
 ### cleanup.sh
 
@@ -141,15 +154,57 @@ Any other `{{...}}` fails `check-labs.sh`; at runtime labctl prints it unchanged
 
 ### Network labs
 
-- Never touch the interface that carries the default route (`ip route show default`), or its connection profile. The workstation has free NICs (`ens224`, `ens256`) on an isolated network for these labs.
+- Network labs run on `servera` (`target: servera`). Never touch the interface that carries the default route (`ip route show default`), or its connection profile: on servera that is `ens192`, which also carries the student's SSH session. servera has two free NICs, `ens224` and `ens256`, on an isolated network without DHCP for these labs. The workstation's free NICs stay but no lab uses them.
 - `setup.sh` detects free interfaces (ethernet, not the default-route interface, not enslaved) and refuses to start with a clear stderr message if there are not enough. The detected name goes into the state file; `task.txt` refers to "the first free interface" or tells the student how to find the name, since it is not a placeholder.
 - NetworkManager creates automatic profiles named `Wired connection 1`, `Wired connection 2`, ... on free NICs. `setup.sh` deletes or deactivates the auto profiles on the interfaces the lab uses, and `cleanup.sh` deletes every profile the lab or the solution created and leaves those interfaces unmanaged by any lab profile (NetworkManager may recreate its auto profile; that is fine).
+
+## Targets
+
+The student never has full sudo on the workstation: the sudoers rule allows only `/usr/bin/labctl`. A lab that needs root therefore runs on a server, where the student logs in as `opsadmin` with full passwordless sudo. `target:` in `description.txt` says where a single-node lab runs.
+
+### Which address a target has
+
+A server target is a node of the lab configuration (`load-config.sh`): `servera` is node 1, `serverb` node 2, `serverc` node 3. With `NODE_IPS` set, node N is its Nth entry; otherwise it is `<network base>.<N+9>`, so servera is `172.25.250.10` in the Red Hat classroom layout. Classroom DNS names are not needed. labctl connects as `SSH_USER` with `SSH_KEY_PATH` on `SSH_PORT`, the same settings the multi-node labs use. `NODES_ENABLED` does not matter for a server target.
+
+### What labctl does for a server target
+
+`labctl start`, `grade` and `reset` run as root on the workstation (the sudoers rule, and `grade` re-runs itself through `sudo -n`). For a server target they do not run the lab script locally. labctl sends the lab directory (without `solve.sh` and `known-issues.md`), `lib/` and the workstation's `/etc/profile.d/labctl.sh` to the server and runs the script there as root:
+
+```
+ssh -i <SSH_KEY_PATH> <SSH_USER>@<server> sudo -n bash -s
+```
+
+- SSH runs with `BatchMode=yes`, a 10 second connect timeout, `IdentitiesOnly=yes` and `StrictHostKeyChecking=accept-new` into labctl's own `/var/lib/linux-labs/known_hosts` on the workstation (root's and student's `known_hosts` are not touched). labctl reads the key as root. The key path comes from the config with `HOME` set to the sudo caller's home, so `SSH_KEY_PATH="$HOME/.ssh/id_rsa"` and the default both mean `/home/student/.ssh/id_rsa`, not root's key.
+- The files travel as a bash script on stdin (base64 and heredocs), so the server needs only bash and coreutils, no tar or scp. `lib/target-run.sh` unpacks and runs them.
+- `start` makes a fresh copy in `/var/lib/linux-labs/` on the server (`labs/<lab>/` and `lib/`) and keeps it until `reset`. Lab scripts keep sourcing `/opt/linux-labs/lib/<file>`; in the copy labctl rewrites that prefix to `/var/lib/linux-labs/lib/`. Write the path literally, as `check-labs.sh` expects.
+- `setup.sh`, `grade.sh` and `cleanup.sh` run on the server as root, from `/`, with stdin on `/dev/null` and `LAB_USER` set. Their stdout and stderr stream to the student's terminal and their exit status is labctl's, so `start`, `grade` and `reset` behave exactly as for a local lab. The grade header names the server (`Grading files-02 on servera`). Colour follows the student's terminal: labctl passes `LABCTL_COLOR=1` or `0` and `lib/grading.sh` uses it instead of its own terminal test.
+- `grade` uses the copy from `start`. When the lab is not started on the server it grades from a temporary copy that it deletes afterwards, so the result is the usual `Lab was started with labctl start ... FAIL`.
+- `reset` makes a fresh copy, runs `cleanup.sh`, then removes `/var/lib/linux-labs/`, the server's marker and the directories `/opt/linux-labs/state` and `/opt/linux-labs` if they are empty. This happens also when `cleanup.sh` fails.
+- If SSH itself fails (exit 255), labctl adds `Error: cannot connect to servera (<address>) over SSH as opsadmin.` to the usual setup or cleanup error.
+
+Lab state (`/opt/linux-labs/state/<lab>`) lives on the server, where `setup.sh` writes it. The workstation keeps `/opt/linux-labs/.current_lab` for its own prompt.
+
+### The task user
+
+The task user is the account that does the lab: `student` on the workstation (the sudo caller), the configured `SSH_USER` (`opsadmin`) on a server. labctl exports it as `LAB_USER` to `setup.sh`, `grade.sh` and `cleanup.sh`, and `{{LAB_USER}}` in `task.txt` shows the same value. Ownership checks, home directories, crontabs and similar use `$LAB_USER`, never `SUDO_USER` or a literal `student`. In `solve.sh`, `run_as_student` runs as the task user (see "solve.sh").
+
+### Connect line
+
+For a server target, `labctl start` and `labctl task` print `Work on servera: ssh opsadmin@servera` as the last header line, below `Category`/`Level` and `Needs`. The user is `SSH_USER`, and a port other than 22 adds `-p <port>`. labctl shows the target name when it resolves on the workstation to the configured address of that node (`getent ahosts`), otherwise the address itself, for example `ssh opsadmin@10.0.0.189`, so the line always reaches the machine the lab was set up on. This line is the only connection help; `task.txt` does not repeat it. Workstation labs have no connect line. `labctl task` needs no SSH.
+
+### Prompt on the server
+
+After a successful setup, labctl copies the workstation's `/etc/profile.d/labctl.sh` to the same path on the server and writes the lab name to the server's `/opt/linux-labs/.current_lab`, the file the prompt script already reads. An SSH session on the server then shows `[LAB:<lab>]` as well. `reset` removes the server's marker and leaves the prompt script, which shows nothing without a marker.
+
+### Reboot labs
+
+A lab with `needs: reboot` reboots its target, which is servera. The SSH session closes during the reboot and the student opens it again; `task.txt` states that plainly. `test-lab.sh` reboots the target and waits for it.
 
 ## Grading scripts
 
 All converted graders use `lib/grading.sh`. Single-node and multi-node graders follow the same rules; there are no local `pass`/`fail` helpers any more.
 
-Output (Red Hat style, 72 columns, labels exactly `PASS` and `FAIL`, colour only on the result word and only when stdout is a terminal and `NO_COLOR` is empty):
+Output (Red Hat style, 72 columns, labels exactly `PASS` and `FAIL`, colour only on the result word and only when stdout is a terminal and `NO_COLOR` is empty; `LABCTL_COLOR=1` or `0`, set by labctl for a server target, overrides that test):
 
 ```
 Grading files-04 on workstation
@@ -180,7 +235,7 @@ Rules:
 - Criterion text is the desired state, as a short statement: `Directory /srv/archive exists`, `httpd is enabled and running`, `Port 8080/tcp is open in the firewall`. Not a question, not "Checking ...", not a hint. Keep it at most 64 characters; longer text wraps at word boundaries with a two-space continuation indent, which works but looks worse.
 - No other output: no hints, no counts in the text ("3 of 12 missing"), no examples of what is wrong, no debug lines. `solution.md` covers help. Dynamic values that define the target (the owner name, a node IP) may appear in the text.
 - Checks that need more than one command go into a shell function defined in `grade.sh` and passed to `criterion`. `criterion` and `criterion_result` always return 0, so the grader always runs to the end; never use `((count++))`-style counters (the library uses `$((n + 1))`).
-- If the lab has a state file, call `grade_require_state` right after `grade_begin`. `labctl grade` always runs `grade.sh` as root (a student call re-executes through `sudo -n`), so graders may read root-only files and configuration. Do not add a sudo re-exec inside `grade.sh`.
+- If the lab has a state file, call `grade_require_state` right after `grade_begin`. `labctl grade` always runs `grade.sh` as root on the lab's target (a student call re-executes through `sudo -n`), so graders may read root-only files and configuration. Do not add a sudo re-exec inside `grade.sh`.
 - Multi-node graders still source `load-config.sh` for `get_node_ip` and `run_on_node`, but use `grading.sh` for all output. Typical preconditions: `[ "$NODES_ENABLED" = true ] || grade_abort "Multi-node labs are enabled in the configuration"`.
 
 Example (`labs/files-04/grade.sh`, shortened):
@@ -323,15 +378,15 @@ STEPS
 ```
 
 - It performs the same steps as `solution.md`, in the same order, and the comments name the step numbers. `[user]` steps go through `run_as_student`; `[sudo]` steps run directly (the script is root).
-- `run_as_student` (from `scripts/solve-lib.sh`) runs its argument, or its standard input when there is no argument, as `student` in a login shell (`runuser -l`, working directory `~student`) with `bash -euo pipefail`. Code passed on stdin must not read stdin itself.
-- It runs as root from a temporary directory on the host, after `sudo labctl start <lab>`, so it can rely on the state `setup.sh` created. It must exit 0 on success and non-zero on any failure (`set -euo pipefail`).
+- `run_as_student` (from `scripts/solve-lib.sh`) runs its argument, or its standard input when there is no argument, as the task user in a login shell (`runuser -l`, working directory the user's home) with `bash -euo pipefail`. The task user is `SOLVE_USER`, which `test-lab.sh` sets to `student` for workstation and multi-node labs and to `opsadmin` (`SSH_USER`) for a server target; `LAB_USER` is set to the same value. Code passed on stdin must not read stdin itself.
+- It runs as root from a temporary directory on the lab's machine (the workstation, or the server target), after `sudo labctl start <lab>`, so it can rely on the state `setup.sh` created. It must exit 0 on success and non-zero on any failure (`set -euo pipefail`).
 - Safe to re-run: after `labctl reset` and `labctl start` it must work again, so it does not depend on anything left over from an earlier run.
 - It declares, in comment lines `# solve: <directive>`, what the runtime test needs to know. At least one directive is required:
   - `# solve: path <absolute path>`: a path the lab or its solution creates; it must be gone after `labctl reset`. One line per path.
   - `# solve: package <name>`: a package the solution installs; it must not be installed after `labctl reset`.
-  - `# solve: reboot`: the lab needs a reboot after solving (for example to prove that a setting persists); `test-lab.sh` reboots the host, waits for SSH, a new `/proc/sys/kernel/random/boot_id` and the end of the boot, and grades afterwards.
+  - `# solve: reboot`: the lab needs a reboot after solving (for example to prove that a setting persists); `test-lab.sh` reboots the lab's machine (the server target), waits for SSH, a new `/proc/sys/kernel/random/boot_id` and the end of the boot, and grades afterwards.
   - `# solve: none`: nothing to declare (only allowed on its own).
-- `/opt/linux-labs/state/<lab>` and `/opt/linux-labs/.current_lab` are always checked; do not declare them.
+- `/opt/linux-labs/state/<lab>` and `/opt/linux-labs/.current_lab` are always checked (on a server target also the server's marker and `/var/lib/linux-labs`); do not declare them. Paths and packages are checked on the lab's machine.
 
 ## known-issues.md
 
@@ -372,4 +427,5 @@ Format: the heading `# <id>: known issues`, then one list entry per issue in thi
 - `start` and `task` end with `Stuck? Run labctl hint <id>` when `solution.md` has a `## Hints` section. `start` and `reset` delete the hint counter of the calling user (`SUDO_USER`).
 - `hint <id>` shows the hints given so far plus the next one; `hint <id> --all` shows all of them and leaves the counter alone. `solution <id>` asks "This shows the full solution. Continue? [y/N]" when stdin and stdout are terminals; `--yes` skips the question, and without a terminal (pipes, scripts, `test-lab.sh`) nothing is asked.
 - `grade` and `configure` are unchanged; `list` gained the `--course` and `--level` filters. labctl output is plain ASCII.
-- The `[LAB:...]` prompt comes from `PROMPT_COMMAND` in `/etc/profile.d/labctl.sh` reading `.current_lab` at every prompt; labctl does not source it.
+- The `[LAB:...]` prompt comes from `PROMPT_COMMAND` in `/etc/profile.d/labctl.sh` reading `.current_lab` at every prompt; labctl does not source it. For a server target the same script and a marker are on the server too (see "Targets").
+- `start`, `grade` and `reset` run the lab scripts on the target named by `target:`; legacy labs (no `task.txt`) always run locally.

@@ -5,3 +5,4 @@ objective: Change the default boot target from graphical to text mode and confir
 course: aoos
 course_lab: 01
 needs: reboot
+target: servera

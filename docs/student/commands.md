@@ -25,6 +25,10 @@ not matter.
 `labctl grade` needs root rights to check the system, but you run it
 without sudo: labctl gets the rights by itself.
 
+Run all labctl commands on the workstation, also for a lab that runs
+on servera. labctl does the setup, grading and reset on servera by
+itself; you only log in there to do the work.
+
 `labctl grade` exits with status 0 when every requirement is met and 1
 otherwise. `echo $?` right after it shows the status.
 

@@ -3,3 +3,4 @@ category: Scheduling
 complexity: Advanced
 objective: Configure an anacron job, a persistent systemd timer and a root cron job with environment variables.
 needs: internet
+target: servera

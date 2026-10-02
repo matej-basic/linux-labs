@@ -2,3 +2,4 @@ title: Masquerading, port forwarding and custom services
 category: Firewall
 complexity: Advanced
 objective: Configure firewalld masquerading, port forwarding and a custom service definition.
+target: servera

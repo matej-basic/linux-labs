@@ -3,3 +3,4 @@ category: Storage
 complexity: Beginner
 objective: Create a loopback disk image, format it as ext4 and mount it persistently.
 needs: reboot
+target: servera

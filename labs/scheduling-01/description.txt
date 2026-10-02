@@ -2,3 +2,4 @@ title: Cron jobs basics
 category: Scheduling
 complexity: Beginner
 objective: Create a cron job for root that runs every day at 2:00 and appends a line to a log file.
+target: servera

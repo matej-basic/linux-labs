@@ -23,6 +23,22 @@ Only one lab is active at a time; the active lab is recorded in
 and shown as
 .B [LAB:<name>]
 in the shell prompt.
+.PP
+Most labs run on a server, normally
+.BR servera ,
+rather than on the machine where labctl runs.
+For such a lab,
+.BR start ,
+.B grade
+and
+.B reset
+run the lab scripts on the server as root over SSH (as the configured
+SSH user, with the configured key), and the task header ends with a line
+such as "Work on servera: ssh opsadmin@servera". The student does the work
+in that SSH session; the server's prompt shows
+.B [LAB:<name>]
+too. servera is node 1 of the configuration, serverb node 2, serverc
+node 3.
 .SH COMMANDS
 .TP
 .BI start " LAB"
@@ -37,7 +53,8 @@ setup exit status.
 .BI task " LAB"
 Print the task of the lab again: the header line, the category and level
 line, the optional Needs line (what the lab requires: internet, reboot, a
-free network interface, a number of nodes) and the task text. When the lab
+free network interface, a number of nodes), for a lab on a server the
+"Work on" line with the ssh command, and the task text. When the lab
 has hints, a last line "Stuck? Run labctl hint LAB" follows; the same line
 ends the output of
 .BR start .
@@ -137,6 +154,10 @@ Installed labs.
 .TP
 .I /opt/linux-labs/.current_lab
 Name of the active lab.
+.TP
+.I /var/lib/linux-labs/
+On the workstation: labctl's SSH known_hosts for the servers. On a server:
+the working copy of the active lab.
 .TP
 .I ~/.local/state/linux-labs/hints/
 One file per lab with the number of hints already shown to the user.

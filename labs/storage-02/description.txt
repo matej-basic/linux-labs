@@ -2,3 +2,4 @@ title: LVM basics on a loopback device
 category: Storage
 complexity: Intermediate
 objective: Build a physical volume, volume group and logical volume on a loopback image, format it and mount it.
+target: servera

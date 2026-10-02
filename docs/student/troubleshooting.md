@@ -89,6 +89,16 @@ Reset the lab and start it again. Your work in that lab is removed:
     sudo labctl reset files-01
     sudo labctl start files-01
 
+## Error: cannot connect to servera (...) over SSH as opsadmin.
+
+The lab runs on servera, and labctl could not log in there. Check that
+servera is running and that you can log in yourself:
+
+    ssh opsadmin@servera
+
+If that asks for a password or fails, tell your teacher. labctl needs
+the same login without a password.
+
 ## My prompt still shows [LAB:...] after a reset
 
 The prompt updates when the next prompt is printed. Press Enter once.
