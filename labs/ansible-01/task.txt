@@ -1,0 +1,92 @@
+OBJECTIVE
+  Set up node 1 as an Ansible control node, give it key-based SSH
+  access to nodes 2 and 3, and write a playbook that installs and
+  starts a web server on nodes 2 and 3.
+
+TOPOLOGY
+  Log in to node 1 from the workstation over SSH, as the user that the
+  lab configuration uses for the nodes (SSH_USER, opsadmin in the
+  classroom). Do all work on node 1 as that user, called "your user"
+  below. Nodes 2 and 3 are the managed nodes.
+
+     workstation
+          |
+          | SSH as your user
+          |
+     node 1  {{NODE1_IP}}
+     Ansible control node, project directory ~/ansible-lab
+          |
+          | SSH as the user ansible
+          |
+     +----+-----------------------+
+     |                            |
+     node 2                       node 3
+     {{NODE2_IP}}                 {{NODE3_IP}}
+     managed node                 managed node
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 3 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - Your user has sudo on all three nodes.
+  - The nodes reach the Rocky Linux package repositories. The package
+    ansible-core comes from the AppStream repository.
+  - On nodes 2 and 3 the user ansible exists with the password redhat.
+    It may run every command with sudo without a password.
+  - Node 1 has no directory ~/ansible-lab, and httpd is not running on
+    nodes 2 and 3.
+
+TASKS
+  1. The package ansible-core is installed on node 1.
+  2. The directory ~/ansible-lab of your user on node 1 holds the file
+     ansible.cfg. Ansible commands started in ~/ansible-lab use it as
+     their configuration file.
+  3. ansible.cfg sets the inventory to the file ~/ansible-lab/inventory
+     and the remote user to ansible.
+  4. The inventory has the group webservers with the hosts
+     {{NODE2_IP}} and {{NODE3_IP}}, given by address, and no other
+     hosts.
+  5. Your user on node 1 has an SSH key pair without a passphrase. Its
+     public key lets your user log in as ansible on nodes 2 and 3
+     without a password.
+  6. In ~/ansible-lab, an ad hoc run of the module ping against all
+     hosts of the inventory succeeds for nodes 2 and 3.
+  7. The playbook ~/ansible-lab/site.yml has a play for the group
+     webservers and passes the syntax check. Its tasks use the module
+     dnf, yum or package, the module copy or template, and the module
+     service or systemd to reach this state on the managed nodes:
+
+       - the package httpd is installed
+       - /var/www/html/index.html is owned by root (user and group),
+         has mode 0644 and holds exactly this line:
+         This web server is managed by Ansible.
+       - the service httpd is enabled at boot and running
+
+  8. A run of site.yml in check mode completes without failures and
+     reports no changes on nodes 2 and 3.
+  9. On nodes 2 and 3, httpd is installed, enabled and running, and
+     /var/www/html/index.html has the owner, mode and content from
+     task 7.
+
+PRACTICE (not graded)
+  - Run the playbook a second time and compare the changed counts.
+  - Open the service http in the firewall of node 2 and fetch the page
+    from node 1.
+
+NOTES
+  - Ansible reads the file ansible.cfg in the current directory before
+    ~/.ansible.cfg and /etc/ansible/ansible.cfg. The first file found
+    is the only one used.
+  - The managed nodes need root for the tasks. The user ansible gets it
+    through sudo.
+  - Only the modules of ansible-core (ansible.builtin) are available.
+    The module documentation is in ansible-doc. Also see man ssh-keygen
+    and man ssh-copy-id.
+  - Rocky Linux 8 ships ansible-core 2.16 and Rocky Linux 9 ships 2.14.
+    The task works the same with both. On Rocky Linux 8 Ansible finds
+    the Python of the managed nodes in /usr/libexec/platform-python.
+  - labctl reset removes ~/ansible-lab, the SSH keys and known hosts
+    that the lab added for your user on node 1, the user ansible with
+    its sudo rule, and every package the lab installed on the nodes.
+
+GRADING
+  labctl grade ansible-01

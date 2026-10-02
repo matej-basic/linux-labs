@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab ansible-01 (Automation, Beginner, three nodes): an Ansible control node on servera with ansible.cfg, an inventory, key access to a sudo account on the managed nodes and a playbook that installs and starts httpd. Automation is a new category.
 - Lab storage-04 (Storage, Intermediate, reboot): a persistent swap file with a priority, vm.swappiness in sysctl.d and a tuned profile.
 - Lab ssh-02 (SSH, Advanced): sshd hardening with key-only root login, a Match block that disables passwords for a group, and a second port with its SELinux type and firewall rule.
 - Lab podman-01 (Containers, Advanced): a rootless httpd container with an SELinux-labelled volume, run as a systemd user service with linger. Containers is a new category.

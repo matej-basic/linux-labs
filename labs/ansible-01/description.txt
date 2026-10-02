@@ -1,0 +1,5 @@
+title: Ansible control node and a first playbook
+category: Automation
+complexity: Beginner
+objective: Set up node 1 as an Ansible control node and use a playbook to deploy a web server on nodes 2 and 3.
+needs: internet, nodes=3
