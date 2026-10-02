@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab time-01 (Networking, Intermediate, two nodes): node 1 serves time with chrony from a local stratum, and node 2 synchronises only from node 1 and uses the time zone Europe/Zagreb.
 - Lab logging-04 (Logging, Intermediate): persistent audit rules in rules.d for a file watch and a deletion rule by login UID, and auditd log settings.
 - Lab nfs-02 (Storage, Intermediate, two nodes): an all_squash export with a fixed anonymous user, a read-only export, and on-demand mounts through an autofs indirect map.
 - Lab ansible-01 (Automation, Beginner, three nodes): an Ansible control node on servera with ansible.cfg, an inventory, key access to a sudo account on the managed nodes and a playbook that installs and starts httpd. Automation is a new category.

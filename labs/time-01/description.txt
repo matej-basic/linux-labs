@@ -1,0 +1,5 @@
+title: Chrony time server and client
+category: Networking
+complexity: Intermediate
+objective: Make node 1 an NTP server with chrony and synchronise node 2 to it as its only time source.
+needs: nodes=2

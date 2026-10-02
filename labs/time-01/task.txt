@@ -1,0 +1,74 @@
+OBJECTIVE
+  Turn node 1 into an NTP server with chrony that keeps serving time
+  without an upstream server, and make node 2 take its time from node
+  1 only.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH.
+
+     workstation
+          |
+          | SSH to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     NTP server: chronyd serves time to node 2
+          |
+          | NTP, port 123/udp
+          |
+     node 2  {{NODE2_IP}}
+     NTP client: chronyd uses node 1 as its only source
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - SSH access to both nodes works from the workstation, and the SSH
+    user has sudo on the nodes.
+  - The package chrony is installed on both nodes. On node 1 the
+    service chronyd is stopped and disabled, and the firewall has no
+    rule for NTP. Node 2 still uses the servers of its default
+    configuration, and its time zone is UTC.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. chronyd is enabled at boot and running on node 1.
+  2. The chrony configuration of node 1 allows NTP clients from the
+     address {{NODE2_IP}} of node 2. Allowing a network that contains
+     this address is fine.
+  3. The chrony configuration of node 1 has a local reference clock
+     at stratum 10, so that node 1 serves time even when it reaches
+     no NTP server of its own.
+  4. The firewall on node 1 allows the ntp service, at runtime and
+     permanently.
+  5. chronyd is enabled at boot and running on node 2.
+  6. The chrony configuration of node 2 has exactly one time source:
+     the server {{NODE1_IP}} with the option iburst. Use the address,
+     not a host name. No pool, peer or other server remains active.
+  7. chronyd on node 2 lists node 1 as its only source and has
+     selected it for synchronisation.
+  8. The time zone of node 2 is Europe/Zagreb.
+
+EXPECTED RESULT
+  The source list of chronyd on node 2 shows one line, the address of
+  node 1, marked as the selected source. Node 1 shows node 2 in its
+  list of NTP clients.
+
+PRACTICE (not graded)
+  - Compare the stratum that node 2 reports with the stratum of node
+    1.
+  - Look at the list of NTP clients that node 1 has served.
+
+NOTES
+  - The chrony configuration is /etc/chrony.conf. Files that it
+    includes count as well.
+  - After a change of the configuration, chronyd must read it again
+    before it uses the new settings.
+  - A client needs a few samples before it selects a new source.
+    The grader waits up to a minute for that.
+  - Reference: man chrony.conf, man chronyc, man chronyd and
+    man timedatectl.
+  - labctl reset puts back the chrony configuration, the state of
+    chronyd, the firewall and the time zone of both nodes as they
+    were before the lab.
+
+GRADING
+  labctl grade time-01
