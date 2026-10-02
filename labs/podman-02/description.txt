@@ -1,0 +1,6 @@
+title: Build a container image and run it with Podman
+category: Containers
+complexity: Intermediate
+objective: Build an httpd image from a Containerfile with a label and an environment variable, then run it rootless with a published port, a named volume and a restart policy.
+needs: internet
+target: servera

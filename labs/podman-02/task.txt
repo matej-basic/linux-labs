@@ -1,0 +1,63 @@
+OBJECTIVE
+  Build a container image with your own web page from a Containerfile
+  and run it as a rootless Podman container with a published port, a
+  named volume and a restart policy.
+
+PREREQUISITES
+  - Internet access to the package repositories and to
+    registry.access.redhat.com.
+  - You work as {{LAB_USER}}, with root access through sudo for
+    package installs.
+  - Setup has written the web page index.html into the directory
+    webimg in the home directory of {{LAB_USER}}.
+
+TASKS
+  1. Install the podman package if it is missing.
+  2. As {{LAB_USER}}, write the file Containerfile in the directory
+     webimg in your home directory. The image it describes:
+
+       base image     registry.access.redhat.com/ubi9/httpd-24
+       web page       index.html from the webimg directory, copied
+                      to /var/www/html/index.html in the image
+       label          version with the value 1.0
+       environment    APP_ENV with the value production
+
+  3. As {{LAB_USER}}, not as root, build the image from that
+     Containerfile and give it the name localhost/webapp:1.0.
+  4. As {{LAB_USER}}, run a container named web from the image
+     localhost/webapp:1.0 with these settings:
+
+       port           container port 8080 published on host
+                      port 8081
+       volume         a named volume webdata, mounted at
+                      /var/www/data in the container
+       restart        restart policy always
+
+  5. A request to http://localhost:8081 on {{HOSTNAME}} returns the
+     page from the image. Do not change index.html.
+
+EXPECTED RESULT
+  The image localhost/webapp:1.0 contains the page, carries the label
+  and the environment variable, and the running container web serves
+  the page on host port 8081.
+
+NOTES
+  - The image runs Apache as an unprivileged user, listens on port
+    8080 inside the container and serves /var/www/html.
+  - The page belongs in the image. Do not mount the webimg directory
+    into the container.
+  - Setup enabled linger for {{LAB_USER}}, so your containers keep
+    running after you log out. labctl reset turns it off again if it
+    was off before the lab.
+  - Setup removes the web container, the webdata volume and the
+    image localhost/webapp:1.0 of an earlier attempt and writes a new
+    webimg directory. labctl reset removes them, the base image and
+    the packages the lab installed.
+  - The firewall is not part of this lab and is not graded.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man Containerfile, man podman-build, man podman-run,
+    man podman-volume and man podman-inspect.
+
+GRADING
+  labctl grade podman-02
