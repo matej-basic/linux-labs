@@ -4,7 +4,6 @@
 #
 # solve: path /webapp
 # solve: path /etc/httpd/conf.d/myapp.conf
-# solve: package httpd
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 

@@ -19,14 +19,22 @@ if ! command -v semanage >/dev/null 2>&1; then
 	}
 fi
 
-# Remember whether httpd was already installed, so cleanup does not
-# remove a package the lab did not install. Keep the first answer when
-# setup runs twice.
+# Remember whether httpd was already installed, enabled and running, so
+# cleanup restores exactly that. Keep the first answer when setup runs
+# twice.
 if [ -r "$STATE_FILE" ]; then
 	preinstalled=$(sed -n 's/^httpd_preinstalled=//p' "$STATE_FILE")
+	was_enabled=$(sed -n 's/^httpd_enabled=//p' "$STATE_FILE")
+	was_active=$(sed -n 's/^httpd_active=//p' "$STATE_FILE")
 else
 	preinstalled=no
-	rpm -q httpd >/dev/null 2>&1 && preinstalled=yes
+	was_enabled=no
+	was_active=no
+	if rpm -q httpd >/dev/null 2>&1; then
+		preinstalled=yes
+		systemctl is-enabled --quiet httpd 2>/dev/null && was_enabled=yes
+		systemctl is-active --quiet httpd 2>/dev/null && was_active=yes
+	fi
 fi
 
 # Remove leftovers of an earlier run or of the solution
@@ -55,5 +63,9 @@ setenforce 1
 sed -i 's/^SELINUX=.*/SELINUX=enforcing/' /etc/selinux/config
 
 mkdir -p "$(dirname "$STATE_FILE")"
-echo "httpd_preinstalled=$preinstalled" > "$STATE_FILE"
+{
+	echo "httpd_preinstalled=${preinstalled:-no}"
+	echo "httpd_enabled=${was_enabled:-no}"
+	echo "httpd_active=${was_active:-no}"
+} > "$STATE_FILE"
 chmod 644 "$STATE_FILE"
