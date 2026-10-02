@@ -42,8 +42,8 @@ the lab configuration.
      '. /etc/os-release; echo ${VERSION_ID%%.*}')
    if [ "$EL" = 8 ]; then HA_REPO=ha; else HA_REPO=highavailability; fi
    for ip in $ALL; do
-     run_on_node "$ip" "sudo -n dnf -y install \
-       --enablerepo=$HA_REPO pacemaker pcs httpd"
+     run_on_node "$ip" "rpm -q pacemaker pcs httpd ||
+       sudo -n dnf -y install --enablerepo=$HA_REPO pacemaker pcs httpd"
    done
    ```
 

@@ -5,9 +5,12 @@
 # The steps run as the lab user on the workstation and reach the nodes
 # with run_on_node. Every run_on_node call reads nothing from standard
 # input (< /dev/null), because ssh would otherwise consume the step script.
-# The nodes' state cannot be declared here, so no path or package is listed.
+# The packages are installed on the nodes; test-lab.sh checks the package
+# set of every node after reset.
 #
-# solve: none
+# solve: package pacemaker
+# solve: package pcs
+# solve: package httpd
 set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
@@ -29,7 +32,8 @@ H3=$(run_on_node "$N3" uname -n </dev/null)
 EL=$(run_on_node "$N1" '. /etc/os-release; echo ${VERSION_ID%%.*}' </dev/null)
 if [ "$EL" = 8 ]; then HA_REPO=ha; else HA_REPO=highavailability; fi
 for ip in $ALL; do
-  run_on_node "$ip" "sudo -n dnf -y install --enablerepo=$HA_REPO pacemaker pcs httpd" </dev/null
+  run_on_node "$ip" "rpm -q pacemaker pcs httpd >/dev/null ||
+    sudo -n dnf -y install --enablerepo=$HA_REPO pacemaker pcs httpd" </dev/null
 done
 
 # Step 3

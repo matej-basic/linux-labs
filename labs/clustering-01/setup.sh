@@ -1,15 +1,18 @@
 #!/bin/bash
 # clustering-01 setup: puts the three cluster nodes into the clean starting
 # state (no cluster configuration, cluster services and httpd stopped and
-# disabled, no index page, hacluster password locked). Packages that were
-# already installed before the lab stay installed; the first run records
-# the state of every node in /var/tmp/clustering-01.pre and backs up the
-# files and directories the lab touches in /var/tmp/clustering-01.bak, so
-# that cleanup.sh can put it back. Prints nothing on success.
+# disabled, no index page, hacluster password locked) and removes
+# Pacemaker, pcs and httpd, so the student installs them. The first run
+# records each node's package set (lib/packages.sh) and in
+# /var/tmp/clustering-01.pre and /var/tmp/clustering-01.bak the
+# services, the firewall, the hacluster password and copies of the files
+# and directories the lab touches, so that cleanup.sh can put them back.
+# Prints nothing on success.
 # No "set -u": load-config.sh reads variables that may be unset.
 set -e
 
 source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/packages.sh
 load_lab_config
 
 LAB=clustering-01
@@ -44,36 +47,36 @@ bak=/var/tmp/clustering-01.bak
 files="/var/www/html/index.html /etc/httpd/conf/httpd.conf"
 dirs="/etc/corosync /var/lib/pacemaker /var/lib/corosync /var/lib/pcsd /var/log/pacemaker /var/log/cluster /var/log/pcsd"
 
-# First run only: what the node looked like before the lab
+# First run only: what the node looked like before the lab (the package
+# set is in the package snapshot)
 if [ ! -f "$pre" ]; then
 	rm -rf "$bak"
 	mkdir -p -m 0700 "$bak" || exit 1
 	{
-		for p in httpd pacemaker corosync pcs; do
-			rpm -q "$p" >/dev/null 2>&1 && echo "$p-installed"
-		done
 		for u in httpd pcsd pacemaker corosync; do
 			systemctl is-enabled --quiet "$u" 2>/dev/null && echo "$u-enabled"
 			systemctl is-active --quiet "$u" 2>/dev/null && echo "$u-active"
 		done
 		firewall-cmd --permanent --query-service=high-availability </dev/null >/dev/null 2>&1 && echo fw-ha
-		getent group haclient >/dev/null && echo group-haclient
 		if getent passwd hacluster >/dev/null; then
 			echo user-hacluster
 			getent shadow hacluster | cut -d: -f2 > "$bak/hacluster.shadow"
 			getent shadow hacluster | cut -d: -f3 > "$bak/hacluster.lastchg"
 		fi
 	} > "$pre.tmp"
-	# Installing pacemaker upgrades its libraries where they are already
-	# installed; cleanup.sh downgrades them back to these versions
-	rpm -qa --qf '%{NAME}.%{ARCH} %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' |
-		sort > "$bak/rpms" || exit 1
 	for f in $files; do
 		[ -f "$f" ] && cp -a "$f" "$bak/$(basename "$f")"
 	done
 	for d in $dirs; do
 		if [ -d "$d" ]; then
 			tar --selinux --xattrs --acls -C / -cpf "$bak/$(echo "${d#/}" | tr / _).tar" "${d#/}" || exit 1
+		fi
+	done
+	# Web directories that no package owns (left over from an earlier
+	# install): cleanup.sh puts them back as they are now
+	for d in /etc/httpd /var/log/httpd /var/www; do
+		if [ -d "$d" ] && ! rpm -qf "$d" >/dev/null 2>&1; then
+			mkdir -p "$bak/dirs$(dirname "$d")" && cp -a "$d" "$bak/dirs$d" || exit 1
 		fi
 	done
 	chmod 0600 "$pre.tmp"
@@ -91,23 +94,14 @@ rm -f /etc/corosync/corosync.conf /etc/corosync/authkey
 rm -f /var/lib/pcsd/known-hosts /var/lib/pcsd/tokens /var/lib/pcsd/pcs_settings.conf /var/lib/pcsd/pcs_users.conf
 rm -rf /var/lib/pacemaker/cib/* /var/lib/pacemaker/pengine/* /var/lib/corosync/*
 
-# Packages the lab or an earlier attempt installed go
-remove=""
+# The student installs Pacemaker, pcs and httpd; cleanup.sh installs
+# again the ones that were there before the lab
 for p in pcs pacemaker corosync httpd; do
-	if rpm -q "$p" >/dev/null 2>&1 && ! grep -qx "$p-installed" "$pre"; then
-		remove="$remove $p"
+	if rpm -q "$p" >/dev/null 2>&1; then
+		dnf -y remove "$p" </dev/null >/dev/null 2>&1 || exit 1
 	fi
 done
-if [ -n "$remove" ]; then
-	# shellcheck disable=SC2086 # word splitting is intended
-	dnf -y remove $remove </dev/null >/dev/null 2>&1 || exit 1
-fi
-
-rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave
-b="$bak/httpd.conf"
-if [ -f "$b" ] && [ -d /etc/httpd/conf ]; then
-	cp -a "$b" /etc/httpd/conf/httpd.conf && restorecon /etc/httpd/conf/httpd.conf 2>/dev/null
-fi
+rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave /etc/corosync/corosync.conf.rpmsave
 
 if getent passwd hacluster >/dev/null; then
 	passwd -l hacluster >/dev/null 2>&1
@@ -117,6 +111,11 @@ REMOTE
 
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
+	if ! pkg_snapshot_node "$ip" "$LAB" > "$tmp/out" 2>&1; then
+		echo "Recording the packages of node $n ($ip) failed:" >&2
+		cat "$tmp/out" >&2
+		exit 1
+	fi
 	if ! run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > "$tmp/out" 2>&1; then
 		echo "Preparing node $n ($ip) failed:" >&2
 		cat "$tmp/out" >&2

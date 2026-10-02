@@ -1,13 +1,20 @@
 #!/bin/bash
 # clustering-01 cleanup: destroys the cluster and puts every node back
-# into the state that the first setup.sh run recorded. Pacemaker, corosync,
-# pcs and httpd are removed where setup.sh found them missing; the index
-# page, the httpd configuration, the cluster directories, the hacluster
-# password, the boot and running state of the services and the
-# high-availability firewall service go back to their recorded values.
+# into the state that the first setup.sh run recorded. The cluster
+# directories go first where they did not exist before the lab, so that
+# the hacluster account and the haclient group own no file; then the
+# package set of the first start comes back (lib/packages.sh), which
+# removes Pacemaker, pcs and httpd where they were missing, together
+# with the accounts they created, and installs them again where
+# setup.sh removed them. The cluster directories, the index page, the
+# httpd configuration, the hacluster password, the boot and running
+# state of the services and the high-availability firewall service go
+# back to their recorded values. When a node cannot be restored, its
+# records stay for the next reset and the exit status is 1.
 # No "set -u": load-config.sh reads variables that may be unset.
 
 source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/packages.sh
 load_lab_config
 
 LAB=clustering-01
@@ -22,6 +29,41 @@ fi
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
+# Before the package restore: destroy the cluster, stop the services and
+# remove the lab files and the cluster directories that setup.sh did not
+# record
+cat > "$tmp/stop.sh" <<'REMOTE'
+pre=/var/tmp/clustering-01.pre
+bak=/var/tmp/clustering-01.bak
+dirs="/etc/corosync /var/lib/pacemaker /var/lib/corosync /var/lib/pcsd /var/log/pacemaker /var/log/cluster /var/log/pcsd"
+
+# setup.sh never ran on this node: nothing to undo
+[ -f "$pre" ] || exit 0
+
+if command -v pcs >/dev/null 2>&1; then
+	pcs cluster destroy </dev/null >/dev/null 2>&1
+fi
+systemctl disable --now pacemaker corosync pcsd httpd </dev/null >/dev/null 2>&1
+pkill -x httpd >/dev/null 2>&1
+rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave /etc/corosync/corosync.conf.rpmsave
+for d in $dirs; do
+	[ -f "$bak/$(echo "${d#/}" | tr / _).tar" ] || rm -rf "$d"
+done
+
+# rpcbind, which the resource agents pull in through nfs-utils, creates
+# the rpc account without -r, so useradd also creates a mail spool.
+# Where the account is new since the package snapshot, the NFS helper
+# services stop and the account's files go too.
+accounts=/opt/linux-labs/state/clustering-01.packages/accounts
+if [ -s "$accounts" ] && getent passwd rpc >/dev/null && ! grep -qx user:rpc "$accounts"; then
+	systemctl stop rpc-statd-notify rpcbind.socket rpcbind </dev/null >/dev/null 2>&1
+	rm -rf /var/lib/rpcbind /var/spool/mail/rpc
+fi
+exit 0
+REMOTE
+
+# After the package restore: directories, files, password, services,
+# firewall
 cat > "$tmp/node.sh" <<'REMOTE'
 pre=/var/tmp/clustering-01.pre
 bak=/var/tmp/clustering-01.bak
@@ -34,55 +76,26 @@ had() {
 	grep -qx "$1" "$pre"
 }
 
-# rmunowned <dir>: remove a directory that no installed package owns
-rmunowned() {
-	[ -d "$1" ] || return 0
-	rpm -qf "$1" >/dev/null 2>&1 || rm -rf "$1"
+# undir <dir>: unless an installed package owns the directory, put it
+# back as setup.sh found it: removed, or the copy setup.sh saved
+undir() {
+	rpm -qf "$1" >/dev/null 2>&1 && return 0
+	rm -rf "$1"
+	if [ -d "$bak/dirs$1" ]; then
+		mkdir -p "$(dirname "$1")" && cp -a "$bak/dirs$1" "$1" && restorecon -R "$1" 2>/dev/null
+	fi
+	return 0
 }
 
-if command -v pcs >/dev/null 2>&1; then
-	pcs cluster destroy </dev/null >/dev/null 2>&1
-fi
-systemctl disable --now pacemaker corosync pcsd httpd </dev/null >/dev/null 2>&1
-pkill -x httpd >/dev/null 2>&1
-rm -f /var/www/html/index.html /etc/httpd/conf/httpd.conf.rpmsave
-
-remove=""
-for p in pcs pacemaker corosync httpd; do
-	if rpm -q "$p" >/dev/null 2>&1 && ! had "$p-installed"; then
-		remove="$remove $p"
-	fi
-done
-if [ -n "$remove" ]; then
-	# shellcheck disable=SC2086 # word splitting is intended
-	dnf -y remove $remove </dev/null >/dev/null 2>&1 || exit 1
-fi
-# Packages that were installed before and have been upgraded since go
-# back to the recorded version (one name.arch per list only, so kernels
-# and other multi-version packages are left alone). The old version may
-# have left the repositories, so a failed downgrade does not fail cleanup.
-if [ -f "$bak/rpms" ]; then
-	rpm -qa --qf '%{NAME}.%{ARCH} %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' | sort > "$bak/rpms.now"
-	old=$(awk 'NR == FNR { n[$1]++; v[$1] = $2; next }
-		{ m[$1]++; w[$1] = $2 }
-		END { for (k in v) if (n[k] == 1 && m[k] == 1 && v[k] != w[k]) print v[k] }' \
-		"$bak/rpms" "$bak/rpms.now")
-	if [ -n "$old" ]; then
-		repos=$(dnf -q repolist --all </dev/null 2>/dev/null |
-			awk '$1 == "ha" || $1 == "highavailability" { printf " --enablerepo=%s", $1 }')
-		# shellcheck disable=SC2086 # word splitting is intended
-		dnf -y $repos downgrade $old </dev/null >/dev/null 2>&1
-	fi
-fi
-
-if ! had httpd-installed; then
-	rmunowned /etc/httpd
-	rmunowned /var/log/httpd
-	rmunowned /var/www
+rm -f /etc/httpd/conf/httpd.conf.rpmsave /etc/corosync/corosync.conf.rpmsave
+if ! rpm -q httpd >/dev/null 2>&1; then
+	undir /etc/httpd
+	undir /var/log/httpd
+	undir /var/www
 fi
 
 # Cluster directories: the recorded copy where there was one, else gone
-# unless a package still owns them
+# unless a package owns them
 for d in $dirs; do
 	t="$bak/$(echo "${d#/}" | tr / _).tar"
 	if [ -f "$t" ]; then
@@ -101,18 +114,11 @@ for f in /etc/httpd/conf/httpd.conf /var/www/html/index.html; do
 	fi
 done
 
-# The hacluster account: the recorded password field, or no account
-if had user-hacluster; then
-	if [ -f "$bak/hacluster.shadow" ] && getent passwd hacluster >/dev/null; then
-		usermod -p "$(cat "$bak/hacluster.shadow")" hacluster || exit 1
-		lastchg=$(cat "$bak/hacluster.lastchg" 2>/dev/null)
-		[ -n "$lastchg" ] && chage -d "$lastchg" hacluster
-	fi
-else
-	getent passwd hacluster >/dev/null && userdel hacluster
-	if ! had group-haclient && getent group haclient >/dev/null; then
-		groupdel haclient
-	fi
+# The password of a hacluster account from before the lab
+if had user-hacluster && [ -f "$bak/hacluster.shadow" ] && getent passwd hacluster >/dev/null; then
+	usermod -p "$(cat "$bak/hacluster.shadow")" hacluster || exit 1
+	lastchg=$(cat "$bak/hacluster.lastchg" 2>/dev/null)
+	[ -n "$lastchg" ] && chage -d "$lastchg" hacluster
 fi
 
 for u in httpd pcsd pacemaker corosync; do
@@ -135,6 +141,19 @@ REMOTE
 rc=0
 for n in 1 2 3; do
 	ip=$(get_node_ip "$n")
+	if ! run_on_node "$ip" "sudo -n bash -s" < "$tmp/stop.sh" > "$tmp/out" 2>&1; then
+		echo "Cleanup of node $n ($ip) failed:" >&2
+		cat "$tmp/out" >&2
+		rc=1
+		continue
+	fi
+	pkg_restore_node "$ip" "$LAB" 2>"$tmp/err" || {
+		echo "Restoring the packages of node $n ($ip) failed:" >&2
+		grep -v "^Warning: Permanently added" "$tmp/err" >&2
+		# Keep the records of this node for the next reset
+		rc=1
+		continue
+	}
 	if ! run_on_node "$ip" "sudo -n bash -s" < "$tmp/node.sh" > "$tmp/out" 2>&1; then
 		echo "Cleanup of node $n ($ip) failed:" >&2
 		cat "$tmp/out" >&2
