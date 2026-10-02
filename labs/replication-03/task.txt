@@ -71,6 +71,11 @@ NOTES
     commands.
   - Reference: man mysql and the replication chapter of the MySQL 8.0
     Reference Manual.
+  - labctl reset puts the three nodes back as they were before the
+    lab. Where the lab installed MySQL, reset removes it with its
+    data. Where MySQL was there before, reset removes the replication
+    settings, an account named repl and the test databases and keeps
+    the rest of its data.
 
 GRADING
   labctl grade replication-03

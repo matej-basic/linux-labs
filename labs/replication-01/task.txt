@@ -49,10 +49,11 @@ NOTES
     in /root/.my.cnf on that node so that the client logs in without
     a prompt. Grading and reset use the same login.
   - Reference: the MySQL 8.0 manual, chapter Replication.
-  - labctl reset removes the repl account, the replication settings
-    and the test databases (names starting with replication_test)
-    from both nodes and closes port 3306. It leaves mysql-server
-    installed.
+  - labctl reset puts both nodes back as they were before the lab.
+    Where the lab installed MySQL, reset removes it with its data.
+    Where MySQL was there before, reset removes the repl account, the
+    replication settings and the test databases (names starting with
+    replication_test) and keeps the rest of its data.
 
 GRADING
   labctl grade replication-01
