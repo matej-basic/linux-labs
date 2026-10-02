@@ -1,7 +1,7 @@
 Name:           linux-labs
-Version:        1.1.0
+Version:        2.0.0
 Release:        1
-Summary:        Minimal Linux lab framework
+Summary:        Hands-on Linux system administration labs
 License:        MIT
 BuildArch:      noarch
 Source0:        %{name}-%{version}.tar.gz
@@ -13,7 +13,11 @@ Requires:       sudo
 Requires:       openssh-clients
 
 %description
-Minimal lab framework for teaching basic Linux filesystem tasks.
+Hands-on Linux system administration labs in the style of the RHCSA
+exam for Rocky Linux and RHEL 8 and 9. labctl prepares a lab on the
+lab servers, prints the task, gives hints, grades the result and resets
+the machines. 55 labs in 17 topics, from files and users to
+replication, load balancing and Pacemaker clustering.
 
 %prep
 %setup -q
@@ -93,6 +97,13 @@ visudo -cf %{buildroot}/etc/sudoers.d/labctl
 %doc %{_docdir}/%{name}
 
 %changelog
+* Sat Oct 03 2026 Matej Basic <matej.basic@outlook.com> - 2.0.0-1
+- Lab framework 2.0 with task text, hints and a shared grading library
+- Labs run on servera over SSH; the student needs no sudo on the workstation
+- Reset restores the package set and system accounts of the first start
+- labctl check, labctl hint and labctl --version
+- Runtime-tested on Rocky Linux 8.10 and 9.8
+
 * Thu Oct 01 2026 Matej Basic <matej.basic@outlook.com> - 1.1.0-1
 - First release built in CI, published to GitHub Releases and Pages
 - Install labctl as 0755 instead of setuid 4755

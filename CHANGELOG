@@ -2,7 +2,7 @@
 
 All notable changes to linux-labs. The version matches `Version:` in rpm/linux-labs.spec and the git tag vX.Y.Z.
 
-## Unreleased (2.0.0)
+## 2.0.0 (2026-10-03)
 
 ### Added
 - Lab framework 2.0. Every lab now has seven files: setup.sh, task.txt, grade.sh, cleanup.sh, description.txt, solution.md and a repo-only solve.sh that never ships in the RPM.
