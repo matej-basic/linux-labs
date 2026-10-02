@@ -6,6 +6,16 @@ set -eu
 
 STATE_DIR=/opt/linux-labs/state/scheduling-03
 
+# First run only: record which packages the lab has to install, so that
+# cleanup.sh removes only those (servera may already have them).
+PRE=/var/tmp/scheduling-03.pre
+if [ ! -f "$PRE" ]; then
+	: > "$PRE"
+	for pkg in cronie cronie-anacron; do
+		rpm -q "$pkg" >/dev/null 2>&1 || echo "$pkg" >> "$PRE"
+	done
+fi
+
 for pkg in cronie cronie-anacron; do
 	if ! rpm -q "$pkg" >/dev/null 2>&1; then
 		dnf -y -q install "$pkg" >/dev/null || {

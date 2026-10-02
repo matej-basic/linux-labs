@@ -33,4 +33,13 @@ fi
 rm -f /usr/local/bin/env-task.sh /var/log/env-task.log
 
 rm -rf "$STATE_DIR"
+
+# Packages that setup.sh installed (none when servera already had them)
+PRE=/var/tmp/scheduling-03.pre
+if [ -f "$PRE" ]; then
+	while read -r pkg; do
+		[ -n "$pkg" ] && dnf -y -q remove "$pkg" >/dev/null 2>&1 || true
+	done < <(tac "$PRE")
+	rm -f "$PRE"
+fi
 exit 0
