@@ -60,6 +60,13 @@ jobs:
       - name: Install RPM
         run: dnf -y install ./linux-labs-*.noarch.rpm
 
+      - name: labctl --version
+        run: |
+          expected="$(rpm -q --qf '%{VERSION}' linux-labs)"
+          out="$(labctl --version)"
+          echo "$out"
+          test "$out" = "labctl $expected"
+
       - name: labctl list
         run: labctl list
 

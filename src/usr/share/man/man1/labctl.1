@@ -11,6 +11,8 @@ labctl \- start, grade and reset hands-on Linux labs
 .IR COURSE ]
 .RB [ \-\-level
 .IR LEVEL ]
+.br
+.B labctl \-\-version
 .SH DESCRIPTION
 .B labctl
 runs the hands-on Linux labs provided by the linux-labs package.
@@ -133,6 +135,16 @@ skips the question. Without a terminal (a pipe, a script) the solution is
 printed without asking. Uses
 .B less
 when standard output is a terminal.
+.TP
+.B \-\-version
+Print the installed linux-labs version as
+.RI "labctl " VERSION
+and exit. Also available as
+.B \-V
+and
+.BR version .
+Needs no root and changes nothing. A copy run from a git checkout prints
+"labctl (development copy)".
 .TP
 .BI configure " ACTION"
 Configure the lab environment (network, nodes for multi-node labs).

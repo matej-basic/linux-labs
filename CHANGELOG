@@ -14,6 +14,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - Lab systemd-04. The collection is now 55 labs in 17 topics.
 - A needs: key in description.txt (internet, reboot, free-nic, nodes=N), cross-checked against the lab by check-labs.sh and shown in the task header.
 - A generated lab catalog, docs/catalog.md, built by scripts/gen-catalog.sh. CI fails when it is stale.
+- labctl --version, which prints the installed linux-labs version.
 - labctl list --course and --level filters.
 - Student documentation installed under /usr/share/doc/linux-labs.
 - LICENSE file in the repository root.

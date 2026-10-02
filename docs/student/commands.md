@@ -16,6 +16,7 @@ The full reference is the manual page:
 | `labctl solution <lab>` | asks "Continue? [y/N]", then shows the reference solution (press q to leave) | no |
 | `labctl solution <lab> --yes` | shows the reference solution without asking | no |
 | `sudo labctl reset <lab>` | undoes the lab and your changes, ends the lab | yes |
+| `labctl --version` | prints the installed linux-labs version | no |
 | `labctl help` | prints a short summary of the commands | no |
 
 `--level` and `--course` can be combined, for example

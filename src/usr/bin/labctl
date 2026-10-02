@@ -1,5 +1,8 @@
 #!/bin/bash
 
+# Set from the RPM Version: at build time (the spec's %install replaces the
+# placeholder). A checkout keeps it, and labctl then reports a development copy.
+LABCTL_VERSION="@VERSION@"
 LAB_ROOT="/opt/linux-labs/labs"
 LIB_DIR="/opt/linux-labs/lib"
 STATE_FILE="/opt/linux-labs/.current_lab"
@@ -45,6 +48,7 @@ fix_config_owner() {
 
 usage() {
   echo "Usage: labctl {start|task|grade|reset|list|hint|solution|configure} <lab>"
+  echo "       labctl {--version|help}"
   echo ""
   echo "Commands:"
   echo "  start <lab>              - Start a lab and show its task (requires root)"
@@ -55,6 +59,7 @@ usage() {
   echo "                           - List labs, optionally filtered by course"
   echo "                             and level (beginner, intermediate, advanced)"
   echo "  help                     - Show this help"
+  echo "  --version                - Show the installed linux-labs version"
   echo "  hint <lab> [--all]       - Show the next hint (--all: every hint)"
   echo "  solution <lab> [--yes]   - Show lab solution (asks first on a"
   echo "                             terminal; --yes skips the question)"
@@ -981,6 +986,12 @@ case "$1" in
     ;;
   help|-h|--help)
     usage 0
+    ;;
+  version|-V|--version)
+    case "$LABCTL_VERSION" in
+      @*@) echo "labctl (development copy)" ;;
+      *) echo "labctl $LABCTL_VERSION" ;;
+    esac
     ;;
   *)
     usage

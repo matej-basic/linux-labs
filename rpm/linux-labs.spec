@@ -25,6 +25,9 @@ Minimal lab framework for teaching basic Linux filesystem tasks.
 mkdir -p %{buildroot}/usr/bin
 # labctl is a shell script, so setuid would be ignored; sudo handles root access
 install -m 0755 usr/bin/labctl %{buildroot}/usr/bin/labctl
+# labctl --version reports the package version
+sed -i 's/^LABCTL_VERSION="@VERSION@"$/LABCTL_VERSION="%{version}"/' %{buildroot}/usr/bin/labctl
+grep -q '^LABCTL_VERSION="%{version}"$' %{buildroot}/usr/bin/labctl
 
 # Install prompt hook to show active lab
 mkdir -p %{buildroot}/etc/profile.d
