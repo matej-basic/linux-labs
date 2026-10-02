@@ -8,7 +8,12 @@ source /opt/linux-labs/lib/packages.sh
 pkg_snapshot scheduling-01
 
 if ! command -v crontab >/dev/null 2>&1; then
-	dnf -y -q install cronie >/dev/null
+	# dnf reports a repo key import on stderr; show it only on failure
+	if ! out=$(dnf -y -q install cronie </dev/null 2>&1); then
+		printf '%s\n' "$out" >&2
+		echo "Error: cannot install cronie (internet access needed)." >&2
+		exit 1
+	fi
 fi
 systemctl enable --now crond >/dev/null 2>&1
 

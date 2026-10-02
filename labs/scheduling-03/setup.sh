@@ -12,7 +12,9 @@ STATE_DIR=/opt/linux-labs/state/scheduling-03
 
 for pkg in cronie cronie-anacron; do
 	if ! rpm -q "$pkg" >/dev/null 2>&1; then
-		dnf -y -q install "$pkg" >/dev/null || {
+		# dnf reports a repo key import on stderr; show it only on failure
+		out=$(dnf -y -q install "$pkg" </dev/null 2>&1) || {
+			printf '%s\n' "$out" >&2
 			echo "Error: cannot install $pkg (internet access needed)." >&2
 			exit 1
 		}

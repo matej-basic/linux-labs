@@ -24,7 +24,9 @@ rm -f /etc/rsyslog.d/myapp.conf /etc/logrotate.d/myapp
 rm -f /var/log/myapp.log* /var/log/myapp-program.log*
 
 if ! rpm -q rsyslog logrotate &>/dev/null; then
-	dnf -y -q install rsyslog logrotate >/dev/null || {
+	# dnf reports a repo key import on stderr; show it only on failure
+	out=$(dnf -y -q install rsyslog logrotate </dev/null 2>&1) || {
+		printf '%s\n' "$out" >&2
 		echo "Error: cannot install rsyslog and logrotate." >&2
 		exit 1
 	}

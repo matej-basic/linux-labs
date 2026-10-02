@@ -31,7 +31,15 @@ if [ ! -r "$STATE_FILE" ]; then
 fi
 
 if ! { rpm -q httpd >/dev/null 2>&1 && rpm -q policycoreutils-python-utils >/dev/null 2>&1; }; then
-	dnf -y -q install httpd policycoreutils-python-utils >/dev/null
+	# dnf reports a repo key import on stderr; show its output only
+	# when the install fails
+	if ! out=$(dnf -y -q install httpd policycoreutils-python-utils \
+		</dev/null 2>&1); then
+		printf '%s\n' "$out" >&2
+		echo "Error: could not install httpd and" \
+			"policycoreutils-python-utils." >&2
+		exit 1
+	fi
 fi
 
 # Reset what a previous run or the solution left behind
