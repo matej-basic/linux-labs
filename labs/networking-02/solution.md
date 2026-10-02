@@ -61,8 +61,8 @@ labctl grade networking-02
 ## Explanation
 
 A NetworkManager connection of type vlan stores the parent interface,
-the VLAN ID and the address in a profile under /etc/NetworkManager, so
-the configuration survives a reboot. The command "connection up"
+the VLAN ID and the address in a profile on disk, so the configuration
+survives a reboot. The command "connection up"
 applies it now.
 The VLAN goes on a free NIC because the default-route interface carries
 the SSH session.

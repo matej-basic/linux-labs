@@ -6,13 +6,26 @@ set -eu
 
 STATE_FILE=/opt/linux-labs/state/networking-01
 
+# Re-enable autoconnect on a profile that a run of this setup disabled.
+# The change was made with --temporary, so a profile stored on disk is
+# loaded again from its file; an in-memory one is modified back.
+restore_profile() {
+	local uuid=$1 file
+	nmcli connection modify --temporary uuid "$uuid" connection.autoconnect yes &>/dev/null || true
+	file=$(nmcli -g GENERAL.FILENAME connection show uuid "$uuid" 2>/dev/null || true)
+	case "$file" in
+	"" | /run/*) ;;
+	*) nmcli connection load "$file" &>/dev/null || true ;;
+	esac
+}
+
 # Restore profiles disabled by an earlier run, so a rerun starts clean
 restore_saved() {
 	local uuid
 	[ -r "$STATE_FILE" ] || return 0
 	tail -n +3 "$STATE_FILE" | while read -r uuid; do
 		[ -n "$uuid" ] || continue
-		nmcli connection modify uuid "$uuid" connection.autoconnect yes &>/dev/null || true
+		restore_profile "$uuid"
 	done
 }
 
@@ -47,14 +60,16 @@ if [ -z "$iface" ]; then
 	exit 1
 fi
 
-# Take the automatic profiles bound to the free interface out of the way
+# Take the automatic profiles bound to the free interface out of the way.
+# --temporary keeps the change in memory: NetworkManager's automatic
+# "Wired connection N" profiles are not written to disk.
 saved=()
 while read -r uuid; do
 	[ -n "$uuid" ] || continue
 	bound=$(nmcli -g connection.interface-name connection show uuid "$uuid" 2>/dev/null || true)
 	if [ "$bound" = "$iface" ]; then
 		saved+=("$uuid")
-		nmcli connection modify uuid "$uuid" connection.autoconnect no
+		nmcli connection modify --temporary uuid "$uuid" connection.autoconnect no
 		nmcli connection down uuid "$uuid" &>/dev/null || true
 	fi
 done < <(nmcli -g UUID connection show)

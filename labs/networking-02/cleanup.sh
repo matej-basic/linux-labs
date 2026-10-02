@@ -1,18 +1,26 @@
 #!/bin/bash
 # networking-02 cleanup: remove vlan10, restore the original hostname and
-# the NIC's original connection profile, remove the /etc/hosts entry.
+# the NIC's automatic connection profiles, remove the /etc/hosts entry.
 STATE_FILE=/opt/linux-labs/state/networking-02
 
-nic=""
 orig_host=""
-orig_profile=""
 have_state=0
 if [ -r "$STATE_FILE" ]; then
 	have_state=1
-	nic=$(sed -n 1p "$STATE_FILE")
 	orig_host=$(sed -n 2p "$STATE_FILE")
-	orig_profile=$(sed -n 3p "$STATE_FILE")
 fi
+
+# setup.sh disabled autoconnect with --temporary: modify an in-memory
+# profile back, load a profile stored on disk again from its file.
+restore_profile() {
+	local uuid=$1 file
+	nmcli connection modify --temporary uuid "$uuid" connection.autoconnect yes >/dev/null 2>&1 || true
+	file=$(nmcli -g GENERAL.FILENAME connection show uuid "$uuid" 2>/dev/null || true)
+	case "$file" in
+	"" | /run/*) ;;
+	*) nmcli connection load "$file" >/dev/null 2>&1 || true ;;
+	esac
+}
 
 # Delete every connection profile of the interface vlan10
 if command -v nmcli >/dev/null 2>&1; then
@@ -26,17 +34,13 @@ if command -v nmcli >/dev/null 2>&1; then
 fi
 ip link delete vlan10 >/dev/null 2>&1 || true
 
-# Restore the NIC's automatic profile if setup removed it and none exists
-if [ -n "$nic" ] && [ -n "$orig_profile" ] && command -v nmcli >/dev/null 2>&1; then
-	present=0
-	while IFS=: read -r uuid type; do
-		[ "$type" = 802-3-ethernet ] || continue
-		iface=$(nmcli -g connection.interface-name connection show uuid "$uuid" 2>/dev/null || true)
-		[ "$iface" = "$nic" ] && present=1
-	done < <(nmcli -t -f UUID,TYPE connection show 2>/dev/null)
-	if [ "$present" = 0 ]; then
-		nmcli connection add type ethernet con-name "$orig_profile" ifname "$nic" >/dev/null 2>&1 || true
-	fi
+# Turn the automatic profiles of the NIC back on
+if [ "$have_state" = 1 ] && command -v nmcli >/dev/null 2>&1; then
+	tail -n +3 "$STATE_FILE" | while read -r uuid; do
+		[ -n "$uuid" ] || continue
+		restore_profile "$uuid"
+		nmcli --wait 0 connection up uuid "$uuid" >/dev/null 2>&1 || true
+	done
 fi
 
 # Restore the hostname and drop the name entry

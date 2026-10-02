@@ -1,7 +1,7 @@
 #!/bin/bash
-# networking-02 setup: pick a free NIC, remove its automatic NetworkManager
-# profile, and remember the original hostname and profile name so that
-# cleanup.sh can restore them. Prints nothing on success.
+# networking-02 setup: pick a free NIC, take its automatic NetworkManager
+# profiles out of the way, and remember the original hostname and those
+# profiles so that cleanup.sh can restore them. Prints nothing on success.
 set -eu
 
 LAB=networking-02
@@ -11,6 +11,19 @@ STATE_FILE="$STATE_DIR/$LAB"
 die() {
 	echo "Error: $*" >&2
 	exit 1
+}
+
+# Re-enable autoconnect on a profile that a run of this setup disabled.
+# The change was made with --temporary, so a profile stored on disk is
+# loaded again from its file; an in-memory one is modified back.
+restore_profile() {
+	local uuid=$1 file
+	nmcli connection modify --temporary uuid "$uuid" connection.autoconnect yes >/dev/null 2>&1 || true
+	file=$(nmcli -g GENERAL.FILENAME connection show uuid "$uuid" 2>/dev/null || true)
+	case "$file" in
+	"" | /run/*) ;;
+	*) nmcli connection load "$file" >/dev/null 2>&1 || true ;;
+	esac
 }
 
 command -v nmcli >/dev/null 2>&1 || die "nmcli is not installed"
@@ -35,20 +48,27 @@ for d in /sys/class/net/*; do
 done
 [ -n "$nic" ] || die "no free ethernet interface found (a NIC other than the default-route interface is required). The lab was not started."
 
-# Original hostname and profile name: keep the values from an earlier run
-# so that a second setup does not record the lab's own changes.
+# Original hostname: keep the value from an earlier run so that a second
+# setup does not record the lab's own change. Profiles disabled by an
+# earlier run are restored first, so a rerun starts clean.
 if [ -r "$STATE_FILE" ]; then
 	orig_host=$(sed -n 2p "$STATE_FILE")
-	orig_profile=$(sed -n 3p "$STATE_FILE")
+	tail -n +3 "$STATE_FILE" | while read -r uuid; do
+		[ -n "$uuid" ] || continue
+		restore_profile "$uuid"
+	done
 else
 	orig_host=$(hostnamectl --static 2>/dev/null || true)
 	if [ "$orig_host" = labhost ]; then
 		die "the hostname is already labhost; set another hostname first"
 	fi
-	orig_profile=""
 fi
 
-# Remove vlan10 and the automatic profile(s) on the free NIC
+# Remove vlan10. Take the profiles bound to the free NIC out of the way
+# without deleting them: --temporary keeps the change in memory, so
+# NetworkManager's automatic "Wired connection N" profiles are not
+# written to disk, and cleanup.sh turns autoconnect back on.
+saved=()
 while IFS=: read -r uuid type; do
 	[ -n "$uuid" ] || continue
 	iface=$(nmcli -g connection.interface-name connection show uuid "$uuid" 2>/dev/null || true)
@@ -58,9 +78,9 @@ while IFS=: read -r uuid type; do
 			;;
 		802-3-ethernet)
 			if [ "$iface" = "$nic" ]; then
-				name=$(nmcli -g connection.id connection show uuid "$uuid" 2>/dev/null || true)
-				[ -n "$orig_profile" ] || orig_profile=$name
-				nmcli connection delete uuid "$uuid" >/dev/null 2>&1
+				saved+=("$uuid")
+				nmcli connection modify --temporary uuid "$uuid" connection.autoconnect no
+				nmcli connection down uuid "$uuid" >/dev/null 2>&1 || true
 			fi
 			;;
 	esac
@@ -74,5 +94,8 @@ if [ "$(hostnamectl --static 2>/dev/null || true)" = labhost ]; then
 fi
 
 mkdir -p "$STATE_DIR"
-printf '%s\n%s\n%s\n' "$nic" "$orig_host" "$orig_profile" > "$STATE_FILE"
+{
+	printf '%s\n%s\n' "$nic" "$orig_host"
+	[ "${#saved[@]}" -eq 0 ] || printf '%s\n' "${saved[@]}"
+} > "$STATE_FILE"
 chmod 644 "$STATE_FILE"

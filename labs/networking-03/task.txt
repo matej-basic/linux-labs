@@ -3,14 +3,14 @@ OBJECTIVE
   interfaces, with a static IPv4 address, saved in NetworkManager.
 
 PREREQUISITES
-  - The workstation has a default-route interface (it carries SSH) and
-    two free Ethernet interfaces on an isolated network without DHCP.
-    The lab starts only if it finds two free interfaces.
+  - {{HOSTNAME}} has a default-route interface (it carries SSH) and two
+    free Ethernet interfaces on an isolated network without DHCP. The
+    lab starts only if it finds two free interfaces.
   - The lab uses bonding on Rocky Linux 8 and 9. Network teaming
     (teamd) is deprecated on Rocky Linux 9 and is not part of this lab.
   - The automatic NetworkManager profiles "Wired connection 1" and
-    "Wired connection 2" are removed from the free interfaces while the
-    lab is active. "labctl reset" restores them.
+    "Wired connection 2" are disabled on the free interfaces while the
+    lab is active. "labctl reset" turns them back on.
 
 TASKS
   1. Find the two free Ethernet interfaces: the first two, in name
