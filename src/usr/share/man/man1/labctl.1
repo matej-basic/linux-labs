@@ -12,6 +12,8 @@ labctl \- start, grade and reset hands-on Linux labs
 .RB [ \-\-level
 .IR LEVEL ]
 .br
+.B labctl check
+.br
 .B labctl \-\-version
 .SH DESCRIPTION
 .B labctl
@@ -103,6 +105,38 @@ or
 .BR advanced .
 Both match without regard to case and can be combined.
 .TP
+.B check
+Check that the lab environment is ready, before a lab fails. Each check
+prints one line with the result PASS, WARN or FAIL; a WARN or FAIL line
+is followed by an indented line that says how to fix it. The checks are:
+the configuration file in use and the addresses it gives servera
+(node 1) and, when multi-node labs are enabled, serverb, serverc and the
+further nodes up to
+.BR NODE_COUNT ;
+the SSH key in
+.BR SSH_KEY_PATH ;
+whether the calling user may run labctl through sudo without a
+password; the release of the workstation; for every server, an SSH login
+as
+.B SSH_USER
+without a password, passwordless
+.B sudo
+there and its release; for servera also two free network interfaces for
+the network labs and a connection to its package repositories.
+WARN marks something that only some labs need (multi-node labs disabled,
+a release that differs from the workstation's, fewer than two free
+network interfaces, no repository access); it does not change the exit
+status. A server that cannot be reached is reported after a few seconds,
+so the check ends within about half a minute.
+.B check
+reads the configuration as
+.B "sudo labctl start"
+does, ignoring environment variables, logs in with the same SSH user,
+key and options as
+.B start
+with a shorter connect timeout, and changes nothing: host keys are compared with a temporary copy of
+labctl's known_hosts. It needs no root.
+.TP
 .B help
 Print the command summary. Running
 .B labctl
@@ -159,6 +193,7 @@ or
 .BR reset .
 .SH EXAMPLES
 .nf
+labctl check
 sudo labctl start files-04
 labctl task files-04
 labctl hint files-04
@@ -169,6 +204,8 @@ sudo labctl reset files-04
 .SH EXIT STATUS
 .B labctl grade
 exits 0 when all criteria are met and 1 otherwise.
+.B labctl check
+exits 0 when no check failed (warnings allowed) and 1 otherwise.
 .B labctl start
 and
 .B labctl reset

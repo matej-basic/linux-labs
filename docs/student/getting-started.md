@@ -212,7 +212,9 @@ Work through these steps in order. Each one gives away a little more.
    why they work. Press q to leave it. Try to do the lab yourself
    first: you learn more that way.
 
-If labctl itself shows an error, see troubleshooting.md.
+If labctl itself shows an error, run labctl check. It tests your
+connection to servera and the rest of the setup the labs need and says
+what to fix. Then see troubleshooting.md.
 
 ## More
 

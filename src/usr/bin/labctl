@@ -48,7 +48,7 @@ fix_config_owner() {
 
 usage() {
   echo "Usage: labctl {start|task|grade|reset|list|hint|solution|configure} <lab>"
-  echo "       labctl {--version|help}"
+  echo "       labctl {check|--version|help}"
   echo ""
   echo "Commands:"
   echo "  start <lab>              - Start a lab and show its task (requires root)"
@@ -58,6 +58,8 @@ usage() {
   echo "  list [--course <c>] [--level <l>]"
   echo "                           - List labs, optionally filtered by course"
   echo "                             and level (beginner, intermediate, advanced)"
+  echo "  check                    - Check that the lab environment is ready"
+  echo "                             (configuration, SSH key, servers)"
   echo "  help                     - Show this help"
   echo "  --version                - Show the installed linux-labs version"
   echo "  hint <lab> [--all]       - Show the next hint (--all: every hint)"
@@ -709,6 +711,365 @@ configure_validate() {
   return 0
 }
 
+# --- labctl check -----------------------------------------------------------
+#
+# A read-only check of the classroom environment: the configuration, the
+# SSH key, SSH and passwordless sudo on the servers, the releases, free
+# NICs on servera and repository access from servera. It runs as the
+# calling user and needs no root: the student's key is readable by the
+# student, and the configuration is the one "sudo labctl start" reads.
+# It writes nothing outside a temporary file. Host keys are checked
+# against a temporary copy of labctl's known_hosts, so a known server
+# with a changed key fails as it would for start, and a new server is
+# accepted for this run only.
+
+CHECK_PASSED=0
+CHECK_WARNED=0
+CHECK_FAILED=0
+
+# check_line <PASS|WARN|FAIL> <text> [<how to fix>]
+check_line() {
+  grade_line "$2" "$1"
+  case "$1" in
+    PASS) CHECK_PASSED=$((CHECK_PASSED + 1)) ;;
+    WARN) CHECK_WARNED=$((CHECK_WARNED + 1)) ;;
+    *) CHECK_FAILED=$((CHECK_FAILED + 1)) ;;
+  esac
+  if [ "$1" != PASS ] && [ -n "${3:-}" ]; then
+    printf '    %s\n' "$3"
+  fi
+}
+
+# The settings that "sudo labctl start" sees, one per line: the config
+# file, its state (ok, missing, unreadable), NODES_ENABLED, NODE_COUNT,
+# SSH_USER, SSH_KEY_PATH, SSH_PORT, then the addresses of nodes 1 to 9.
+# sudo resets the environment, so the environment does not count here.
+check_settings() (
+  HOME="$_lab_user_home"
+  unset XDG_CONFIG_HOME LAB_NETWORK LAB_GATEWAY LAB_DNS NODES_ENABLED \
+    NODE_COUNT NODE_IPS SSH_KEY_PATH SSH_USER SSH_PORT DOCKER_ENABLED
+  # shellcheck source=/dev/null
+  source "$LIB_DIR/load-config.sh" >/dev/null 2>&1 || exit 1
+  state=ok
+  if [ ! -e "$CONFIG_FILE" ]; then
+    state=missing
+  elif [ ! -r "$CONFIG_FILE" ]; then
+    state=unreadable
+  fi
+  printf '%s\n' "$CONFIG_FILE" "$state" "$NODES_ENABLED" "$NODE_COUNT" \
+    "$SSH_USER" "$SSH_KEY_PATH" "$SSH_PORT"
+  for n in 1 2 3 4 5 6 7 8 9; do
+    get_node_ip "$n"
+  done
+)
+
+# Print "<name> <major>" of this machine's /etc/os-release
+check_os_local() (
+  NAME="" VERSION_ID=""
+  # shellcheck source=/dev/null
+  [ -r /etc/os-release ] && . /etc/os-release
+  printf '%s %s\n' "${NAME:-unknown}" "${VERSION_ID:-}"
+)
+
+# The script that runs on a server as SSH_USER (no root). Argument 1:
+# also look for free NICs and probe the package repositories. A free NIC
+# is what the network labs use: ethernet, with a device, not the
+# default-route interface, not enslaved. The repository probe connects
+# to the host of the first enabled repository; any answer counts.
+check_remote_script() {
+  cat <<'EOF'
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:$PATH
+echo LABCTL_CHECK
+if sudo -n true >/dev/null 2>&1; then echo sudo=yes; else echo sudo=no; fi
+( NAME="" VERSION_ID=""
+  [ -r /etc/os-release ] && . /etc/os-release
+  echo "os=${NAME:-unknown} ${VERSION_ID:-}" )
+[ "${1:-0}" = 1 ] || exit 0
+def=$(ip -o route show default 2>/dev/null | awk '{ for (i = 1; i < NF; i++) if ($i == "dev") { print $(i + 1); exit } }')
+nics=""
+for path in /sys/class/net/*; do
+  dev=${path##*/}
+  [ "$dev" = "$def" ] && continue
+  [ "$(cat "$path/type" 2>/dev/null)" = 1 ] || continue
+  [ -e "$path/device" ] || continue
+  [ -e "$path/master" ] && continue
+  nics="$nics $dev"
+done
+echo "nics=${nics# }"
+url=$(awk '
+  function flush() {
+    if (sec && tolower(en) !~ /^(0|false|no)$/ && u != "") { print u; done = 1; exit }
+  }
+  /^\[/ { flush(); sec = 1; en = "1"; u = ""; next }
+  /^[ \t]*enabled[ \t]*=/ { v = $0; sub(/^[^=]*=[ \t]*/, "", v); en = v; next }
+  /^[ \t]*(baseurl|mirrorlist|metalink)[ \t]*=/ {
+    if (u == "") { v = $0; sub(/^[^=]*=[ \t]*/, "", v); u = v }
+    next
+  }
+  END { if (!done) flush() }
+' /etc/yum.repos.d/*.repo 2>/dev/null)
+url=${url%%[ ,]*}
+case "$url" in
+  http://*|https://*|ftp://*) ;;
+  file://*) echo repo=local; exit 0 ;;
+  "") echo repo=none; exit 0 ;;
+  *) echo repo=unknown; exit 0 ;;
+esac
+host=$(printf '%s\n' "$url" | sed -E 's#^([a-z]+://[^/?]+).*#\1#')
+case "$host" in *'$'*) echo repo=unknown; exit 0 ;; esac
+command -v curl >/dev/null 2>&1 || { echo repo=nocurl; exit 0; }
+curl -k -s -o /dev/null --max-time 6 "$host/"
+rc=$?
+case "$rc" in
+  5|6|7|28) echo "repo=unreachable ${host#*://}" ;;
+  *) echo "repo=ok ${host#*://}" ;;
+esac
+EOF
+}
+
+# check_server <name> <node> <ip> <user> <key> <port> <known_hosts>
+#   <key ok> <workstation major> <probe>
+check_server() {
+  local name="$1" node="$2" ip="$3" user="$4" key="$5" port="$6" kh="$7"
+  local key_ok="$8" ws_major="$9" probe="${10}" out err rc
+  local sudo_ok os major nics count repo nic_list
+  if [ "$key_ok" != yes ]; then
+    check_line FAIL "SSH as $user to $name ($ip) works" \
+      "Fix: the SSH key above must work first."
+    return
+  fi
+  err=$(mktemp) || return
+  out=$(check_remote_script | timeout 20 ssh -o BatchMode=yes \
+    -o ConnectTimeout=5 -o ServerAliveInterval=5 -o ServerAliveCountMax=2 \
+    -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$kh" \
+    -o IdentitiesOnly=yes -o LogLevel=ERROR \
+    -i "$key" -p "$port" "$user@$ip" "bash -s -- $probe" 2>"$err")
+  rc=$?
+  if [ "$(printf '%s\n' "$out" | head -n 1)" != LABCTL_CHECK ]; then
+    if grep -q 'IDENTIFICATION HAS CHANGED' "$err"; then
+      check_line FAIL "SSH as $user to $name ($ip) works" \
+        "Fix: the host key changed; sudo ssh-keygen -R $ip -f $KNOWN_HOSTS"
+    elif grep -q 'UNPROTECTED PRIVATE KEY' "$err"; then
+      check_line FAIL "SSH as $user to $name ($ip) works" \
+        "Fix: ssh refuses the key; chmod 600 $key"
+    elif grep -q 'Permission denied' "$err"; then
+      check_line FAIL "SSH as $user to $name ($ip) works" \
+        "Fix: install the key on $name: ssh-copy-id -i $key $user@$ip"
+    elif [ "$rc" -eq 124 ]; then
+      check_line FAIL "SSH as $user to $name ($ip) works" \
+        "Fix: $name does not answer in time; check that it is running."
+    else
+      check_line FAIL "SSH as $user to $name ($ip) works" \
+        "Fix: start $name, or set NODE_IPS (node $node) to its address."
+    fi
+    rm -f "$err"
+    return
+  fi
+  rm -f "$err"
+  check_line PASS "SSH as $user to $name ($ip) works"
+
+  sudo_ok=$(printf '%s\n' "$out" | sed -n 's/^sudo=//p')
+  if [ "$sudo_ok" = yes ]; then
+    check_line PASS "$user has passwordless sudo on $name"
+  else
+    check_line FAIL "$user has passwordless sudo on $name" \
+      "Fix: on $name add: $user ALL=(ALL) NOPASSWD: ALL to sudoers"
+  fi
+
+  os=$(printf '%s\n' "$out" | sed -n 's/^os=//p')
+  major="${os##* }"
+  major="${major%%.*}"
+  case "$major" in
+    8|9)
+      if [ "$major" = "$ws_major" ]; then
+        check_line PASS "$name runs $os"
+      else
+        check_line WARN "$name runs $os" \
+          "Fix: use the same major release as the workstation ($ws_major)."
+      fi
+      ;;
+    *)
+      check_line WARN "$name runs $os" \
+        "Fix: the labs support Rocky Linux and RHEL 8 and 9."
+      ;;
+  esac
+
+  [ "$probe" = 1 ] || return
+  nics=$(printf '%s\n' "$out" | sed -n 's/^nics=//p')
+  read -ra nic_list <<< "$nics"
+  count=${#nic_list[@]}
+  if [ "$count" -ge 2 ]; then
+    check_line PASS "$name has two free NICs for the network labs"
+  elif [ "$count" -eq 1 ]; then
+    check_line WARN "$name has one free NIC ($nics), networking-03 needs two" \
+      "Fix: add a second NIC on an isolated network to $name."
+  else
+    check_line WARN "$name has no free NIC for the network labs" \
+      "Fix: add two NICs on an isolated network to $name."
+  fi
+
+  repo=$(printf '%s\n' "$out" | sed -n 's/^repo=//p')
+  case "$repo" in
+    ok*)
+      check_line PASS "$name reaches its package repositories" ;;
+    local)
+      check_line PASS "$name uses a local package repository" ;;
+    unreachable*)
+      check_line WARN "$name reaches its package repositories" \
+        "Fix: labs that need internet fail; check DNS and routes there." ;;
+    nocurl)
+      check_line WARN "$name reaches its package repositories" \
+        "Fix: curl is missing on $name, so this was not tested." ;;
+    *)
+      check_line WARN "$name has an enabled package repository" \
+        "Fix: enable the BaseOS and AppStream repositories on $name." ;;
+  esac
+}
+
+# labctl check: print one line per check, exit 0 when nothing failed
+run_check() {
+  local out cfg cfg_state nodes_on node_count user key port ips
+  local caller host ws_os ws_major servers n name ip kh key_ok rule_ok warnings
+
+  # shellcheck source=/dev/null
+  if ! source "$LIB_DIR/grading.sh" 2>/dev/null; then
+    echo "Error: cannot read $LIB_DIR/grading.sh." >&2
+    return 1
+  fi
+  if ! out=$(check_settings); then
+    echo "Error: cannot read the lab configuration ($LIB_DIR/load-config.sh)." >&2
+    return 1
+  fi
+  {
+    read -r cfg; read -r cfg_state; read -r nodes_on; read -r node_count
+    read -r user; read -r key; read -r port
+  } <<< "$out"
+  mapfile -t ips < <(printf '%s\n' "$out" | sed -n '8,16p')
+
+  caller=$(id -un)
+  if [ "$EUID" -eq 0 ] && [ -n "${SUDO_USER:-}" ] && [ "$SUDO_USER" != root ]; then
+    caller="$SUDO_USER"
+  fi
+  host=$(uname -n)
+  host="${host%%.*}"
+  printf 'Checking the lab environment for %s on %s\n\n' "$caller" "$host"
+
+  case "$cfg_state" in
+    ok) check_line PASS "Configuration $cfg is readable" ;;
+    missing)
+      check_line WARN "No configuration file, the defaults apply" \
+        "Fix: labctl configure set NODE_IPS \"<servera> <serverb> <serverc>\"" ;;
+    *)
+      check_line FAIL "Configuration $cfg is readable" \
+        "Fix: make it readable for everyone: sudo chmod 0644 $cfg" ;;
+  esac
+
+  # servera always; serverb, serverc and further nodes with multi-node labs
+  servers=1
+  if [ "$nodes_on" = true ]; then
+    if [[ "$node_count" =~ ^[0-9]+$ ]] && [ "$node_count" -ge 3 ]; then
+      check_line PASS "Multi-node labs are enabled for $node_count nodes"
+    else
+      check_line WARN "Multi-node labs are enabled for $node_count nodes" \
+        "Fix: the 3-node labs need: labctl configure set NODE_COUNT 3"
+    fi
+    if [[ "$node_count" =~ ^[0-9]+$ ]] && [ "$node_count" -gt 1 ]; then
+      servers="$node_count"
+      [ "$servers" -gt 9 ] && servers=9
+    fi
+  else
+    check_line WARN "Multi-node labs are disabled" \
+      "Fix: for lb, replication and clustering set NODES_ENABLED true"
+  fi
+  for ((n = 1; n <= servers; n++)); do
+    name=$(check_node_name "$n")
+    ip="${ips[$((n - 1))]:-}"
+    if [ -n "$ip" ]; then
+      check_line PASS "$name (node $n) has the address $ip"
+    else
+      check_line FAIL "$name (node $n) has an address" \
+        "Fix: labctl configure set NODE_IPS \"<servera> <serverb> <serverc>\""
+    fi
+  done
+
+  key_ok=no
+  if [ -r "$key" ] && [ -f "$key" ]; then
+    key_ok=yes
+    check_line PASS "SSH key $key is readable"
+  elif [ -e "$key" ]; then
+    check_line FAIL "SSH key $key is readable" \
+      "Fix: chmod 600 $key, owned by $caller"
+  else
+    check_line FAIL "SSH key $key exists" \
+      "Fix: create it with ssh-keygen, or set SSH_KEY_PATH to your key."
+  fi
+
+  if [ "$EUID" -eq 0 ] && [ -z "${SUDO_USER:-}" ]; then
+    check_line PASS "labctl runs as root"
+  else
+    rule_ok=no
+    if [ "$EUID" -eq 0 ]; then
+      sudo -n -l -U "$caller" /usr/bin/labctl >/dev/null 2>&1 && rule_ok=yes
+    else
+      sudo -n -l /usr/bin/labctl >/dev/null 2>&1 && rule_ok=yes
+    fi
+    if [ "$rule_ok" = yes ]; then
+      check_line PASS "$caller may run labctl through sudo without a password"
+    else
+      check_line WARN "$caller may run labctl through sudo without a password" \
+        "Fix: log in as student, or add a sudoers rule for $caller."
+    fi
+  fi
+
+  ws_os=$(check_os_local)
+  ws_major="${ws_os##* }"
+  ws_major="${ws_major%%.*}"
+  case "$ws_major" in
+    8|9) check_line PASS "Workstation runs $ws_os" ;;
+    *) check_line WARN "Workstation runs $ws_os" \
+         "Fix: the labs support Rocky Linux and RHEL 8 and 9." ;;
+  esac
+
+  kh=$(mktemp) || return 1
+  # shellcheck disable=SC2064 # expand $kh now
+  trap "rm -f '$kh'" EXIT
+  [ -r "$KNOWN_HOSTS" ] && cat "$KNOWN_HOSTS" > "$kh" 2>/dev/null
+  for ((n = 1; n <= servers; n++)); do
+    ip="${ips[$((n - 1))]:-}"
+    [ -n "$ip" ] || continue
+    name=$(check_node_name "$n")
+    if [ "$n" -eq 1 ]; then
+      check_server "$name" "$n" "$ip" "$user" "$key" "$port" "$kh" "$key_ok" "$ws_major" 1
+    else
+      check_server "$name" "$n" "$ip" "$user" "$key" "$port" "$kh" "$key_ok" "$ws_major" 0
+    fi
+  done
+  rm -f "$kh"
+  trap - EXIT
+
+  printf '\n'
+  if [ "$CHECK_FAILED" -eq 0 ]; then
+    grade_line "Overall result" PASS
+  else
+    grade_line "Overall result" FAIL
+  fi
+  warnings=warnings
+  [ "$CHECK_WARNED" -eq 1 ] && warnings=warning
+  printf '%s passed, %s %s, %s failed.\n' \
+    "$CHECK_PASSED" "$CHECK_WARNED" "$warnings" "$CHECK_FAILED"
+  [ "$CHECK_FAILED" -eq 0 ]
+}
+
+# servera, serverb and serverc for nodes 1 to 3, else "node<N>"
+check_node_name() {
+  case "$1" in
+    1) echo servera ;;
+    2) echo serverb ;;
+    3) echo serverc ;;
+    *) echo "node$1" ;;
+  esac
+}
+
 case "$1" in
   start)
     require_lab "$2"
@@ -983,6 +1344,14 @@ case "$1" in
         exit 1
         ;;
     esac
+    ;;
+  check)
+    if [ "$#" -gt 1 ]; then
+      echo "Error: check takes no arguments" >&2
+      usage
+    fi
+    run_check
+    exit $?
     ;;
   help|-h|--help)
     usage 0

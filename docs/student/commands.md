@@ -16,6 +16,7 @@ The full reference is the manual page:
 | `labctl solution <lab>` | asks "Continue? [y/N]", then shows the reference solution (press q to leave) | no |
 | `labctl solution <lab> --yes` | shows the reference solution without asking | no |
 | `sudo labctl reset <lab>` | undoes the lab and your changes, ends the lab | yes |
+| `labctl check` | checks that your machines are ready for the labs and says what to fix | no |
 | `labctl --version` | prints the installed linux-labs version | no |
 | `labctl help` | prints a short summary of the commands | no |
 
@@ -34,6 +35,12 @@ from the beginning.
 Run all labctl commands on the workstation, also for a lab that runs
 on servera. labctl does the setup, grading and reset on servera by
 itself; you only log in there to do the work.
+
+`labctl check` looks at the setup the labs depend on: the lab
+configuration, your SSH key, the login to servera (and serverb and
+serverc when multi-node labs are on) and a few things only some labs
+need. Run it when a lab will not start; see "Checking the environment"
+in troubleshooting.md.
 
 `labctl grade` exits with status 0 when every requirement is met and 1
 otherwise. `echo $?` right after it shows the status.

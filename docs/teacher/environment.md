@@ -81,6 +81,32 @@ What the package installs:
 | `/usr/share/doc/linux-labs/` | the student guides |
 | `man labctl` | the command reference |
 
+## Checking a classroom
+
+After you set up a classroom, or a template the student VMs are cloned from, run this on a workstation as `student`:
+
+```bash
+labctl check
+```
+
+It reads the configuration the way `sudo labctl start` does and checks, one line each: which configuration file is in use and the address of each server, the SSH key, the sudoers rule for labctl, the workstation's release, and on every server the SSH login as `SSH_USER` without a password, passwordless sudo and the release. serverb and serverc are checked only when `NODES_ENABLED=true`; `NODE_COUNT` says how many nodes. On servera it also counts the free NICs for the network labs and tries to reach the host of the first enabled package repository. A FAIL line is followed by a line with the fix. WARN lines (multi-node labs off, a server on another major release than the workstation, fewer than two free NICs, no repository access) only affect some labs and do not change the exit status, which is 0 when nothing failed and 1 otherwise.
+
+The command changes nothing on any machine and needs no sudo. Host keys are compared with a temporary copy of labctl's `/var/lib/linux-labs/known_hosts`, so a server whose key changed fails as it would for `labctl start`, with the `ssh-keygen -R` command that fixes it. Each server gets a 5 second connect timeout, so even with three servers down the check ends in about 15 seconds. A healthy classroom with multi-node labs enabled looks like this:
+
+```
+Checking the lab environment for student on workstation
+
+Configuration /etc/linux-labs/config is readable .................. PASS
+Multi-node labs are enabled for 3 nodes ........................... PASS
+servera (node 1) has the address 172.25.250.10 .................... PASS
+...
+servera has two free NICs for the network labs .................... PASS
+servera reaches its package repositories .......................... PASS
+...
+Overall result .................................................... PASS
+19 passed, 0 warnings, 0 failed.
+```
+
 ## What individual labs need
 
 `labctl list` shows every lab. The catalog at https://github.com/matej-basic/linux-labs/blob/main/docs/catalog.md has a Needs column, and `labctl start` and `labctl task` print a `Needs:` line under the title when a lab needs something:

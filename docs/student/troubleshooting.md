@@ -2,6 +2,30 @@
 
 Find the message you see, then follow the steps under it.
 
+## Checking the environment
+
+Before you look for a single message below, run:
+
+    labctl check
+
+It checks, one line each, what every lab depends on: the lab
+configuration, your SSH key, the login to servera without a password,
+sudo for opsadmin on servera and the Rocky Linux release. With
+multi-node labs on, it checks serverb and serverc too. For servera it
+also looks for two free network interfaces and for access to the
+package repositories. A FAIL line is followed by a line that says what
+to fix:
+
+    SSH as opsadmin to servera (172.25.250.10) works .................. FAIL
+        Fix: start servera, or set NODE_IPS (node 1) to its address.
+
+WARN marks something that only some labs need, for example the network
+labs or the labs with "Needs: internet". The command changes nothing
+and needs no sudo. It exits with status 0 when no line says FAIL. A
+server that does not answer takes a few seconds, so the whole check can
+take up to half a minute. Send the full output to your teacher when you
+cannot fix a FAIL line yourself.
+
 ## labctl: command not found
 
 linux-labs is not installed on this machine. Install it, or ask your
@@ -151,3 +175,4 @@ Collect this information and send it to your teacher:
 - the exact command you ran
 - the full output, copied as text
 - the output of cat /etc/os-release
+- the output of labctl check

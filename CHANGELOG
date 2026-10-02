@@ -37,6 +37,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - Known issues files for logging-01 (journalctl on Rocky 8), clustering-02 (fence_virsh has no hypervisor to reach) and packages-04 (EPEL mirror 404s).
 - labctl start refuses to start a lab while another one is active and tells the student to run sudo labctl reset <active lab> first. Before, it overwrote the marker and the first lab was never cleaned up. Starting the active lab again still works.
 - labctl records where it started the active lab in /opt/linux-labs/.current_target. A lab that 1.1.0 started and that is still active after the upgrade is recognised by the missing record: labctl task and labctl grade say it was started with an older version of linux-labs, and sudo labctl reset runs its cleanup on the workstation, where 1.1.0 ran it, and on servera.
+- labctl check, a read-only check of the classroom environment: the configuration file and the server addresses, the SSH key, the sudoers rule for labctl, and on servera (and serverb and serverc when multi-node labs are on) the SSH login without a password, passwordless sudo and the release. It warns when servera has fewer than two free NICs or cannot reach its package repositories. Each FAIL line comes with a fix line, and the command exits 1 when a required check fails.
 
 ### Changed
 - Upgrading from 1.1.0: reset active labs before the upgrade. 1.1.0 ran every lab on the workstation; a lab still active after the upgrade must be reset with 2.0.0, which cleans it up on the workstation and on servera.
