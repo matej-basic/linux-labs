@@ -1,0 +1,52 @@
+OBJECTIVE
+  Run Apache HTTP Server in a rootless Podman container that serves
+  web content from the host on port 8080, and make it a systemd user
+  service that starts at boot.
+
+PREREQUISITES
+  - Internet access to the package repositories and to
+    registry.access.redhat.com.
+  - You work as {{LAB_USER}}, with root access through sudo for
+    package installs and system settings.
+
+TASKS
+  1. Install the podman package if it is missing.
+  2. As {{LAB_USER}}, not as root, run a container named webapp from
+     the image registry.access.redhat.com/ubi9/httpd-24. The image
+     runs Apache as an unprivileged user, listens on port 8080 inside
+     the container and serves the directory /var/www/html.
+  3. Publish the container port 8080 on host port 8080, so that a
+     request to http://localhost:8080 on {{HOSTNAME}} reaches Apache.
+  4. Mount the host directory /srv/webapp at /var/www/html in the
+     container. Setup has written the page /srv/webapp/index.html.
+     Do not change it. http://localhost:8080 must return exactly
+     that page.
+  5. Give /srv/webapp and the files in it the SELinux type
+     container_file_t, so that the container may read them.
+  6. Run the container from a systemd user service of {{LAB_USER}}
+     named container-webapp.service. The unit is enabled, active,
+     and the running webapp container belongs to it.
+  7. Enable linger for {{LAB_USER}}, so that the user service starts
+     at boot without a login.
+
+EXPECTED RESULT
+  A request to http://localhost:8080 returns the content of
+  /srv/webapp/index.html. The container runs under {{LAB_USER}}, and
+  after a reboot the service starts again without anyone logging in.
+
+NOTES
+  - Do not use Docker Hub. The image comes from the Red Hat registry
+    named above.
+  - Images from registry.access.redhat.com need no login.
+  - The firewall is not part of this lab and is not graded.
+  - Setup removes the webapp container and the unit of an earlier
+    attempt. labctl reset removes the container, the image, the unit,
+    /srv/webapp and the packages the lab installed, and turns linger
+    off again if it was off before the lab.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man podman-run, man podman-generate-systemd,
+    man podman-systemd.unit, man loginctl and man systemd.unit.
+
+GRADING
+  labctl grade podman-01

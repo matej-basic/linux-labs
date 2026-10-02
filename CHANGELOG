@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab podman-01 (Containers, Advanced): a rootless httpd container with an SELinux-labelled volume, run as a systemd user service with linger. Containers is a new category.
 - Lab nfs-01 (Storage, Intermediate, two nodes): an NFS export from node 1 to node 2 only, with root squashing, and a persistent mount on node 2.
 - Lab ssh-01 (SSH, Beginner): an ed25519 key pair, an authorized key for a second account and a client host alias. SSH is a new category.
 

@@ -1,0 +1,6 @@
+title: Rootless httpd container as a systemd user service
+category: Containers
+complexity: Advanced
+objective: Run a rootless httpd container with Podman that serves host content on port 8080 and starts at boot as a systemd user service.
+needs: internet
+target: servera
