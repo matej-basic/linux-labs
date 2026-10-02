@@ -8,6 +8,10 @@ PREREQUISITES
   - A free Ethernet interface: one that does not carry the default
     route. The lab picks the first one in name order and writes its
     name on the first line of /opt/linux-labs/state/firewall-02.
+  - The lab creates the NetworkManager connection fwlab on the free
+    interface. It has no IP addressing and no zone, so the interface
+    starts in the default zone. The automatic connections of the free
+    interface are switched off until the lab is reset.
 
 TASKS
   1. Make sure firewalld is enabled and running.
@@ -15,19 +19,24 @@ TASKS
      from the IPv4 network 192.168.1.0/24. The rule must exist in the
      running configuration and in the permanent configuration.
   3. Assign the free interface named above to the zone trusted. The
-     assignment must be active now and must survive a reload and a
-     reboot.
+     interface stays on the connection fwlab, which stays active. The
+     assignment must be active now and must survive a firewalld reload,
+     a reactivation of fwlab and a reboot.
 
 EXPECTED RESULT
   The public zone lists the rich rule for 192.168.1.0/24 and port
   443/tcp, both in the running and in the permanent configuration. The
-  free interface belongs to the zone trusted, both in the running and
-  in the permanent configuration.
+  free interface belongs to the zone trusted now, and the connection
+  fwlab keeps it there whenever it is activated.
 
 NOTES
   - Do not change the interface that carries the default route and
     SSH. Moving it out of a zone that allows SSH locks you out.
-  - Reference: man firewall-cmd and man firewalld.richlanguage.
+  - Do not activate the automatic connections of the free interface.
+    They use DHCP, and every activation of a connection without a
+    zone moves the interface back to the default zone.
+  - Reference: man firewall-cmd, man firewalld.richlanguage and
+    man nm-settings.
 
 GRADING
   labctl grade firewall-02

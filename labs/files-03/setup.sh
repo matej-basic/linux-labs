@@ -3,6 +3,8 @@
 # starts without /srv/secure, the backup, alice and the developers group.
 # Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+pkg_snapshot files-03
 
 # Reset lab state (the user first, because developers may be her group)
 rm -rf /srv/secure /tmp/backup.tar.gz

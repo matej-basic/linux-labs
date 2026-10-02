@@ -27,15 +27,22 @@ iface_trusted_runtime() {
 		[ "$(firewall-cmd --get-zone-of-interface="$iface" 2>/dev/null)" = trusted ]
 }
 
-# Permanent binding: in the zone file, or in the NetworkManager profile
+# Permanent binding: NetworkManager hands the zone of the active profile
+# to firewalld at every activation, so it is the zone of fwlab, the
+# profile stored on disk and active on the interface. A binding only in
+# a zone file is replaced at the next activation.
 iface_trusted_permanent() {
-	local conn
+	local uuid file
 	[ -n "$iface" ] || return 1
-	firewall-cmd --permanent --zone=trusted --list-interfaces 2>/dev/null |
-		tr ' ' '\n' | grep -qx "$iface" && return 0
-	conn=$(nmcli -g GENERAL.CONNECTION device show "$iface" 2>/dev/null)
-	[ -n "$conn" ] && [ "$conn" != -- ] &&
-		[ "$(nmcli -g connection.zone connection show "$conn" 2>/dev/null)" = trusted ]
+	[ "$(nmcli -g GENERAL.DEVICES connection show fwlab 2>/dev/null)" = "$iface" ] || return 1
+	[ "$(nmcli -g connection.zone connection show fwlab 2>/dev/null)" = trusted ] || return 1
+	uuid=$(nmcli -g connection.uuid connection show fwlab 2>/dev/null)
+	file=$(nmcli -g UUID,FILENAME connection show 2>/dev/null |
+		awk -v u="$uuid" 'index($0, u ":") == 1 { print substr($0, length(u) + 2) }')
+	case "$file" in
+		/etc/*) return 0 ;;
+	esac
+	return 1
 }
 
 criterion "firewalld is enabled and running" \
