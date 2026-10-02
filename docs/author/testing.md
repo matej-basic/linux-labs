@@ -79,6 +79,8 @@ After the reset the paths and packages declared in `solve.sh`, the state file `/
 
 The criterion "Package set on <machine> is unchanged after reset" compares the package set right before `sudo labctl start` with the set after `sudo labctl reset`: `<name>.<arch>` of every package plus `gpg-pubkey-<version>` of every repo key, read with `rpm -qa` over root SSH from the Mac. The machine is the lab's machine (the workstation or the server target); for a multi-node lab the workstation and every configured node (nodes 1 to `NODE_COUNT`) are compared, one criterion each. On a failure the log lists the packages added and missing on that machine (`!! packages added on servera (10.0.0.189): ...`). An upgrade is not a difference, since the version is not compared (see "Packages" in [framework.md](framework.md)). Labs that still have hand-written package code can fail this criterion until the per-lab pass moves them to `lib/packages.sh`.
 
+The criterion "System users and groups on <machine> are unchanged" compares, on the same machines and at the same two moments, every user and group with an ID from 1 to 999 (`getent passwd` and `getent group`, name and ID). It fails when a package's user (`mysql`, `named`) survives the reset, usually because `cleanup.sh` removes the server's data after `pkg_restore` instead of before it; `pkg_restore` then also reports the user on stderr and `labctl reset` fails. On a failure the log lists the accounts added and missing (`!! system users and groups added on servera (10.0.0.189): group:mysql:27 user:mysql:27`).
+
 The output is one criterion block per lab and a summary. The full log, with every command, its output and its exit status, goes to `packaging/test-logs/<timestamp>-<host>.log`.
 
 - Exit status: 0 all labs passed, 1 a lab failed or the run aborted, 2 nothing failed but at least one lab was skipped, 3 usage error. Exit 2 is not a pass.
@@ -112,7 +114,7 @@ servera is the target of every single-node lab, and node 1 of the multi-node lab
 
 ### Snapshots of the lab VMs
 
-The reference state for runtime tests is the snapshot `clean-baseline` on all four VMs: servera, serverb and serverc are clean Rocky 8.7 installs without httpd, MySQL or PostgreSQL, and the workstation has the `linux-labs` RPM. Every lab test starts from it and every lab's reset must return the machines to its package set. When a lab leaves a VM broken or with packages its reset cannot remove, revert all four with `scripts/lab-vms.sh revert clean-baseline --yes`.
+The reference state for runtime tests is the snapshot `clean-baseline` on all four VMs: servera, serverb and serverc are clean Rocky 8.7 installs without httpd, MySQL or PostgreSQL, and the workstation has the `linux-labs` RPM. Every lab test starts from it and every lab's reset must return the machines to its package set and its system users and groups. When a lab leaves a VM broken or with packages its reset cannot remove, revert all four with `scripts/lab-vms.sh revert clean-baseline --yes`.
 
 Before a test run that can break a VM (network, storage, firewall, reboot labs, which now break servera rather than the workstation), snapshot the four lab VMs: `scripts/lab-vms.sh snapshot <name>`.
 If a lab leaves a VM unreachable, `scripts/lab-vms.sh revert <name> --yes` puts all four back; a single wedged guest takes `scripts/lab-vms.sh power-cycle <vm> --yes`.

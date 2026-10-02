@@ -152,11 +152,14 @@ Any other `{{...}}` fails `check-labs.sh`; at runtime labctl prints it unchanged
 
 - Runs as root from `labctl reset`. Undoes everything `setup.sh` did and everything `solve.sh` or a student following `solution.md` creates: files, users, packages, services, firewall rules, SELinux settings, the state file. It must leave the VM usable for the next lab and must not fail when the lab was never started or only half done (use `|| true` and `rm -f` where needed).
 - It may print short progress lines but should normally print nothing. Exit 0 on success; for a converted lab a non-zero exit makes `labctl reset` report the failure (`.current_lab` is removed either way).
-- A lab that took a package snapshot calls `pkg_restore <lab>` after its own cleanup (services stopped, files removed) and before it restores configuration that belongs to a package installed before the lab, since `pkg_restore` may install that package again. A failed `pkg_restore` makes `cleanup.sh` exit non-zero. Packages are never removed by hand in `cleanup.sh`.
+- A lab that took a package snapshot calls `pkg_restore <lab>` after its own cleanup (services stopped, files removed) and before it restores configuration that belongs to a package installed before the lab, since `pkg_restore` may install that package again. A failed `pkg_restore` makes `cleanup.sh` exit non-zero. Packages are never removed by hand in `cleanup.sh`, and neither are the system users and groups they create.
+- The data of a server the lab installed (`/var/lib/mysql`, `/var/named`, its log directory) is removed before `pkg_restore`, not after: `pkg_restore` keeps a new system user that still owns a file, and fails (see "Packages").
 
 ### Packages
 
 The rule: `labctl reset` removes every package that was not installed when the lab first started, including dependencies, repo keys (`gpg-pubkey`) imported during the lab and anything the student installed beyond the task. Packages that were installed before stay. A package that was installed at the first start and is missing at reset (removed by `setup.sh` or by the student) is installed again, in the current repository version. So a lab never leaks into the next one: httpd from a web lab does not change an SELinux lab, and MySQL from the replication labs does not change mysql-01.
+
+Reset also removes the system users and groups (UID or GID 1 to 999) that did not exist at the first start. Packages create them in their install scriptlets (`apache`, `mysql`, `named`, `haproxy`, `nginx`, `postgres`, `hacluster`, `keepalived_script`) and package removal leaves them behind. A new system user or group that still owns a file stays. Users and groups with an ID of 1000 or more (the task user, lab users) and every account that existed at the first start are never touched.
 
 Reset never downgrades. An upgrade pulled in during the lab stays: on Rocky 8.7, installing gcc upgrades glibc, libgcc and libgomp, and those versions remain after reset. A new package that a package from before the lab now needs (an upgraded package with a new dependency) stays as well, since removing it would remove the older package too. This is a known limit; downgrading glibc or httpd can break the system, and the old RPMs are often gone from the repositories.
 
@@ -171,8 +174,9 @@ pkg_restore packages-05     # cleanup.sh, after the lab's own cleanup
 
 | Function | Meaning |
 |---|---|
-| `pkg_snapshot <lab>` | first start only: record the package set, the repo keys, `/etc/dnf/modules.d` and `/etc/yum.repos.d` in `/opt/linux-labs/state/<lab>.packages` (mode 0700); a restarted lab keeps the snapshot of its first start |
-| `pkg_restore <lab>` | restore the snapshot and delete it; without a snapshot (the lab was never started) it does nothing; on a failure it keeps the snapshot, so the next reset tries again |
+| `pkg_snapshot <lab>` | first start only: record the package set, the repo keys, `/etc/dnf/modules.d`, `/etc/yum.repos.d` and the names of all users and groups in `/opt/linux-labs/state/<lab>.packages` (mode 0700); a restarted lab keeps the snapshot of its first start |
+| `pkg_restore <lab>` | restore the snapshot (packages, then system users and groups) and delete it; without a snapshot (the lab was never started) it does nothing; on a failure it keeps the snapshot, so the next reset tries again |
+| `pkg_was_installed <lab> <name>` | true when a package called `<name>` was installed at the first start, and also when there is no snapshot; `cleanup.sh` uses it to remove the data of a server the lab installed before `pkg_restore` |
 | `pkg_snapshot_node <ip> <lab>`, `pkg_restore_node <ip> <lab>` | the same on a node of a multi-node lab, through `run_on_node <ip> "sudo -n bash -s"` (source `load-config.sh` first) |
 | `pkg_node_script <snapshot\|restore> <lab>` | print the self-contained script the `_node` functions send, for a lab that runs it on the node in its own way |
 
@@ -186,8 +190,19 @@ How it compares and restores:
 - Missing packages are installed with `dnf install`, and when that fails once more with every repository enabled (a package from a repository that is disabled by default, such as the High Availability repo).
 - Repo keys imported since the snapshot are removed with `rpm -e`, removed keys are imported again from the recorded copy.
 - The install reason (`dnf history userinstalled`) of the packages from before the lab is put back with `dnf mark`, so `dnf autoremove` sees the system as it was.
+- Last, and only when every package step succeeded: the local system users and groups (`/etc/passwd` and `/etc/group`, ID 1 to 999) whose name is not in the snapshot are removed, users first. One `find -xdev` pass over `/` and the other local filesystems (tmpfs and other memory filesystems left out, so a stale `/run/named` does not count) lists the owners and groups of all files. A user that owns a file stays, and so does a group that owns a file or is still a user's primary group; each one is named on stderr (`packages: the system user mysql (UID 27) is new since the snapshot and still owns files; it stays`) and `pkg_restore` fails, so the lab author sees it in the runtime test. `userdel` also removes the user's group of the same name; when that group existed at the first start or owns files, the user gets another primary group first, so the group stays. A user with running processes cannot be removed and fails the same way. A snapshot taken before accounts were recorded has no `accounts` file, and its restore leaves accounts alone.
 
-What stays the lab's job: services, configuration files, data directories, users and firewall rules. A lab that removes a package that was there before (webserver-01 removes httpd so the student installs it) records that package's configuration and service state itself and restores them after `pkg_restore` has installed it again.
+The file rule decides the order in `cleanup.sh`: the data of a server the lab installed goes before `pkg_restore`, or its user stays. dns-01 removes `/var/named`, `/etc/named.conf` and `/etc/rndc.key` before `pkg_restore` when bind was not installed at the first start (removing a changed configuration file first also keeps rpm from saving it as `.rpmsave`, which would still belong to the `named` group); mysql-02 removes `/var/lib/mysql` and the MySQL log directories when no server was there. `pkg_was_installed` answers the question "was this server there before":
+
+```bash
+if ! pkg_was_installed dns-01 bind; then
+	rm -rf /var/named
+	rm -f /etc/named.conf /etc/named.conf.rpmsave /etc/rndc.key
+fi
+pkg_restore dns-01 || rc=1
+```
+
+What stays the lab's job: services, configuration files, data directories, users with an ID of 1000 or more and firewall rules. A lab that removes a package that was there before (webserver-01 removes httpd so the student installs it) records that package's configuration and service state itself and restores them after `pkg_restore` has installed it again.
 
 Solutions follow the same rule from the other side: `solution.md` and `solve.sh` install only what is missing, with `rpm -q X || dnf -y install X` (`rpm -q X || sudo dnf -y install X` in `solution.md`), so a solution never upgrades a package on purpose. `solve.sh` declares the main packages it installs with `# solve: package <name>`.
 
@@ -210,7 +225,7 @@ for n in 1 2 3; do
 done
 ```
 
-`pkg_node_script` prints a script that carries the functions of `packages.sh` (written with `declare -f`) and calls `pkg_snapshot` or `pkg_restore`, so the node runs exactly the code a server target runs. The snapshot is in `/opt/linux-labs/state/<lab>.packages` on the node, and a successful restore also removes `/opt/linux-labs/state` and `/opt/linux-labs` on the node when they are empty. A lab that already sends its own node script with `bash -s` may append the output of `pkg_node_script snapshot <lab>` to it instead, as long as the snapshot comes before any package change.
+`pkg_node_script` prints a script that carries the functions of `packages.sh` (written with `declare -f`) and calls `pkg_snapshot` or `pkg_restore`, so the node runs exactly the code a server target runs, including the system users and groups. `pkg_was_installed` is not available on a node; a multi-node lab decides about node data in its own node script. The snapshot is in `/opt/linux-labs/state/<lab>.packages` on the node, and a successful restore also removes `/opt/linux-labs/state` and `/opt/linux-labs` on the node when they are empty. A lab that already sends its own node script with `bash -s` may append the output of `pkg_node_script snapshot <lab>` to it instead, as long as the snapshot comes before any package change.
 
 ### Network labs
 

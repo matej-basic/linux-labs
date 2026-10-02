@@ -43,6 +43,9 @@
 #   labctl start; for a multi-node lab the workstation and every
 #   configured node are compared. The log lists added and missing
 #   packages.
+#   the system users and groups (UID or GID 1 to 999) of the same
+#   machines are the same as right before labctl start. The log lists
+#   added and missing accounts.
 #
 # A lab without task.txt or solve.sh is a legacy lab and is skipped with a
 # message. The run aborts before deploying anything if a lab is active on
@@ -75,6 +78,9 @@ TARGET_USER=""
 # Package set of a machine: name.arch of every package, gpg-pubkey-<version>
 # of every repo key (one gpg-pubkey package per key), sorted on the Mac
 PKGSET_CMD="rpm -qa --qf '%{NAME}.%{ARCH}\\n' | grep -v '^gpg-pubkey\\.'; rpm -qa gpg-pubkey --qf '%{NAME}-%{VERSION}\\n'"
+# System users and groups of a machine (ID 1 to 999, the range
+# lib/packages.sh restores): user:<name>:<uid> and group:<name>:<gid>
+ACCTSET_CMD="getent passwd | awk -F: '\$3 >= 1 && \$3 <= 999 { print \"user:\" \$1 \":\" \$3 }'; getent group | awk -F: '\$3 >= 1 && \$3 <= 999 { print \"group:\" \$1 \":\" \$3 }'"
 PKGDIR=""
 
 usage() {
@@ -169,6 +175,18 @@ pkg_set() {
 	log ""
 	log "---- package set on $1 into ${2##*/} ($(date +%H:%M:%S))"
 	hssh "$1" "$PKGSET_CMD" </dev/null 2>>"$LOG" | LC_ALL=C sort -u >"$2"
+	rc=${PIPESTATUS[0]}
+	log "$(wc -l <"$2" | tr -d ' ') entries"
+	[ "$rc" -eq 0 ] && [ -s "$2" ]
+}
+
+# acct_set <host> <file>: save the system users and groups of a host,
+# sorted
+acct_set() {
+	local rc
+	log ""
+	log "---- system users and groups on $1 into ${2##*/} ($(date +%H:%M:%S))"
+	hssh "$1" "$ACCTSET_CMD" </dev/null 2>>"$LOG" | LC_ALL=C sort -u >"$2"
 	rc=${PIPESTATUS[0]}
 	log "$(wc -l <"$2" | tr -d ' ') entries"
 	[ "$rc" -eq 0 ] && [ -s "$2" ]
@@ -424,7 +442,7 @@ test_lab() {
 
 	# Machines whose package set must survive start to reset: the lab's
 	# machine, and for a multi-node lab every configured node as well
-	local -a pkg_hosts=("$lab_host") pkg_names=("$target") pkg_ok=()
+	local -a pkg_hosts=("$lab_host") pkg_names=("$target") pkg_ok=() acct_ok=()
 	local i nodes
 	nodes=$(lab_nodes "$lab")
 	if [ -n "$nodes" ]; then
@@ -439,6 +457,12 @@ test_lab() {
 		else
 			pkg_ok+=(0)
 			log "!! cannot read the package set of ${pkg_names[$i]} (${pkg_hosts[$i]})"
+		fi
+		if acct_set "${pkg_hosts[$i]}" "$PKGDIR/$lab.$i.accounts.before"; then
+			acct_ok+=(1)
+		else
+			acct_ok+=(0)
+			log "!! cannot read the system users and groups of ${pkg_names[$i]} (${pkg_hosts[$i]})"
 		fi
 	done
 
@@ -574,6 +598,21 @@ test_lab() {
 		else
 			criterion_result "Package set on ${pkg_names[$i]} is unchanged after reset" 1
 			log "!! cannot compare the package set of ${pkg_names[$i]} (${pkg_hosts[$i]})"
+		fi
+		after="$PKGDIR/$lab.$i.accounts.after"
+		if [ "${acct_ok[$i]}" -eq 1 ] && acct_set "${pkg_hosts[$i]}" "$after"; then
+			added=$(LC_ALL=C comm -13 "$PKGDIR/$lab.$i.accounts.before" "$after" | tr '\n' ' ')
+			missing=$(LC_ALL=C comm -23 "$PKGDIR/$lab.$i.accounts.before" "$after" | tr '\n' ' ')
+			if [ -z "$added$missing" ]; then
+				criterion_result "System users and groups on ${pkg_names[$i]} are unchanged" 0
+			else
+				criterion_result "System users and groups on ${pkg_names[$i]} are unchanged" 1
+				log "!! system users and groups added on ${pkg_names[$i]} (${pkg_hosts[$i]}): ${added:-none}"
+				log "!! system users and groups missing on ${pkg_names[$i]} (${pkg_hosts[$i]}): ${missing:-none}"
+			fi
+		else
+			criterion_result "System users and groups on ${pkg_names[$i]} are unchanged" 1
+			log "!! cannot compare the system users and groups of ${pkg_names[$i]} (${pkg_hosts[$i]})"
 		fi
 	done
 
