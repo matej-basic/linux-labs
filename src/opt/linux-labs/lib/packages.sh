@@ -235,7 +235,7 @@ _pkg_file_owners() {
 # group, and a group stays while a user has it as primary group. Every
 # account that cannot go is named on stderr and the status is 1.
 _pkg_restore_accounts() {
-	local dir="$1" name id gid owners e rc=0
+	local dir="$1" name id gid owners e m rc=0
 	local -a users=() groups=()
 	[ -s "$dir/accounts" ] || return 0
 	while IFS=: read -r name _ id _; do
@@ -251,6 +251,16 @@ _pkg_restore_accounts() {
 		groups+=("$name:$id")
 	done </etc/group
 	[ "${#users[@]}" -gt 0 ] || [ "${#groups[@]}" -gt 0 ] || return 0
+	# A package that runs useradd without -r (rpcbind's rpc user) also
+	# gets an empty mail spool; it would keep the user, so it goes first.
+	for e in "${users[@]+"${users[@]}"}"; do
+		name=${e%:*}
+		id=${e##*:}
+		for m in "/var/spool/mail/$name" "/var/mail/$name"; do
+			[ -f "$m" ] && [ ! -L "$m" ] && [ ! -s "$m" ] &&
+				[ "$(stat -c %u "$m")" = "$id" ] && rm -f "$m"
+		done
+	done
 	owners=$(_pkg_file_owners) || return 1
 
 	for e in "${users[@]+"${users[@]}"}"; do
