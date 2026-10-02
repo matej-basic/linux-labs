@@ -3,14 +3,17 @@
 # labpassword, and no labdb database or labuser user. Prints nothing on
 # success.
 #
-# An existing server (servera keeps mysql-server from the replication
-# labs) is used as it is. The first run records in /var/tmp/mysql-02.pre
-# what the lab changes: whether the server was installed, the service
-# state, the definition of root@localhost, a labdb database and labuser
-# account that already existed, and which mysql history files existed.
-# cleanup.sh puts all of it back. SQL run by this script and cleanup.sh
-# is kept out of the binary log.
+# The first run records the package set (pkg_snapshot); cleanup.sh
+# restores it with pkg_restore, so a server the lab installs goes away
+# at reset with its dependencies. An existing server is used as it is.
+# The first run also records in /var/tmp/mysql-02.pre what else the lab
+# changes: whether a server, the mysql user and the mysql group were
+# there, the service state, the definition of root@localhost, a labdb
+# database and labuser account that already existed, and which mysql
+# history files existed. cleanup.sh puts all of it back. SQL run by
+# this script and cleanup.sh is kept out of the binary log.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
 ROOT_PW=labpassword
 pre=/var/tmp/mysql-02.pre
@@ -25,6 +28,8 @@ die() {
 	echo "mysql-02 setup: $*" >&2
 	exit 1
 }
+
+pkg_snapshot mysql-02 || die "cannot record the package set"
 
 # rootsql <sql>: run SQL as the database root user, labpassword first,
 # then without a password (socket, or root's own option file)
@@ -48,6 +53,10 @@ if [ ! -d "$pre" ]; then
 		[ -n "$h" ] && [ -e "$h/.mysql_history" ] &&
 			echo "history $h" >> "$pre.tmp/flags"
 	done
+	# The server package creates the mysql user and group, and package
+	# removal leaves them
+	getent passwd mysql >/dev/null && echo "user-mysql" >> "$pre.tmp/flags"
+	getent group mysql >/dev/null && echo "group-mysql" >> "$pre.tmp/flags"
 	touch "$pre.tmp/flags"
 	mv "$pre.tmp" "$pre"
 fi

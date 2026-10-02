@@ -1,8 +1,24 @@
 #!/bin/bash
 # logging-02 setup: remove any earlier myapp configuration and logs, make
-# sure rsyslog and logrotate are installed and rsyslog is running.
-# Prints nothing on success.
+# sure rsyslog and logrotate are installed and rsyslog is running. The
+# package set and the service state of rsyslog before the lab are recorded
+# for cleanup.sh. Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+
+STATE_FILE=/opt/linux-labs/state/logging-02
+
+pkg_snapshot logging-02 || exit 1
+
+# Record the rsyslog service state of the first start only
+if [ ! -f "$STATE_FILE" ]; then
+	mkdir -p /opt/linux-labs/state
+	{
+		echo "rsyslog_enabled=$(systemctl is-enabled rsyslog 2>/dev/null || true)"
+		echo "rsyslog_active=$(systemctl is-active rsyslog 2>/dev/null || true)"
+	} >"$STATE_FILE"
+	chmod 0644 "$STATE_FILE"
+fi
 
 rm -f /etc/rsyslog.d/myapp.conf /etc/logrotate.d/myapp
 rm -f /var/log/myapp.log* /var/log/myapp-program.log*

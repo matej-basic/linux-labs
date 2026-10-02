@@ -3,45 +3,44 @@
 # server, so the lab starts from a fresh installation. Prints nothing on
 # success.
 #
-# A server that was there before the lab (servera keeps mysql-server from
-# the replication labs) is not destroyed. The first run records it in
-# /var/tmp/mysql-01.pre and puts it aside in /var/tmp/mysql-01.bak: the
-# package versions and their RPM files, the data directory, the option
-# files, the log directory, root's client files and the service state.
-# cleanup.sh puts all of it back.
+# The first run records the package set (pkg_snapshot); cleanup.sh
+# restores it with pkg_restore, so a server package removed here comes
+# back at reset. A server that was there before the lab keeps its data:
+# the first run also records the service state in the state file and
+# puts the data directory, the option files, the log directory and
+# root's client files aside in /var/tmp/mysql-01.bak. cleanup.sh puts
+# them back.
 set -eu
+source /opt/linux-labs/lib/packages.sh
 
-pre=/var/tmp/mysql-01.pre
+STATE_FILE=/opt/linux-labs/state/mysql-01
 bak=/var/tmp/mysql-01.bak
 servers="mysql-server mariadb-server"
 datadir=/var/lib/mysql
 # Files and directories restored as they were (only those that exist)
 paths="etc/my.cnf etc/my.cnf.d var/log/mysql root/.my.cnf root/.mysql_history"
 
-had() {
-	grep -qx "$1" "$pre"
-}
+pkg_snapshot mysql-01
 
 # First run only: what the machine looked like before the lab
-if [ ! -f "$pre" ]; then
+if [ ! -r "$STATE_FILE" ]; then
+	if [ -e "$bak/datadir" ]; then
+		echo "Error: $bak holds a saved MySQL data directory but no" \
+			"state file exists. Move it away and start again." >&2
+		exit 1
+	fi
 	rm -rf "$bak"
 	mkdir -m 0700 "$bak"
-	mkdir "$bak/rpms.d"
-	tmp_pre="$pre.tmp"
-	: > "$tmp_pre"
-	for p in $servers; do
-		if rpm -q "$p" >/dev/null 2>&1; then
-			echo "$p-installed" >> "$tmp_pre"
-			echo "$p $(rpm -q "$p")" >> "$bak/rpms"
-			# Keep the RPM file, so cleanup can reinstall this exact
-			# version even if the repositories have moved on.
-			dnf -y reinstall --downloadonly --downloaddir="$bak/rpms.d" \
-				"$(rpm -q "$p")" </dev/null >/dev/null 2>&1 || true
-		fi
-	done
+	mkdir -p "$(dirname "$STATE_FILE")"
+	tmp="$STATE_FILE.tmp"
+	: > "$tmp"
 	for u in mysqld mariadb; do
-		systemctl is-enabled --quiet "$u" 2>/dev/null && echo "$u-enabled" >> "$tmp_pre"
-		systemctl is-active --quiet "$u" 2>/dev/null && echo "$u-active" >> "$tmp_pre"
+		e=no
+		a=no
+		systemctl is-enabled --quiet "$u" 2>/dev/null && e=yes
+		systemctl is-active --quiet "$u" 2>/dev/null && a=yes
+		echo "${u}_enabled=$e" >> "$tmp"
+		echo "${u}_active=$a" >> "$tmp"
 	done
 	systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1 || true
 
@@ -54,25 +53,25 @@ if [ ! -f "$pre" ]; then
 		tar --selinux --xattrs --acls -C / -cpf "$bak/files.tar" $keep
 	fi
 	if [ -d "$datadir" ] && [ -n "$(ls -A "$datadir")" ]; then
+		echo "datadir=yes" >> "$tmp"
+		mv "$tmp" "$STATE_FILE"
 		mv "$datadir" "$bak/datadir"
-		echo "datadir" >> "$tmp_pre"
+	else
+		echo "datadir=no" >> "$tmp"
+		mv "$tmp" "$STATE_FILE"
 	fi
-	mv "$tmp_pre" "$pre"
+	chmod 644 "$STATE_FILE"
 fi
 
 systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1 || true
 
-# Remove the server packages. A server that was there before the lab goes
-# without its dependencies, so that cleanup only has to put the server
-# package back; one the lab installed goes with them.
+# No server package, so the student installs it
 for p in $servers; do
 	rpm -q "$p" >/dev/null 2>&1 || continue
-	if had "$p-installed"; then
-		dnf -y --setopt=clean_requirements_on_remove=False remove "$p" \
-			</dev/null >/dev/null
-	else
-		dnf -y remove "$p" </dev/null >/dev/null
-	fi
+	dnf -y remove "$p" </dev/null >/dev/null 2>&1 || {
+		echo "Error: could not remove the $p package." >&2
+		exit 1
+	}
 done
 
 # Leftovers of the previous server or of an earlier attempt: data,

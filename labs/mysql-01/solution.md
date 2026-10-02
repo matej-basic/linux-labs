@@ -16,7 +16,7 @@
 1. [sudo] Install MySQL Server:
 
    ```bash
-   sudo dnf install -y mysql-server
+   rpm -q mysql-server || sudo dnf -y install mysql-server
    ```
 
 2. [sudo] Start the service and enable it at boot:

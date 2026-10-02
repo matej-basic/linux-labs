@@ -2,8 +2,12 @@
 # mysql-02 cleanup: drop labdb and labuser and put back what setup.sh
 # recorded in /var/tmp/mysql-02.pre. A server that was there before the
 # lab gets its root@localhost definition, any earlier labdb and labuser
-# and its service state back. A server the lab installed is removed
-# together with its data.
+# and its service state back. Then the package set of the first start
+# comes back (pkg_restore), which removes a server the lab installed
+# with its dependencies; its data and log files and the mysql user and
+# group go afterwards. When the package set cannot be restored, the
+# records stay for the next reset and the exit status is 1.
+source /opt/linux-labs/lib/packages.sh
 
 ROOT_PW=labpassword
 pre=/var/tmp/mysql-02.pre
@@ -15,8 +19,11 @@ if ! getent passwd "$lab_user" >/dev/null; then
 fi
 lab_home=$(getent passwd "$lab_user" | cut -d: -f6)
 
-# setup.sh never ran: nothing to undo
-[ -d "$pre" ] || exit 0
+# setup.sh did not get far enough to record anything but the packages
+if [ ! -d "$pre" ]; then
+	pkg_restore mysql-02 || exit 1
+	exit 0
+fi
 
 had() {
 	grep -qx "$1" "$pre/flags" 2>/dev/null
@@ -78,6 +85,13 @@ if [ "$preinstalled" = yes ]; then
 			}
 		fi
 	fi
+else
+	systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1
+fi
+
+pkg_restore mysql-02 || rc=1
+
+if [ "$preinstalled" = yes ]; then
 	for u in mysqld mariadb; do
 		systemctl cat "$u" </dev/null >/dev/null 2>&1 || continue
 		if had "$u-enabled"; then
@@ -92,16 +106,8 @@ if [ "$preinstalled" = yes ]; then
 		fi
 	done
 else
-	# The lab installed the server: remove it with its dependencies and
-	# the files it left behind
-	systemctl disable --now mysqld mariadb </dev/null >/dev/null 2>&1
-	for p in $servers; do
-		rpm -q "$p" >/dev/null 2>&1 || continue
-		dnf -y remove "$p" </dev/null >/dev/null 2>&1 || {
-			echo "Cannot remove $p" >&2
-			rc=1
-		}
-	done
+	# The lab installed the server and pkg_restore removed it: remove
+	# the data and log files the packages left behind
 	if [ -d "$datadir" ] && ! rpm -qf "$datadir" >/dev/null 2>&1; then
 		rm -rf "$datadir"
 	fi
@@ -109,6 +115,18 @@ else
 		[ -e "$d" ] && ! rpm -qf "$d" >/dev/null 2>&1 && rm -rf "$d"
 	done
 	rm -f /etc/my.cnf.rpmsave /etc/my.cnf.d/*.rpmsave
+	# The mysql user and group the server package created, once no
+	# server package is left
+	left=no
+	for p in $servers; do
+		rpm -q "$p" >/dev/null 2>&1 && left=yes
+	done
+	if [ "$left" = no ]; then
+		had user-mysql || ! getent passwd mysql >/dev/null ||
+			userdel mysql >/dev/null 2>&1 || rc=1
+		had group-mysql || ! getent group mysql >/dev/null ||
+			groupdel mysql >/dev/null 2>&1 || rc=1
+	fi
 fi
 
 # mysql history files of the task user and root that the lab created
@@ -116,5 +134,5 @@ for h in "$lab_home" /root; do
 	[ -n "$h" ] && ! had "history $h" && rm -f "$h/.mysql_history"
 done
 
-rm -rf "$pre"
+[ "$rc" -eq 0 ] && rm -rf "$pre"
 exit "$rc"
