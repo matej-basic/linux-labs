@@ -9,18 +9,20 @@
 # who just finished clustering-01 or clustering-02), that cluster is used
 # as it is, fencing included. Otherwise setup builds the cluster itself,
 # the same way as the clustering-01 solution, with fencing disabled.
-# Either way the first run records the state of every node in
-# /var/tmp/clustering-03.pre and backs up the files and directories the
-# lab touches in /var/tmp/clustering-03.bak, and the state file keeps the
-# previous value of no-quorum-policy, so that cleanup.sh puts back exactly
-# what this lab changed. The line "built" in the .pre file marks a node
-# whose cluster this lab built.
+# Either way the first run records each node's package set
+# (lib/packages.sh) and in /var/tmp/clustering-03.pre and
+# /var/tmp/clustering-03.bak the services, the firewall, the hacluster
+# password and copies of the files and directories the lab touches, and
+# the state file keeps the previous value of no-quorum-policy, so that
+# cleanup.sh puts back exactly what this lab changed. The line "built" in
+# the .pre file marks a node whose cluster this lab built.
 #
 # Building the cluster takes a few minutes. Prints nothing on success.
 # No "set -u": load-config.sh reads variables that may be unset.
 set -e
 
 source /opt/linux-labs/lib/load-config.sh
+source /opt/linux-labs/lib/packages.sh
 load_lab_config
 
 LAB=clustering-03
@@ -88,36 +90,37 @@ bak=/var/tmp/clustering-03.bak
 files="/var/www/html/index.html /etc/httpd/conf/httpd.conf /etc/corosync/corosync.conf"
 dirs="/etc/corosync /var/lib/pacemaker /var/lib/corosync /var/lib/pcsd /var/log/pacemaker /var/log/cluster /var/log/pcsd"
 
+# First run only: what the node looked like before the lab (the package
+# set is in the package snapshot)
 if [ ! -f "$pre" ]; then
 	rm -rf "$bak"
 	mkdir -p -m 0700 "$bak" || exit 1
 	{
 		[ "$1" = built ] && echo built
-		for p in httpd pacemaker corosync pcs; do
-			rpm -q "$p" >/dev/null 2>&1 && echo "$p-installed"
-		done
 		for u in httpd pcsd pacemaker corosync; do
 			systemctl is-enabled --quiet "$u" 2>/dev/null && echo "$u-enabled"
 			systemctl is-active --quiet "$u" 2>/dev/null && echo "$u-active"
 		done
 		firewall-cmd --permanent --query-service=high-availability </dev/null >/dev/null 2>&1 && echo fw-ha
-		getent group haclient >/dev/null && echo group-haclient
 		if getent passwd hacluster >/dev/null; then
 			echo user-hacluster
 			getent shadow hacluster | cut -d: -f2 > "$bak/hacluster.shadow"
 			getent shadow hacluster | cut -d: -f3 > "$bak/hacluster.lastchg"
 		fi
 	} > "$pre.tmp"
-	# Every installed package, so cleanup.sh removes what the lab added
-	# and downgrades what it upgraded
-	rpm -qa --qf '%{NAME}.%{ARCH} %{NAME}-%{VERSION}-%{RELEASE}.%{ARCH}\n' |
-		sort > "$bak/rpms" || exit 1
 	for f in $files; do
 		[ -f "$f" ] && cp -a "$f" "$bak/$(basename "$f")"
 	done
 	for d in $dirs; do
 		if [ -d "$d" ]; then
 			tar --selinux --xattrs --acls -C / -cpf "$bak/$(echo "${d#/}" | tr / _).tar" "${d#/}" || exit 1
+		fi
+	done
+	# Web directories that no package owns (left over from an earlier
+	# install): cleanup.sh puts them back as they are now
+	for d in /etc/httpd /var/log/httpd /var/www; do
+		if [ -d "$d" ] && ! rpm -qf "$d" >/dev/null 2>&1; then
+			mkdir -p "$bak/dirs$(dirname "$d")" && cp -a "$d" "$bak/dirs$d" || exit 1
 		fi
 	done
 	chmod 0600 "$pre.tmp"
@@ -182,6 +185,8 @@ rec_arg=""
 [ "$mode" = built ] && rec_arg=built
 
 for ip in $ALL; do
+	pkg_snapshot_node "$ip" "$LAB" > "$tmp/out" 2>&1 ||
+		fail "recording the packages of node $ip failed"
 	run_on_node "$ip" "sudo -n bash -s $rec_arg" < "$tmp/record.sh" > "$tmp/out" 2>&1 ||
 		fail "recording the state of node $ip failed"
 done

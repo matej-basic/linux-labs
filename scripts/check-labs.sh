@@ -65,7 +65,7 @@ PKG_INSTALL_RE='(dnf|yum)( [^|;&]*)? (install|localinstall|reinstall|groupinstal
 # per-lab pass converts them to lib/packages.sh one at a time and removes
 # each from this list; the criterion fails for a listed lab that already
 # uses the helper or no longer installs packages, so the list only shrinks.
-PKG_HELPER_PENDING="clustering-03"
+PKG_HELPER_PENDING=""
 # Allowed shellcheck exclusions for lab scripts:
 #   SC1091  not following a sourced file (lab scripts source absolute
 #           /opt/linux-labs paths that do not exist in the checkout)
