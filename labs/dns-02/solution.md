@@ -20,7 +20,7 @@
 1. [sudo] Install BIND and the client tools:
 
    ```bash
-   sudo dnf -y install bind bind-utils
+   rpm -q bind bind-utils || sudo dnf -y install bind bind-utils
    ```
 
 2. [sudo] Create the zone file:

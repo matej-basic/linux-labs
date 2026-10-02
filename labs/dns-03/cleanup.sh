@@ -1,25 +1,19 @@
 #!/bin/bash
-# dns-03 cleanup: undo setup and the solution (service, packages, zone
-# data, keys, named.conf). Setup removed the packages, so they go again.
+# dns-03 cleanup: undo setup and the solution (service, zone data, keys,
+# named.conf), restore the package set, then drop the named account and
+# /var/named if they did not exist before the lab.
+source /opt/linux-labs/lib/packages.sh
 
 systemctl stop named >/dev/null 2>&1
 systemctl disable named >/dev/null 2>&1
 systemctl reset-failed named >/dev/null 2>&1
 
-pkgs=()
-for p in bind bind-utils bind-dnssec-utils; do
-	if rpm -q "$p" >/dev/null 2>&1; then
-		pkgs+=("$p")
-	fi
-done
-if [ "${#pkgs[@]}" -gt 0 ]; then
-	dnf -y remove "${pkgs[@]}" >/dev/null 2>&1
-fi
-
+rm -f /var/named/labsecure.com.zone* /var/named/Klabsecure.com.* \
+	/var/named/dsset-labsecure.com.
+rc=0
+pkg_restore dns-03 || rc=1
 if ! rpm -q bind >/dev/null 2>&1; then
 	rm -f /etc/named.conf /etc/named.conf.rpmsave
-	rm -f /var/named/labsecure.com.zone* /var/named/Klabsecure.com.* \
-		/var/named/dsset-labsecure.com.
 fi
 if [ -f /var/tmp/dns-03.pre ]; then
 	if ! grep -q named-user /var/tmp/dns-03.pre && ! rpm -q bind >/dev/null 2>&1; then
@@ -29,4 +23,4 @@ if [ -f /var/tmp/dns-03.pre ]; then
 	fi
 	rm -f /var/tmp/dns-03.pre
 fi
-exit 0
+exit "$rc"

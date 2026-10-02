@@ -2,6 +2,8 @@
 # dns-03 setup: start without BIND and without any labsecure.com zone
 # data. Prints nothing on success.
 set -eu
+source /opt/linux-labs/lib/packages.sh
+pkg_snapshot dns-03
 
 # First run only: did the named account exist before BIND was installed?
 # cleanup.sh removes the account and /var/named only if it did not.

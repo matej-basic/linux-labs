@@ -10,7 +10,7 @@ set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install bind bind-utils
+rpm -q bind bind-utils >/dev/null || dnf -y install bind bind-utils
 command -v dnssec-keygen >/dev/null || dnf -y install bind-dnssec-utils
 
 # Step 2 [sudo]

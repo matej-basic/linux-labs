@@ -8,7 +8,7 @@ set -euo pipefail
 source "$(dirname "$0")/solve-lib.sh"
 
 # Step 1 [sudo]
-dnf -y install bind bind-utils
+rpm -q bind bind-utils >/dev/null || dnf -y install bind bind-utils
 
 # Step 2 and 3 [sudo]
 systemctl enable --now named

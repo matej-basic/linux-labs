@@ -65,7 +65,7 @@ PKG_INSTALL_RE='(dnf|yum)( [^|;&]*)? (install|localinstall|reinstall|groupinstal
 # per-lab pass converts them to lib/packages.sh one at a time and removes
 # each from this list; the criterion fails for a listed lab that already
 # uses the helper or no longer installs packages, so the list only shrinks.
-PKG_HELPER_PENDING="clustering-01 clustering-02 clustering-03 dns-01 dns-02 dns-03
+PKG_HELPER_PENDING="clustering-01 clustering-02 clustering-03
 	files-03 firewall-02 lb-01 lb-02 lb-03 logging-02 mysql-01 mysql-02
 	mysql-03 packages-01 packages-02 packages-03 packages-04 postgres-01
 	postgres-02 postgres-03 replication-01 replication-02 replication-03

@@ -22,7 +22,7 @@
    dependency. Install it explicitly if dnssec-keygen is missing:
 
    ```bash
-   sudo dnf -y install bind bind-utils
+   rpm -q bind bind-utils || sudo dnf -y install bind bind-utils
    command -v dnssec-keygen || sudo dnf -y install bind-dnssec-utils
    ```
 

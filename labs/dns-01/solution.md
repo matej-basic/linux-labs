@@ -16,7 +16,7 @@
 1. [sudo] Install the packages:
 
    ```bash
-   sudo dnf -y install bind bind-utils
+   rpm -q bind bind-utils || sudo dnf -y install bind bind-utils
    ```
 
 2. [sudo] Start named and enable it at boot:

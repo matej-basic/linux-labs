@@ -1,10 +1,13 @@
 #!/bin/bash
 # dns-02 setup: remove BIND, its configuration and the lab zone so the
 # student starts from a clean system. Prints nothing on success.
-set -u
+set -eu
+source /opt/linux-labs/lib/packages.sh
+pkg_snapshot dns-02
 
 # First run only: did the named account exist before BIND was installed?
-# cleanup.sh removes the account and /var/named only if it did not.
+# The account and /var/named are not package files, so cleanup.sh removes
+# them only if they did not exist.
 pre=/var/tmp/dns-02.pre
 if [ ! -f "$pre" ]; then
 	if getent passwd named >/dev/null 2>&1 && ! rpm -q bind >/dev/null 2>&1; then
