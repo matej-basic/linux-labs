@@ -1,0 +1,6 @@
+title: Swap file, swappiness and a tuned profile
+category: Storage
+complexity: Intermediate
+objective: Add a persistent swap file with a set priority, set vm.swappiness persistently and select a tuned profile.
+needs: internet, reboot
+target: servera

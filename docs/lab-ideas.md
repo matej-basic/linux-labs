@@ -81,7 +81,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - nagios-01 (Beginner): Nagios/Icinga installation
 - nagios-02 (Intermediate): Host and service monitoring
 - nagios-03 (Advanced): Custom checks and plugins
-- tuning-01 (Beginner): Memory and swap tuning
 - tuning-02 (Intermediate): CPU and I/O optimization
 - tuning-03 (Advanced): Kernel parameter tuning
 

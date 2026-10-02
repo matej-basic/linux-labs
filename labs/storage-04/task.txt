@@ -1,0 +1,47 @@
+OBJECTIVE
+  Add swap space to {{HOSTNAME}} without touching its existing swap,
+  tune how eagerly the kernel swaps, and select a tuned profile. All
+  settings must survive a reboot.
+
+TASKS
+  1. Create the file /swapfile with a size of 512 MiB. It is owned by
+     root and has mode 600.
+  2. Make /swapfile a swap area and activate it now with priority 10.
+     The swap size is graded with a tolerance of 16 MiB.
+  3. Keep the existing swap space of {{HOSTNAME}} active. Do not change
+     its logical volume, its volume group or its fstab entry.
+  4. Make the new swap area persistent in /etc/fstab. The entry names
+     the file by its path /swapfile, has the type swap and the options
+     pri=10 and nofail.
+  5. Set the kernel parameter vm.swappiness to 20, both at runtime and
+     persistently in the file /etc/sysctl.d/90-swappiness.conf.
+  6. Make sure the tuned service is installed, enabled and running,
+     and select throughput-performance as its active profile.
+
+EXPECTED RESULT
+  Every setting above survives a reboot of {{HOSTNAME}}. After the
+  reboot the system has two swap areas, the existing one and
+  /swapfile with priority 10. vm.swappiness is 20 and tuned runs with
+  the profile throughput-performance.
+
+PRACTICE (not graded)
+  - Compare the priority of the two swap areas and find out which one
+    the kernel uses first.
+  - Look at the settings the profile throughput-performance applies
+    and compare them with the profile that was active before.
+
+NOTES
+  - The tuned package may be missing on a minimal install. It comes
+    from the BaseOS repository.
+  - A swap file that is missing at boot must not stop the system
+    from booting. That is why the fstab entry has the option nofail.
+  - tuned profiles set kernel parameters too, vm.swappiness among
+    them. The value from /etc/sysctl.d must still be the one in
+    effect after the reboot.
+  - A reboot of {{HOSTNAME}} closes your SSH connection to it. This is
+    expected: connect again once the system is back up.
+  - Reference: man mkswap, man swapon, man fstab, man sysctl.d,
+    man tuned-adm, man tuned-main.conf.
+
+GRADING
+  labctl grade storage-04
