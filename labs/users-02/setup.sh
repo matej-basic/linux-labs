@@ -7,6 +7,7 @@ set -eu
 STATE_FILE=/opt/linux-labs/state/users-02
 LIMITS=/etc/security/limits.d/70-contractors.conf
 KEYS="PASS_MAX_DAYS PASS_MIN_DAYS PASS_WARN_AGE"
+BACKUP=/var/tmp/users-02.login.defs.pre
 
 # Last active value of a login.defs key (empty if not set)
 get_key() {
@@ -43,6 +44,7 @@ if [ ! -f "$STATE_FILE" ]; then
 		echo "$k=$(get_key "$k")"
 	done > "$STATE_FILE"
 	chmod 644 "$STATE_FILE"
+	cp -p /etc/login.defs "$BACKUP"
 else
 	# Restart: remove what a previous run or its solution created
 	for u in dave eve; do
@@ -52,10 +54,14 @@ else
 	done
 	groupdel contractors >/dev/null 2>&1 || true
 	rm -f "$LIMITS"
-	# Put the aging defaults back to their recorded original values
-	for k in $KEYS; do
-		set_key "$k" "$(sed -n "s/^$k=//p" "$STATE_FILE")"
-	done
+	# Put login.defs back exactly as it was before the first start
+	if [ -f "$BACKUP" ]; then
+		cp -p "$BACKUP" /etc/login.defs
+	else
+		for k in $KEYS; do
+			set_key "$k" "$(sed -n "s/^$k=//p" "$STATE_FILE")"
+		done
+	fi
 fi
 
 exit 0

@@ -3,7 +3,7 @@ OBJECTIVE
   shared directory tree with owner, group and ACL settings.
 
 PREREQUISITES
-  Run the lab with root privileges through sudo. The ACL tools
+  The tasks need root privileges, which sudo provides. The ACL tools
   getfacl and setfacl must be installed. Rocky Linux 8 and 9 behave
   the same.
 
