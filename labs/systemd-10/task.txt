@@ -1,0 +1,52 @@
+OBJECTIVE
+  Three custom services on {{HOSTNAME}} fail to start. Find out why
+  each one fails and fix it, so that all three run as their own users
+  and start at boot.
+
+TASKS
+  1. The units reportd.service, inventoryd.service and
+     metricsd.service are in /etc/systemd/system. Their programs are
+     /usr/local/bin/reportd, /usr/local/bin/inventoryd and
+     /usr/local/bin/metricsd.
+  2. All three services are active.
+  3. All three services are enabled to start at boot as part of
+     multi-user.target.
+  4. The contents of the three programs stay unchanged. Each program
+     is executable for the user that runs it and has the SELinux type
+     bin_t.
+  5. Each service runs its own program as its own unprivileged user:
+     reportd as the user reportd, inventoryd as inventoryd and
+     metricsd as metricsd. Keep the User= setting of each unit as it
+     is. No service runs as root.
+  6. inventoryd.service reads its settings from the file
+     /etc/sysconfig/inventoryd. The running inventoryd process has the
+     variables INVENTORY_DIR and SCAN_INTERVAL from that file, with
+     the values that were prepared for this service on {{HOSTNAME}}.
+  7. metricsd.service becomes active within a few seconds of a start
+     and keeps running with the same main process. Its service type
+     matches the way its program runs.
+  8. The three unit files pass a check with systemd-analyze verify
+     (exit status 0).
+  9. SELinux stays in enforcing mode, at runtime and in
+     /etc/selinux/config.
+
+EXPECTED RESULT
+  All three services are active and enabled, each main process runs
+  under its own user, and the services start again after a reboot.
+
+PRACTICE (not graded)
+  - Reboot {{HOSTNAME}} and check that all three services start
+    without help.
+  - Read the journal of each service from the failed starts to the
+    first good one.
+
+NOTES
+  - Each service fails for a different reason. The status and the
+    journal of a service show how it failed.
+  - Grading watches metricsd.service for a few seconds.
+  - Reference: man systemctl, man journalctl, man systemd.unit,
+    man systemd.service, man systemd.exec, man systemd-analyze,
+    man restorecon and man ls.
+
+GRADING
+  labctl grade systemd-10

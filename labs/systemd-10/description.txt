@@ -1,0 +1,5 @@
+title: Custom services that fail to start
+category: Systemd
+complexity: Intermediate
+objective: Find out why three custom services fail to start and fix them, so that they run as their own users and start at boot.
+target: servera
