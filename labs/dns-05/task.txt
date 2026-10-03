@@ -1,0 +1,56 @@
+OBJECTIVE
+  Programs on {{HOSTNAME}} can no longer resolve host names, and users
+  report that www.rockylinux.org showed the wrong server even while
+  other names still worked. Find the causes and repair name resolution
+  so that it works through the DNS servers that NetworkManager
+  provides.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - {{HOSTNAME}} has internet access. NetworkManager gets its DNS
+    servers through the connection of the interface that carries the
+    default route.
+
+TASKS
+  1. Public host names such as rockylinux.org resolve on {{HOSTNAME}}
+     for every program that uses the system resolver.
+  2. www.rockylinux.org resolves to its public address. /etc/hosts
+     has no line for this name, and all other lines of /etc/hosts are
+     unchanged.
+  3. NetworkManager manages /etc/resolv.conf again:
+     - NetworkManager generated the file
+     - the file lists exactly the DNS servers that NetworkManager has
+       for the connection of the default-route interface
+     - nothing prevents NetworkManager from updating the file later
+  4. The configuration of NetworkManager lets it manage DNS and
+     /etc/resolv.conf.
+  5. The connection profile of the default-route interface is
+     unchanged. Do not add DNS servers to it or change it in any other
+     way.
+  6. NetworkManager is active.
+
+EXPECTED RESULT
+  Name resolution works with the DNS servers of the connection, and a
+  later change of these servers would reach /etc/resolv.conf without
+  manual work.
+
+PRACTICE (not graded)
+  - Compare the answer of the system resolver for a name with the
+    answer of a DNS query tool that ignores /etc/hosts.
+  - Read the messages of NetworkManager about DNS in the journal
+    before and after the repair.
+
+NOTES
+  - Your SSH session runs over the interface that carries the default
+    route. Do not take this interface or its connection down, do not
+    reactivate the connection and do not restart the network.
+  - Do not reboot {{HOSTNAME}} during the lab. Repair the running
+    system.
+  - labctl reset puts /etc/hosts, /etc/resolv.conf and the
+    NetworkManager configuration back as they were before the lab.
+  - Reference: man nsswitch.conf, man hosts, man resolv.conf,
+    man getent, man NetworkManager.conf (sections main and dns),
+    man nmcli, man lsattr, man journalctl.
+
+GRADING
+  labctl grade dns-05

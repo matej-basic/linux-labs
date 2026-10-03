@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- dns-05: a break-fix lab where name resolution fails on servera because of the NetworkManager DNS settings, an immutable resolv.conf and a stale hosts entry.
 - dns-04: a BIND secondary zone on node 2 with zone transfers limited to it and NOTIFY from the primary on node 1.
 - systemd-09: find a CPU hog and a memory hog and the units that start them, and collect sar data every 2 minutes through a timer drop-in.
 - webserver-06: Apache serving PHP through a dedicated PHP-FPM pool that runs as its own user, with SELinux labels and the firewall.

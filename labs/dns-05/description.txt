@@ -1,0 +1,6 @@
+title: Name resolution fails on a client
+category: DNS
+complexity: Intermediate
+objective: Find out why a server resolves no host names and one name to a wrong address, and let NetworkManager manage name resolution again.
+target: servera
+needs: internet
