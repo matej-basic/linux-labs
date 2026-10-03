@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- systemd-08: a drop-in override for a vendor unit with a restart policy, an environment variable and memory and CPU limits.
 - storage-10: a software RAID 1 array with a hot spare on loop devices, persistent in mdadm.conf and fstab, and a failed disk replaced.
 - systemd-07: kdump with crashkernel=256M on every kernel, a dump path and dump level in kdump.conf, after a reboot.
 - webserver-04: an nginx HTTPS reverse proxy with a self-signed certificate, forwarded headers, an HTTP redirect and the SELinux boolean.

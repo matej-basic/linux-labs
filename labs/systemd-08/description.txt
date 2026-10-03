@@ -1,0 +1,5 @@
+title: Drop-in overrides, restart policy and resource limits
+category: Systemd
+complexity: Intermediate
+objective: Change a vendor service through a drop-in file: restart policy, an environment variable and memory and CPU limits.
+target: servera

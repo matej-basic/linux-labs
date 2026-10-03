@@ -1,0 +1,45 @@
+OBJECTIVE
+  Change the settings of a service that a package installed, without
+  editing its unit file: a restart policy, an environment variable
+  and memory and CPU limits.
+
+TASKS
+  1. The vendor unit /usr/lib/systemd/system/labapp.service runs the
+     program /usr/local/libexec/labapp. Leave this file unchanged, and
+     do not create a full copy of it as
+     /etc/systemd/system/labapp.service.
+  2. Make every change to labapp.service in a drop-in file in the
+     directory /etc/systemd/system/labapp.service.d. Choose any file
+     name that ends in .conf.
+  3. The service is restarted only when it fails (restart policy
+     on-failure), 5 seconds after it stopped.
+  4. The service runs with the environment variable LAB_MODE set to
+     production. The vendor unit sets it to development; your value
+     replaces that one. The running labapp process must have the new
+     value.
+  5. The service may use at most 128M of memory, as a hard limit
+     (MemoryMax).
+  6. The service may use at most 50% of one CPU.
+  7. labapp.service is enabled to start at boot and active now.
+  8. When the main process of labapp is killed with SIGKILL, systemd
+     starts the service again with a new process within 15 seconds.
+
+EXPECTED RESULT
+  /usr/lib/systemd/system/labapp.service is as it was installed. The
+  only local configuration is the drop-in file, and the running
+  service shows all the new settings.
+
+PRACTICE (not graded)
+  - Compare the output of the unit file display with and without the
+    drop-in file, and find the drop-in in the status output.
+  - Kill the main process yourself and watch the journal of the
+    service while systemd restarts it.
+
+NOTES
+  - Grading kills the main process of labapp once, to check task 8.
+  - Reference: man systemd.unit (drop-in directories),
+    man systemd.service, man systemd.exec,
+    man systemd.resource-control and man systemctl.
+
+GRADING
+  labctl grade systemd-08
