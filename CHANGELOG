@@ -31,6 +31,9 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 - Lab nfs-01 (Storage, Intermediate, two nodes): an NFS export from node 1 to node 2 only, with root squashing, and a persistent mount on node 2.
 - Lab ssh-01 (SSH, Beginner): an ed25519 key pair, an authorized key for a second account and a client host alias. SSH is a new category.
 
+### Fixed
+- networking-01, networking-02 and networking-03: setup and cleanup looked up the file of a saved connection profile with an nmcli field that does not exist, so a profile stored on disk was never reloaded. They now read it from the FILENAME column.
+
 ## 2.0.0 (2026-10-03)
 
 ### Added

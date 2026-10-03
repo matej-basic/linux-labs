@@ -10,7 +10,7 @@ nmcli connection delete labnet-static &>/dev/null || true
 restore_profile() {
 	local uuid=$1 file
 	nmcli connection modify --temporary uuid "$uuid" connection.autoconnect yes &>/dev/null || true
-	file=$(nmcli -g GENERAL.FILENAME connection show uuid "$uuid" 2>/dev/null || true)
+	file=$(nmcli -g UUID,FILENAME connection show 2>/dev/null | sed -n "s/^$uuid://p" | sed 's/\\:/:/g')
 	case "$file" in
 	"" | /run/*) ;;
 	*) nmcli connection load "$file" &>/dev/null || true ;;
