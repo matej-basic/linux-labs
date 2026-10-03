@@ -1,0 +1,6 @@
+title: Key login fails for a user with a non-standard home
+category: SSH
+complexity: Intermediate
+objective: Find and fix every reason why an SSH key login fails for an account whose home directory is under /srv.
+target: servera
+needs: internet

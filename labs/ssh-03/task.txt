@@ -1,0 +1,56 @@
+OBJECTIVE
+  The deployment account webdeploy on {{HOSTNAME}} cannot log in over
+  SSH with its key. More than one thing is wrong. Find each cause in
+  the client output and the logs, and fix it without weakening the
+  security of the SSH server or of SELinux.
+
+PREREQUISITES
+  - The lab has created the account webdeploy. Its home directory is
+    /srv/users/webdeploy.
+  - The private key ~/.ssh/webdeploy_ed25519 of {{LAB_USER}} belongs
+    to the public key in the authorized keys file of webdeploy. Use
+    it to test the login.
+  - The lab installs policycoreutils-python-utils.
+  - SELinux is in enforcing mode.
+
+TASKS
+  1. A key login as webdeploy on {{HOSTNAME}} with the key from the
+     PREREQUISITES works without a password, and commands sent over
+     the connection run as webdeploy.
+  2. The login shell of webdeploy is /bin/bash.
+  3. Public key authentication is on for webdeploy in the effective
+     SSH server configuration. StrictModes stays on.
+  4. The home directory of webdeploy, its .ssh directory and the file
+     authorized_keys in it belong to webdeploy and have minimal
+     permissions. The home directory is not writable by the group or
+     by others, .ssh has mode 0700 and authorized_keys has mode 0600.
+  5. authorized_keys has the SELinux type ssh_home_t. The file context
+     rules of the policy give every path in the home directory of
+     webdeploy the type it has, so the labels survive a full relabel
+     of the file system.
+  6. SELinux stays in enforcing mode, now and in /etc/selinux/config.
+     Do not add permissive domains.
+  7. The SSH server configuration passes the sshd syntax test, and
+     sshd is enabled and running.
+  8. The effective SSH server configuration for {{LAB_USER}} stays
+     exactly as it was at the start of the lab.
+
+NOTES
+  - Keep port 22 and key logins as {{LAB_USER}} working at all times.
+    labctl reaches this machine over SSH on port 22 with a key, and
+    so do you. Keep a second SSH session open while you change sshd,
+    and test the configuration before you reload sshd.
+  - Fix one problem, try the login again and read the logs again: one
+    fault can hide the next.
+  - Leave the home directory where it is and keep the key. Undo
+    settings that you change only for troubleshooting, such as a more
+    verbose log level.
+  - Reference: man ssh, man sshd, man sshd_config (StrictModes and
+    Match), man ausearch, man semanage-fcontext, man restorecon and
+    man usermod.
+  - labctl reset restores the SSH server configuration exactly as it
+    was, removes webdeploy, its home directory, the lab key and the
+    file context rules you added, and the packages the lab installed.
+
+GRADING
+  labctl grade ssh-03
