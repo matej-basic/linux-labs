@@ -1,0 +1,66 @@
+OBJECTIVE
+  Change the configuration of systemd-journald with a drop-in file:
+  persistent storage, size limits, rate limiting and retention. Make
+  the running journald use the new settings and check that messages
+  reach both the journal and rsyslog.
+
+PREREQUISITES
+  - The journal is kept in memory only at the start of the lab:
+    /var/log/journal does not exist and no journald drop-in file is
+    present.
+  - rsyslog is installed and running, as on a default installation.
+
+TASKS
+  1. Leave /etc/systemd/journald.conf unchanged. Put every setting
+     in a drop-in file in the directory /etc/systemd/journald.conf.d.
+     Choose any file name that ends in .conf.
+  2. Configure journald with these values:
+
+       Storage                persistent
+       SystemMaxUse           100M
+       SystemMaxFileSize      20M
+       RateLimitIntervalSec   10s
+       RateLimitBurst         500
+       MaxRetentionSec        2 weeks
+
+  3. Restart systemd-journald after the last change to the drop-in
+     directory, so that the running journald uses the new settings.
+  4. Journal files are written below /var/log/journal/<machine-id>,
+     where <machine-id> is the content of /etc/machine-id. The
+     running journald reports a maximum use of 100M for this system
+     journal.
+  5. As {{LAB_USER}}, log the message "journald limits applied" with
+     the syslog identifier (tag) labjournal, after the last restart
+     of systemd-journald and once journald writes to
+     /var/log/journal. The message must be in the persistent journal
+     and in /var/log/messages.
+
+EXPECTED RESULT
+  /etc/systemd/journald.conf is as it was installed and the only local
+  journald configuration is your drop-in file. The journal survives a
+  reboot, uses at most 100M on disk in files of at most 20M, drops
+  entries older than two weeks and accepts at most 500 messages from
+  one service in 10 seconds.
+
+PRACTICE (not graded)
+  - Show the combined journald configuration with all drop-ins, and
+    the disk usage of the journal.
+  - Remove archived journal files until the journal uses at most 50M
+    on disk, and compare the disk usage before and after.
+  - Log 600 messages from one shell loop as quickly as possible and
+    look for the message from journald about suppressed messages.
+
+NOTES
+  - The setup of this lab moves an existing /var/log/journal aside to
+    /var/log/journal.logging-06-backup and keeps existing journald
+    drop-ins in its state directory. The reset puts both back.
+  - The tag of a syslog message is the syslog identifier in the
+    journal.
+  - rsyslog reads its messages from the journal. Check that new
+    messages still reach /var/log/messages after the journal moved
+    to /var/log/journal.
+  - Reference: man journald.conf, man systemd-journald, man
+    journalctl, man systemd.time, man logger and man systemd-analyze.
+
+GRADING
+  labctl grade logging-06

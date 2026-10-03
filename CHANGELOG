@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- logging-06: journald settings in a drop-in file (persistent storage, size limits, rate limiting, retention), in effect after a restart.
 - ansible-03: Ansible Vault with a password file, a loop, a template from facts and a condition on a custom fact, on two managed nodes.
 - systemd-08: a drop-in override for a vendor unit with a restart policy, an environment variable and memory and CPU limits.
 - storage-10: a software RAID 1 array with a hot spare on loop devices, persistent in mdadm.conf and fstab, and a failed disk replaced.

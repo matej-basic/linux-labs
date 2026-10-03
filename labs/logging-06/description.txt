@@ -1,0 +1,5 @@
+title: journald size limits, rate limiting and retention
+category: Logging
+complexity: Intermediate
+objective: Configure persistent journald storage, size limits, rate limiting and retention in a drop-in file and check that the running journald uses them.
+target: servera
