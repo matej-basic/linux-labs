@@ -46,7 +46,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Security and access control
 
-- fail2ban-01 (Beginner): Fail2ban installation and basics
 - fail2ban-02 (Intermediate): Custom rules and filters
 - fail2ban-03 (Advanced): Integration with other services
 - iptables-01 (Beginner): Iptables basics

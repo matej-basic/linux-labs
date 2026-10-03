@@ -1,0 +1,51 @@
+OBJECTIVE
+  Protect the SSH server of this machine with fail2ban. Addresses that
+  fail to log in too often are banned in the firewall, while the local
+  network and the loopback addresses are never banned.
+
+PREREQUISITES
+  - Internet access to the Rocky Linux and EPEL mirrors.
+  - fail2ban is not installed when the lab starts, and firewalld is
+    running.
+
+TASKS
+  1. Install the package fail2ban from the EPEL repository. Enable
+     EPEL first if this system does not have it yet.
+  2. Enable the jail sshd. Put its settings in the file
+     /etc/fail2ban/jail.local or in a file in /etc/fail2ban/jail.d.
+     The file /etc/fail2ban/jail.conf stays unchanged.
+  3. The jail sshd bans an address after 4 failed logins within 15
+     minutes. A ban lasts 1 hour.
+  4. The jail sshd never bans these addresses (setting ignoreip):
+
+       127.0.0.1/8
+       ::1
+       the IPv4 network of the interface that carries the default
+       route of {{HOSTNAME}}, in CIDR notation, for example
+       172.25.250.0/24
+
+     That network contains the workstation, which manages this lab
+     over SSH.
+  5. Bans of the jail sshd are firewalld rules. This is the default
+     ban action of the fail2ban package on Rocky Linux; keep it.
+  6. The service fail2ban is enabled and running, and its
+     configuration reloads without errors.
+
+EXPECTED RESULT
+  The status of the jail sshd shows it running with no banned
+  addresses. An address banned in the jail appears as a firewalld
+  rule, and the rule goes away when the address is unbanned.
+
+NOTES
+  - Do not test the jail with failed logins from the workstation or
+    from any address in your local network. A ban of the workstation
+    locks labctl out of {{HOSTNAME}} for the whole ban time.
+  - The grader bans and unbans the documentation address 192.0.2.77,
+    which no real client uses.
+  - Root privileges (sudo) are needed for all tasks.
+  - Reference: man jail.conf, man fail2ban-client, man ip-route.
+  - labctl reset removes fail2ban with its configuration, its bans
+    and the EPEL repository.
+
+GRADING
+  labctl grade fail2ban-01

@@ -1,0 +1,6 @@
+title: Protect SSH with fail2ban
+category: SSH
+complexity: Beginner
+objective: Install fail2ban from EPEL and enable the sshd jail with retry limits, a ban time, trusted networks and firewalld bans.
+target: servera
+needs: internet
