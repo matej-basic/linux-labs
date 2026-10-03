@@ -1,0 +1,5 @@
+title: Bash scripts with arguments, conditions and loops
+category: Automation
+complexity: Intermediate
+objective: Write two Bash scripts that check their arguments, loop over files and users and set exit codes.
+target: servera

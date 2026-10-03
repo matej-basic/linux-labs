@@ -1,0 +1,69 @@
+OBJECTIVE
+  Write two Bash scripts that check their arguments, loop over files
+  and users and report the result with exit codes.
+
+TASKS
+  1. Create two scripts in /usr/local/bin, filecount and userinfo.
+     Each is a regular file whose first line is #!/bin/bash, and your
+     user, {{LAB_USER}}, can run both without root or sudo. Use sudo
+     only to install them.
+  2. filecount takes exactly one argument, a directory:
+
+       - With no argument or more than one, print this line to
+         standard error and exit with status 2:
+
+           Usage: filecount <directory>
+
+       - When the argument is not an existing directory, print this
+         line to standard error and exit with status 1:
+
+           Not a directory: <argument>
+
+       - Otherwise print one line <name> <lines> for each regular
+         file directly in that directory, sorted by name. <name> is
+         the file name without the directory and <lines> is its
+         number of lines. Then print total <sum>, where <sum> is the
+         sum of all printed line counts, and exit with status 0.
+         Ignore hidden files (names starting with a dot), directories
+         and everything inside subdirectories. An empty directory
+         prints only total 0.
+
+     Example for a directory with the files a.txt (3 lines) and
+     b.txt (10 lines):
+
+       a.txt 3
+       b.txt 10
+       total 13
+
+  3. userinfo takes one or more user names. For each name, in the
+     order given, it prints one line:
+
+       <name> exists <UID> <login shell>
+       <name> missing
+
+     The first form is for a user that exists, the second for one
+     that does not. Exit with status 0 when every user exists, else
+     with status 1. With no argument, print this line to standard
+     error and exit with status 2:
+
+       Usage: userinfo <user>...
+
+  4. Both scripts print nothing else, and nothing to standard error
+     except the error lines above. The test directories under
+     /srv/scripting are ready for your own tests.
+
+NOTES
+  - Every file the grader counts ends with a newline, so its number
+    of lines is its number of newline characters. An empty file has
+    0 lines.
+  - The grader runs the scripts as {{LAB_USER}} with the C locale
+    (byte order for sorting), on the directories in /srv/scripting
+    and on new directories with random file names and line counts.
+    It also uses random user names.
+  - The login shell is the last field of the user's passwd entry.
+  - Reference: man bash (sections Positional Parameters, Compound
+    Commands, CONDITIONAL EXPRESSIONS and Special Parameters),
+    man wc and man getent.
+
+GRADING
+  labctl grade scripting-01
