@@ -1,0 +1,7 @@
+# GitGuardian (ggshield and the GitHub app) configuration.
+# Lab files contain example passwords for throwaway lab accounts on
+# disposable VMs. They are part of the task text and protect nothing.
+version: 2
+secret:
+  ignored_paths:
+    - "labs/**"

@@ -37,7 +37,7 @@ CATEGORIES="Automation|Containers|Database Replication|Databases|DNS|Files|Firew
 # Files and directories allowed in the repo root (tracked, or untracked and
 # not ignored). Keep in sync with the root-file rule in CLAUDE.md and
 # docs/author/testing.md.
-ROOT_ALLOWED="README.md CHANGELOG LICENSE CLAUDE.md .github .gitignore .claude labs src rpm scripts pages docs"
+ROOT_ALLOWED="README.md CHANGELOG LICENSE CLAUDE.md .github .gitignore .gitguardian.yaml .claude labs src rpm scripts pages docs"
 NEEDS_ITEM='(internet|reboot|free-nic|nodes=[0-9]+)'
 # Machines a single-node lab can run on (description.txt target:). Keep in
 # sync with target_node in src/usr/bin/labctl.
