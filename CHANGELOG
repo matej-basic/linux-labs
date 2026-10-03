@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- scheduling-05: a break-fix lab with three cron jobs that never run because of a file mode, a missing user field, cron's PATH and an unescaped percent sign.
 - ssh-03: a break-fix lab where key login fails for a user with a home under /srv because of modes, SELinux labels, a Match block and the login shell.
 - dns-05: a break-fix lab where name resolution fails on servera because of the NetworkManager DNS settings, an immutable resolv.conf and a stale hosts entry.
 - dns-04: a BIND secondary zone on node 2 with zone transfers limited to it and NOTIFY from the primary on node 1.

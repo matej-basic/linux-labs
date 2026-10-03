@@ -1,0 +1,46 @@
+OBJECTIVE
+  Three cron jobs on {{HOSTNAME}} should each add a line to their own
+  log file every minute. None of their log files has a single line.
+  Find out why and make all three jobs run.
+
+PREREQUISITES
+  - The helper /usr/local/sbin/lab-report prints one line: the date
+    and time, its own name with the user that runs it in brackets,
+    and its arguments.
+  - The log files are in /var/log/cronlab. The user reports exists.
+  - Work as {{LAB_USER}} and use sudo where root is needed.
+
+TASKS
+  1. The job in /etc/cron.d/lab-backup runs every minute as root. Each
+     run appends one line to /var/log/cronlab/backup.log.
+  2. The job in /etc/cron.d/lab-cleanup runs every minute as root.
+     Each run appends one line to /var/log/cronlab/cleanup.log.
+  3. The job in the crontab of the user reports runs every minute as
+     reports. Each run appends one line to /var/log/cronlab/daily.log.
+     The line ends with the current date in the form YYYY-MM-DD.
+  4. The jobs stay where they are, keep their schedule of every minute
+     and keep calling /usr/local/sbin/lab-report with the same
+     arguments. The helper itself stays unchanged.
+  5. Both files in /etc/cron.d are owned by root, and neither the
+     group nor others may write them.
+  6. The service crond is enabled and running.
+
+EXPECTED RESULT
+  A minute after the fix, each log file has a new line of this form
+  (the date and time differ):
+
+       2026-10-03 14:05:01 lab-report[root] backup
+       2026-10-03 14:05:01 lab-report[root] cleanup
+       2026-10-03 14:05:01 lab-report[reports] 2026-10-03
+
+NOTES
+  - A job that cron cannot start often leaves a message in the log of
+    the cron daemon, and nowhere else.
+  - The grader looks for a line from the last 3 minutes in each log
+    file. When one is missing, it waits up to 75 seconds for the next
+    run of the jobs.
+  - Use any valid Linux commands. Only the final state is graded.
+  - Reference: man 5 crontab, man 8 cron and man 1 crontab.
+
+GRADING
+  labctl grade scheduling-05
