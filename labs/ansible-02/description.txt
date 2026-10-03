@@ -1,0 +1,5 @@
+title: Ansible roles, templates and handlers
+category: Automation
+complexity: Intermediate
+objective: Write an Ansible role with Jinja2 templates, per-host variables and a handler, and apply it to two web servers.
+needs: internet, nodes=3

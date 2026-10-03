@@ -102,7 +102,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - jenkins-01 (Beginner): Jenkins installation
 - jenkins-02 (Intermediate): Pipeline creation
 - jenkins-03 (Advanced): Integration and automation
-- ansible-02 (Intermediate): Playbook development
 - ansible-03 (Advanced): Complex automation scenarios
 - k8s-01 (Beginner): Kubernetes cluster setup
 - k8s-02 (Intermediate): Deployment and services
