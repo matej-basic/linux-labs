@@ -1,0 +1,6 @@
+title: Rootless pod with a database and a web container
+category: Containers
+complexity: Advanced
+objective: Run a MariaDB container with its data on a host directory and a PHP web container in one rootless Podman pod, so that the page reads from the database over the pod's localhost.
+needs: internet
+target: servera

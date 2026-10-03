@@ -1,0 +1,78 @@
+OBJECTIVE
+  Run a MariaDB container and a PHP web container in one rootless
+  Podman pod. The database keeps its data in a directory in your
+  home, and the web page reads a row from the database over the
+  shared network of the pod.
+
+PREREQUISITES
+  - Internet access to the package repositories, quay.io and
+    registry.access.redhat.com.
+  - You work as {{LAB_USER}}, with root access through sudo for
+    package installs.
+  - Setup has written the page index.php into the directory podlab
+    in the home directory of {{LAB_USER}}.
+
+TASKS
+  1. Install the podman package if it is missing.
+  2. As {{LAB_USER}}, not as root, create a pod named apppod that
+     publishes the container port 8080 on host port 8082.
+  3. As {{LAB_USER}}, run a container named db in the pod apppod with
+     these settings:
+
+       image          quay.io/sclorg/mariadb-1011-c9s
+       database       inventory
+       user           app with the password Inv3ntory
+       data           the host directory dbdata in your home,
+                      mounted at /var/lib/mysql/data in the
+                      container
+
+     The directory dbdata holds the database files, and the user app
+     can log in to the database inventory.
+  4. In the database inventory, create a table named items with the
+     columns id (an integer, the primary key) and name (text of up to
+     64 characters). The table holds the row with id 1 and the name
+     blue widget.
+  5. As {{LAB_USER}}, run a container named web in the pod apppod from
+     the image registry.access.redhat.com/ubi9/php-81, with the host
+     directory podlab in your home mounted at /opt/app-root/src in the
+     container.
+  6. A request to http://127.0.0.1:8082/ on {{HOSTNAME}} returns the
+     page from index.php with its first line and the line
+     1 blue widget. Do not change index.php.
+  7. The root account has no Podman containers. Create every
+     container of this lab as {{LAB_USER}}.
+
+EXPECTED RESULT
+  The pod apppod runs the containers db and web. The database files
+  are in the directory dbdata in your home, and the page on host port
+  8082 shows the row from the table items.
+
+PRACTICE (not graded)
+  - Remove the container db and run it again with the same settings.
+    The table items and its row are still there.
+
+NOTES
+  - The MariaDB image creates the database and its user on the first
+    start from the environment variables MYSQL_DATABASE, MYSQL_USER
+    and MYSQL_PASSWORD. It keeps the data in /var/lib/mysql/data and
+    runs the server as the user mysql with UID 27 in the container.
+  - The PHP image serves the files in /opt/app-root/src with Apache
+    on port 8080 when its container runs the command
+    /usr/libexec/s2i/run. Without a command it prints a usage text
+    and exits.
+  - index.php connects to the database at 127.0.0.1 on port 3306.
+  - SELinux stays enforcing.
+  - Setup enabled linger for {{LAB_USER}}, so your containers keep
+    running after you log out. labctl reset turns it off again if it
+    was off before the lab.
+  - Setup removes the pod, the containers and the directory dbdata of
+    an earlier attempt and writes a new podlab directory. labctl reset
+    removes them, the images and the packages the lab installed.
+  - The firewall is not part of this lab and is not graded.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man podman-pod-create, man podman-run,
+    man podman-unshare and man podman-exec.
+
+GRADING
+  labctl grade podman-03

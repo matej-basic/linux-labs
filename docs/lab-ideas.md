@@ -21,7 +21,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - docker-01 (Beginner): Docker installation and basic containers
 - docker-02 (Intermediate): Dockerfile and image creation
 - docker-03 (Advanced): Docker Compose and networking
-- podman-03 (Advanced): Podman networking and storage
 - lxc-01 (Beginner): LXC container basics
 - lxc-02 (Intermediate): LXC networking and profiles
 - lxc-03 (Advanced): LXC snapshots and backups
