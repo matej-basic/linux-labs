@@ -1,0 +1,72 @@
+OBJECTIVE
+  Publish a small web application on {{HOSTNAME}} over HTTPS. The
+  application only listens on the loopback address. nginx terminates
+  TLS for the name app.lab.local with a self-signed certificate and
+  passes the requests on to the application.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with internet access to the package
+    repositories. SELinux stays enforcing and firewalld stays running.
+  - Root access through sudo.
+  - Setup starts the application as the service webapp. It listens on
+    http://127.0.0.1:8081/ and answers two paths:
+
+      /           a page with the text "webapp backend is up"
+      /headers    the request headers it received, one per line
+
+    Leave the service and its files as they are.
+
+TASKS
+  1. Install nginx. Run the nginx service now and make it start at
+     every boot. The nginx configuration test must pass.
+  2. Create a self-signed certificate for the name app.lab.local, as
+     common name or as subject alternative name, stored as:
+
+       certificate  /etc/pki/tls/certs/app.lab.local.crt
+       private key  /etc/pki/tls/private/app.lab.local.key
+
+     The private key is owned by root and has mode 0600.
+  3. Configure nginx for the name app.lab.local on port 443 with TLS
+     and the certificate from task 2. Every request is passed to the
+     application at http://127.0.0.1:8081, so that
+     https://app.lab.local/ returns the application page.
+  4. The proxy tells the application how the client came in. The
+     application receives these request headers:
+
+       X-Forwarded-Proto   https
+       X-Forwarded-For     the client address
+
+  5. Requests to http://app.lab.local/ on port 80 are answered with a
+     permanent redirect (status 301) to the same path and query on
+     https://app.lab.local.
+  6. Allow nginx to connect to the application with SELinux
+     enforcing, through the SELinux boolean that lets the web server
+     open network connections. The setting survives a reboot.
+  7. Open the firewall services http and https on {{HOSTNAME}}, in
+     the running configuration and permanently.
+
+EXPECTED RESULT
+  A request for https://app.lab.local/ sent to {{HOSTNAME}} gets the
+  application page over TLS with your certificate, and the path
+  /headers shows the two forwarded headers. A plain HTTP request is
+  redirected to HTTPS.
+
+PRACTICE (not graded)
+  - Add app.lab.local to /etc/hosts on the workstation with the
+    address of {{HOSTNAME}} and open the page there.
+  - Turn on HTTP/2 for the TLS server. The syntax differs between the
+    nginx releases of Rocky Linux 8 and 9.
+
+NOTES
+  - The name app.lab.local does not need to resolve. The grader sends
+    its requests to 127.0.0.1 on {{HOSTNAME}} with that name.
+  - Setup removes nginx if it is installed. labctl reset removes nginx
+    with its configuration and puts back what was installed before.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man nginx, man openssl-req, man setsebool and man
+    firewall-cmd, and the nginx documentation of the modules
+    ngx_http_proxy_module and ngx_http_ssl_module.
+
+GRADING
+  labctl grade webserver-04

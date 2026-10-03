@@ -1,0 +1,6 @@
+title: Nginx HTTPS reverse proxy for a local application
+category: Web Servers
+complexity: Intermediate
+objective: Publish a local application over HTTPS through an nginx reverse proxy with a self-signed certificate, SELinux enforcing and the firewall open.
+needs: internet
+target: servera
