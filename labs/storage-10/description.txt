@@ -1,0 +1,6 @@
+title: Software RAID 1 with a hot spare and a disk replacement
+category: Storage
+complexity: Intermediate
+objective: Build a RAID 1 array with a hot spare, put XFS on it, make it persistent, then fail a disk, let the spare rebuild and add the old disk back as the new spare.
+target: servera
+needs: internet

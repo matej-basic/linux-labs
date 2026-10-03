@@ -1,0 +1,73 @@
+OBJECTIVE
+  Build a software RAID 1 array with a hot spare, put an XFS file
+  system on it and make both persistent. Then replace a failed disk:
+  let the hot spare take over and add the old disk back as the new
+  hot spare.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - The lab has attached three images of 400 MiB each to loop
+    devices. They are the disks for this lab. Their names, for
+    example /dev/loop0, are lines 1 to 3 of the file
+    /opt/linux-labs/state/storage-10. This task calls them the
+    device from line 1, line 2 and line 3.
+  - Use only these three loop devices. Do not touch the disk of the
+    operating system.
+
+TASKS
+  1. Create a RAID 1 array named labraid with metadata version 1.2.
+     The devices from lines 1 and 2 are its two active members, and
+     the device from line 3 is a hot spare.
+  2. Create an XFS file system with the label RAIDDATA on the array
+     and mount it on /mnt/raid.
+  3. Create the file /mnt/raid/before.txt that contains exactly this
+     line:
+
+       Written before the disk failure
+
+  4. /etc/mdadm.conf has an ARRAY line for labraid that names the
+     array by its UUID.
+  5. /etc/fstab has an entry that mounts the XFS file system on
+     /mnt/raid. The entry names the file system as UUID= followed by
+     the UUID of the XFS file system, has the type xfs and the option
+     nofail. /etc/fstab as a whole passes the fstab verification of
+     findmnt without errors.
+  6. Simulate a failure of the device from line 2: mark it as faulty
+     and remove it from the array. The hot spare from line 3 takes
+     its place. Wait until the rebuild has finished.
+  7. Add the device from line 2 back to the array, where it becomes
+     the new hot spare.
+
+EXPECTED RESULT
+  labraid is a clean RAID 1 array that is not degraded and has no
+  rebuild running. The devices from lines 1 and 3 are its two active
+  members, the device from line 2 is its hot spare, and no other
+  device belongs to it. The XFS file system RAIDDATA is mounted on
+  /mnt/raid and still holds before.txt with its content.
+
+PRACTICE (not graded)
+  - Watch the rebuild progress while it runs.
+  - Compare the UUID of the array with the UUID of the XFS file
+    system on it.
+
+NOTES
+  - The RAID tools come in the package mdadm, which may not be
+    installed yet.
+  - The array device may be called /dev/md127 or similar, and the
+    name the tools show may carry the host name as a prefix, such as
+    servera:labraid. Both are fine.
+  - With disks this small the initial sync and the rebuild take a
+    few seconds.
+  - The loop devices are not attached again at boot, so after a
+    reboot the array is missing. The option nofail lets the system
+    boot anyway. Do not reboot servera during the lab; if it happens,
+    run labctl reset and start the lab again.
+  - labctl reset unmounts the file system, removes the lab entry from
+    /etc/fstab, restores /etc/mdadm.conf, stops the array, wipes the
+    RAID metadata of the loop devices, detaches them and removes the
+    images and the mount point.
+  - Reference: man mdadm, man mdadm.conf, man md, man mkfs.xfs,
+    man fstab, man findmnt and man blkid.
+
+GRADING
+  labctl grade storage-10
