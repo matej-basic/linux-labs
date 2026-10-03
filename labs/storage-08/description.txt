@@ -1,0 +1,5 @@
+title: User and group disk quotas on an XFS file system
+category: Storage
+complexity: Intermediate
+objective: Mount an XFS file system with user and group quotas through /etc/fstab, set block and inode limits for two users and a group, and prepare a shared group directory.
+target: servera

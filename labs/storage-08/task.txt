@@ -1,0 +1,63 @@
+OBJECTIVE
+  Mount an XFS file system with user and group quotas through
+  /etc/fstab, set block and inode limits for two users and a group,
+  and prepare a shared directory for the group.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - The lab has created the empty image /srv/storage-08.img (512 MiB,
+    not formatted), the users qalice and qbob, and the group qteam
+    with both users as members.
+
+TASKS
+  1. Create an XFS file system in the image /srv/storage-08.img.
+  2. Mount the image on /srv/projects through a loop device. The mount
+     has user quotas and group quotas, both with accounting and
+     enforcement turned on.
+  3. Make the mount persistent in /etc/fstab. The entry identifies the
+     image by its path /srv/storage-08.img, uses /srv/projects as the
+     mount point and xfs as the type, and has these options: loop, a
+     user quota option (usrquota or uquota), a group quota option
+     (grpquota or gquota) and nofail.
+  4. Set these quota limits on /srv/projects:
+
+       name     type    block soft   block hard   inode hard
+       qalice   user    80 MiB       100 MiB      1000
+       qbob     user    -            50 MiB       -
+       qteam    group   -            200 MiB      -
+
+     A dash means the limit is not graded. The limits are enforced:
+     a write by qbob stops at 50 MiB.
+  5. Create the directory /srv/projects/team on the quota file system.
+     It belongs to the group qteam and has the mode 2770.
+  6. /etc/fstab as a whole passes the fstab verification of findmnt
+     without errors.
+
+EXPECTED RESULT
+  /srv/projects is an XFS file system from the image, with user and
+  group quotas enforced. qalice, qbob and the group qteam have their
+  limits, and members of qteam share /srv/projects/team.
+
+PRACTICE (not graded)
+  - Write files as qalice until the soft limit is passed and look at
+    the grace time in the quota report.
+  - Write files as qbob in /srv/projects/team and compare the usage
+    of qbob and of qteam in the report.
+
+NOTES
+  - XFS turns quotas on only when the file system is mounted. A
+    remount ignores changed quota options, so unmount /srv/projects
+    and mount it again after changing them.
+  - Quota limits are stored inside the XFS file system, so they stay
+    across unmounts and reboots.
+  - 1 MiB is 1024 KiB. Quota reports on XFS show blocks in KiB.
+  - The loop device is attached at boot through the fstab entry. The
+    option nofail keeps a missing image from stopping the boot.
+  - labctl reset unmounts the file system, removes its fstab entry,
+    the image, /srv/projects, the users qalice and qbob and the group
+    qteam.
+  - Reference: man xfs_quota, man xfs (quota mount options),
+    man mkfs.xfs, man fstab, man mount, man findmnt.
+
+GRADING
+  labctl grade storage-08
