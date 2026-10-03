@@ -1,0 +1,5 @@
+title: Archives and rsync transfer between nodes
+category: Files
+complexity: Intermediate
+objective: Archive a directory tree with xz-compressed tar, copy it to a second node with rsync and restore it, keeping owners, modes and times.
+needs: internet, nodes=2

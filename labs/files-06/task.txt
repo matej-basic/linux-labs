@@ -1,0 +1,66 @@
+OBJECTIVE
+  Archive a directory tree on node 1 with xz-compressed tar, copy it
+  to node 2 with rsync and restore the archive on node 1. Owners,
+  groups, modes and modification times stay as they are.
+
+TOPOLOGY
+  Work from the workstation and log in to node 1 with the node
+  account, the SSH user of the lab configuration (opsadmin by
+  default).
+
+     workstation
+          |
+          | SSH as the node account
+          |
+     node 1  {{NODE1_IP}}
+     /srv/projects, the archive, /srv/restore
+          |
+          | rsync over SSH as the node account
+          |
+     node 2  {{NODE2_IP}}
+     /srv/backup
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - The node account has full sudo on both nodes.
+  - On node 1, the node account has the SSH key ~/.ssh/id_ed25519.
+    Its public key is authorized for the node account on node 2, so
+    this key logs in from node 1 to node 2 without a password.
+  - Both nodes have the users projdev and projqa and the group
+    projteam, with the same user and group IDs.
+  - The nodes reach the Rocky Linux package repositories.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. Do not change /srv/projects on node 1. Some of its files and
+     directories are readable only by their owner or group.
+  2. Create the archive /srv/projects.tar.xz on node 1. It is a tar
+     archive compressed with xz. It holds the whole tree, the .tmp
+     files included. The member names start with projects/, for
+     example projects/alpha/plan.txt. Every member keeps its owner
+     and group.
+  3. Copy the tree to node 2 with rsync, so that node 2 has
+     /srv/backup/projects with the same files as /srv/projects. Leave
+     out every file whose name ends in .tmp. Every file and directory
+     keeps its mode, owner and group, and every file keeps its
+     modification time.
+  4. Extract the archive on node 1 into /srv/restore, so that
+     /srv/restore/projects is a complete copy of /srv/projects with
+     the same modes, owners, groups and file modification times.
+
+EXPECTED RESULT
+  /srv/projects on node 1 and /srv/backup/projects on node 2 list the
+  same files with the same details, except for the three .tmp files,
+  which exist only on node 1. /srv/restore/projects matches
+  /srv/projects including the .tmp files.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - Install missing packages on the node that needs them. The package
+    set of both nodes goes back to its state before the lab at reset.
+  - Use the address {{NODE2_IP}} to reach node 2 from node 1.
+  - Reference: man tar, man rsync and man ssh.
+
+GRADING
+  labctl grade files-06
