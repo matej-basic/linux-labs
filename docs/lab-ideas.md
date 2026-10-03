@@ -10,7 +10,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Database and data services
 
-- redis-01 (Beginner): Redis installation and basic operations
 - redis-02 (Intermediate): Redis data structures and persistence
 - redis-03 (Advanced): Redis replication and clustering
 - mongodb-01 (Beginner): MongoDB installation and document basics

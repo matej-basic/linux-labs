@@ -1,0 +1,6 @@
+title: Redis server with a password and persistence
+category: Databases
+complexity: Beginner
+objective: Install Redis, protect it with a password, turn on AOF persistence and open it to the network.
+needs: internet
+target: servera

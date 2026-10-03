@@ -1,0 +1,60 @@
+OBJECTIVE
+  Install a Redis server on {{HOSTNAME}}, protect it with a password,
+  make it keep its data on disk and open it to the network.
+
+PREREQUISITES
+  - Rocky Linux 8 or 9 with internet access to the package
+    repositories. The package redis comes from AppStream: Redis 5 on
+    Rocky Linux 8, Redis 6 on Rocky Linux 9. Valkey is a different
+    product and is not accepted here.
+  - Root access through sudo.
+
+TASKS
+  1. Install Redis. Run the redis service now and make it start at
+     every boot.
+  2. Make Redis listen on TCP port 6379 on two addresses: 127.0.0.1
+     and the IPv4 address of {{HOSTNAME}} on its default-route
+     interface. That address is on the line address= in the file
+     /opt/linux-labs/state/redis-01. Listening on the wildcard address
+     0.0.0.0 does not count.
+  3. Require the password labredis42 from every client. A client that
+     has not authenticated gets an error instead of an answer to PING.
+     Set only this password. Redis 5 has no ACL users.
+  4. Turn on append-only file (AOF) persistence. The append-only file
+     must exist in the Redis data directory.
+  5. Limit Redis to 128 MB of memory: maxmemory is 134217728 bytes.
+     When the limit is reached, Redis evicts the least recently used
+     keys of all keys (policy allkeys-lru).
+  6. Store the key lab:status with the string value ready.
+  7. Make the password, AOF persistence, the memory limit with its
+     policy and the key lab:status survive a restart of the redis
+     service.
+  8. Open port 6379/tcp in the firewall, in the running configuration
+     and permanently.
+
+EXPECTED RESULT
+  The redis service is enabled and running and listens on 127.0.0.1
+  and on the server address. Without the password every command but
+  authentication fails. The settings are in the configuration file, so
+  a restart keeps them, and the key lab:status comes back from the
+  append-only file.
+
+PRACTICE (not graded)
+  - From the workstation, connect to Redis on {{HOSTNAME}} over the
+    network with the password.
+  - Store a few more keys, restart the service and read them back.
+
+NOTES
+  - The configuration file is /etc/redis.conf on Rocky Linux 8 and
+    /etc/redis/redis.conf on Rocky Linux 9. Its comments describe
+    every setting.
+  - Grading restarts the redis service.
+  - Setup removes Redis if it is installed. labctl reset removes
+    Redis with its data and puts back what was installed before.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man systemctl, man firewall-cmd and the Redis
+    configuration file.
+
+GRADING
+  labctl grade redis-01

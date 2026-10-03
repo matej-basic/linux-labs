@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- redis-01: a Redis server with a password, AOF persistence, a memory limit and an open firewall port, all surviving a restart.
 - storage-08: user and group quotas on a loop-mounted XFS file system, persistent in fstab and enforced.
 - scheduling-04: an at job for a fixed time, /etc/at.allow with exactly three users and a default umask of 027 in a login shell.
 - fail2ban-01: fail2ban from EPEL with an sshd jail in jail.local, ban limits, ignoreip for the local network and firewalld bans.
