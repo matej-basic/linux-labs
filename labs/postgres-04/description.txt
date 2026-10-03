@@ -1,0 +1,6 @@
+title: PostgreSQL that does not start
+category: Databases
+complexity: Intermediate
+objective: Find and fix the faults that keep a PostgreSQL server from starting, with SELinux enforcing and the data intact.
+target: servera
+needs: internet

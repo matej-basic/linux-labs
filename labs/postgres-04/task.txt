@@ -1,0 +1,47 @@
+OBJECTIVE
+  Bring the PostgreSQL server on {{HOSTNAME}} back into service. The
+  service does not start, and more than one thing is wrong. Find each
+  cause in the service status and the logs, and fix it without
+  weakening the security of the server and without losing data.
+
+PREREQUISITES
+  - The lab installs postgresql-server and
+    policycoreutils-python-utils. The cluster is in the default data
+    directory, /var/lib/pgsql/data.
+  - The database labdb holds the table inventory with 12 rows. The
+    role labapp has the password Stock-2026 and may read that table.
+  - The server is meant to run on TCP port 5433. SELinux is in
+    enforcing mode.
+
+TASKS
+  1. Make the postgresql service run now and start at every boot.
+  2. PostgreSQL listens on TCP port 5433 on the address 127.0.0.1.
+     Keep this port.
+  3. The SELinux policy gives TCP port 5433 the port type that the
+     PostgreSQL server domain may bind to, postgresql_port_t, as a
+     persistent rule.
+  4. The role labapp logs in over TCP to 127.0.0.1, port 5433, with
+     its password and reads the 12 rows of the table inventory in
+     the database labdb. A wrong password for labapp is rejected.
+  5. The data in the table inventory is unchanged.
+  6. The data directory /var/lib/pgsql/data belongs to the user
+     postgres and has a mode that PostgreSQL accepts for it.
+  7. SELinux stays in enforcing mode, now and in /etc/selinux/config.
+     Do not add permissive domains and do not load new policy
+     modules.
+
+EXPECTED RESULT
+  After a reboot of {{HOSTNAME}}, PostgreSQL comes up by itself on
+  port 5433, and labapp can read its table with the password.
+
+NOTES
+  - Fix one problem, start the service again and read the logs again:
+    one fault can hide the next.
+  - Do not create a new cluster: the data in labdb must stay.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man systemctl, man journalctl, man psql,
+    man semanage-port and man ausearch.
+
+GRADING
+  labctl grade postgres-04
