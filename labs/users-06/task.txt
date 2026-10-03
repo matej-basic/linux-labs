@@ -1,0 +1,44 @@
+OBJECTIVE
+  Four accounts on {{HOSTNAME}} cannot log in with their passwords.
+  Each account fails for a different reason. Find the cause for each
+  one and repair the accounts without changing their passwords and
+  without loosening the login policy of the system.
+
+PREREQUISITES
+  - The lab created the users anna, ben, carla and dario. The password
+    of each of them is Harbor-Lantern-58.
+  - The tasks need root privileges, which sudo provides.
+
+TASKS
+  1. Each of anna, ben, carla and dario logs in with the password
+     Harbor-Lantern-58 and gets a bash shell in the home directory
+     /home/<user>.
+  2. The login shell of each of the four users is /bin/bash.
+  3. The home directory of each user is /home/<user>. It is owned by
+     the user and has mode 0700. /home/dario contains the start files
+     from /etc/skel, owned by dario.
+  4. None of the four accounts expires before 2031-01-01. An account
+     without an expiry date meets this as well.
+  5. No password of the four users is locked, and faillock has no
+     failure records for them.
+  6. The passwords stay exactly as the lab set them. Do not set a new
+     password, not even the same one again.
+  7. The four accounts keep their UIDs. Do not delete an account and
+     create it again.
+  8. The PAM configuration in /etc/pam.d and /etc/security and the
+     files /etc/login.defs and /etc/default/useradd stay unchanged.
+  9. {{LAB_USER}}, its authorized keys and the sudo rules stay
+     unchanged.
+
+NOTES
+  - Test a password login from your own account, without sudo, so
+    that the password is really checked. Read the message you get and
+    the system log /var/log/secure.
+  - Repair the accounts one by one and test each login again.
+  - Reference: man chage, man passwd, man usermod, man faillock,
+    man su, man 5 passwd and man 5 shadow.
+  - labctl reset removes the four users, their home directories and
+    mail spools.
+
+GRADING
+  labctl grade users-06
