@@ -1,0 +1,6 @@
+title: Runaway processes and sar data collection
+category: Systemd
+complexity: Intermediate
+objective: Find the processes that hog CPU and memory, stop the units that keep starting them and collect sar data every 2 minutes.
+target: servera
+needs: internet

@@ -1,0 +1,60 @@
+OBJECTIVE
+  Find two processes that waste the resources of {{HOSTNAME}}, stop
+  the systemd units that keep starting them, and set up sysstat so
+  that it records system activity every 2 minutes.
+
+PREREQUISITES
+  - Root privileges through sudo.
+  - Access to the package repositories of Rocky Linux {{EL_MAJOR}}.
+
+TASKS
+  1. One process on {{HOSTNAME}} keeps a CPU busy. Another one holds
+     about 250 MiB of memory. Find both processes and the systemd
+     units that start them. Killing a process is not enough: systemd
+     starts both programs again.
+  2. Stop the CPU hog so that it does not come back. The unit that
+     schedules it again and again is disabled and inactive, and the
+     service that runs the program is inactive. No CPU hog process
+     runs.
+  3. Stop the memory hog so that it does not come back. Its service
+     is disabled and inactive, and no memory hog process runs.
+  4. Leave the unit files and the programs of both hogs in place.
+  5. As {{LAB_USER}}, create the file culprit.txt in your home
+     directory. Its first line is the full name of the unit that
+     schedules the CPU hog, including the unit type suffix. It is not
+     the service that runs the program.
+  6. Install the package sysstat.
+  7. sysstat-collect.timer is enabled and active.
+  8. sysstat-collect.timer starts a data collection every 2 minutes,
+     at every even minute. This calendar event replaces the vendor
+     schedule of every 10 minutes; the timer has no other calendar
+     event.
+  9. Make the change of task 8 in a drop-in file in the directory
+     /etc/systemd/system/sysstat-collect.timer.d, with any file name
+     that ends in .conf. The vendor unit
+     /usr/lib/systemd/system/sysstat-collect.timer stays unchanged,
+     and there is no full copy of it in /etc/systemd/system.
+  10. The sysstat data file of today in /var/log/sa holds at least
+      two samples, so that sar shows at least one line of CPU
+      statistics for today. Wait for the timer to collect them before
+      you grade.
+
+EXPECTED RESULT
+  top shows neither hog any more, also a few minutes later. sar
+  without options shows the CPU usage of today in 2-minute steps.
+
+PRACTICE (not graded)
+  - Before you stop the hogs, compare their CPU and memory usage in
+    top with the limits in their unit files.
+  - After a few more samples, look at the memory and load history of
+    today with sar.
+
+NOTES
+  - The first samples arrive within a few minutes after the timer
+    starts. Grading fails task 10 until there are two of them.
+  - Reference: man top, man ps, man systemctl, man systemd.timer,
+    man systemd.time (calendar events), man systemd.unit (drop-in
+    directories), man sar and man sa1.
+
+GRADING
+  labctl grade systemd-09
