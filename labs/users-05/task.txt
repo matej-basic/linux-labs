@@ -1,0 +1,61 @@
+OBJECTIVE
+  Give limited root rights on servera through a sudoers drop-in file:
+  the helpdesk group may manage the web service without a password,
+  and the user auditor may read the system journal after entering
+  their own password.
+
+PREREQUISITES
+  The lab created the group helpdesk and the users webops and auditor.
+  webops is a member of helpdesk. Both users have the password
+  Desk-Lamp-4721. httpd does not need to be installed.
+
+TASKS
+  1. Create the file /etc/sudoers.d/50-lab, owned by root:root with
+     mode 0440. Do not change /etc/sudoers or the other files in
+     /etc/sudoers.d.
+  2. In 50-lab, define a command alias named HTTPD_CMDS that contains
+     exactly these two commands:
+
+       /usr/bin/systemctl restart httpd
+       /usr/bin/systemctl status httpd
+
+  3. In 50-lab, add a rule for the group helpdesk that uses
+     HTTPD_CMDS. Members of helpdesk run the two commands as root
+     without entering a password. They may run no other command
+     through sudo, and none as another user.
+  4. In 50-lab, add a rule that lets the user auditor run
+     /usr/bin/journalctl with any options as root. auditor must enter
+     their password for it. auditor may run no other command through
+     sudo, and none as another user.
+  5. The complete sudo configuration has no syntax errors.
+
+EXPECTED RESULT
+  Listing the sudo rights of webops shows the two httpd commands as
+  root with no password. Listing the sudo rights of auditor shows
+  journalctl as root with a password.
+
+PRACTICE (not graded)
+  - Switch to webops and auditor in turn and try both allowed and
+    forbidden commands through sudo.
+
+NOTES
+  - {{LAB_USER}} has passwordless sudo for all commands through the
+    file /etc/sudoers.d/opsadmin. Every labctl command for this lab
+    depends on it. Keep a root shell open in a second session to
+    servera while you work on the sudo configuration.
+  - Never add rules or Defaults lines for {{LAB_USER}}, and never add
+    the Defaults option requiretty. A rule in a file that sorts after
+    opsadmin overrides its passwordless sudo. Then labctl can no
+    longer start, grade or reset labs on servera.
+  - A drop-in file with a syntax error, an owner other than root or
+    write permission for others is skipped with a warning, and its
+    rules do not apply. Check a file before you put it in place.
+  - The grader runs the two httpd commands as webops. Without httpd
+    they report that the unit does not exist, which is fine.
+  - Reference: man sudoers (aliases, user specifications and tags),
+    man visudo, man sudo.
+  - labctl reset removes every file in /etc/sudoers.d that was added
+    during the lab, and the users and the group of the lab.
+
+GRADING
+  labctl grade users-05

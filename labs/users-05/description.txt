@@ -1,0 +1,5 @@
+title: Sudo rules with drop-in files and command aliases
+category: Users
+complexity: Intermediate
+objective: Write a sudoers drop-in file with a command alias that gives a group and a user limited root commands, with and without a password.
+target: servera
