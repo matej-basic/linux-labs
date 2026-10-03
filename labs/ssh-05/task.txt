@@ -1,0 +1,64 @@
+OBJECTIVE
+  The account deploy on {{HOSTNAME}} logs in with an SSH user
+  certificate. Create a certificate authority (CA) for user keys, make
+  the SSH server trust it, and sign the key of deploy with it. A plain
+  key without a certificate does not let deploy in. SSH for every other
+  account stays as it is.
+
+PREREQUISITES
+  - The lab has created the account deploy with the shell /bin/bash.
+    deploy has no authorized keys file.
+  - The lab has created a key pair for deploy. The public key is
+    ~/deploy_ed25519.pub of {{LAB_USER}}.
+  - The private key is /opt/linux-labs/state/ssh-05.d/deploy_ed25519
+    and only root can read it. The grader logs in with it, and you may
+    use it with sudo to test your work.
+  - SELinux is in enforcing mode.
+
+TASKS
+  1. The private key of the CA is /etc/ssh/lab_user_ca and its public
+     key is /etc/ssh/lab_user_ca.pub. The private key has no
+     passphrase, belongs to root and has mode 0600. The two files
+     form one key pair.
+  2. The effective SSH server configuration for deploy trusts user
+     certificates signed by the CA: TrustedUserCAKeys is
+     /etc/ssh/lab_user_ca.pub.
+  3. The certificate for the public key of deploy is
+     ~/deploy_ed25519-cert.pub of {{LAB_USER}}, the name ssh expects
+     next to the key. It is a user certificate signed by the CA, for
+     the public key from the PREREQUISITES.
+  4. The key ID of the certificate is deploy-cert, and its only
+     principal is deploy.
+  5. The certificate is valid now, and its validity period is at most
+     52 weeks long.
+  6. A key login as deploy on {{HOSTNAME}} with the private key and the
+     certificate works without a password, and commands sent over the
+     connection run as deploy.
+  7. A key login as deploy with the private key alone, without the
+     certificate, is refused.
+  8. Apart from TrustedUserCAKeys, the effective SSH server
+     configuration for {{LAB_USER}} stays exactly as it was at the
+     start of the lab.
+  9. The SSH server configuration passes the sshd syntax test, and
+     sshd is enabled and running. SELinux stays in enforcing mode, now
+     and in /etc/selinux/config.
+
+NOTES
+  - Keep port 22 and key logins as {{LAB_USER}} working at all times.
+    labctl reaches this machine over SSH on port 22 with a key, and so
+    do you. Keep a second SSH session open while you change sshd, and
+    test the configuration before you reload sshd.
+  - Settings that restrict how deploy logs in belong in a conditional
+    block for deploy only, so that the key logins of {{LAB_USER}} keep
+    working.
+  - Reference: man ssh-keygen (section CERTIFICATES and the options
+    for signing), man sshd_config (TrustedUserCAKeys, Match and
+    AuthorizedKeysFile), man sshd (extended test mode) and man ssh
+    (CertificateFile).
+  - labctl reset restores the SSH server configuration exactly as it
+    was, removes the CA, the account deploy, the lab key and the
+    certificate, and removes the known_hosts entries for this machine
+    that were added during the lab.
+
+GRADING
+  labctl grade ssh-05

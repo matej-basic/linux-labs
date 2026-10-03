@@ -1,0 +1,5 @@
+title: SSH user certificates signed by a local CA
+category: SSH
+complexity: Advanced
+objective: Create an SSH certificate authority, make sshd trust it and sign a user key, so that the account deploy logs in with a certificate and not with a plain key.
+target: servera

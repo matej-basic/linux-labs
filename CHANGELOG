@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- ssh-05: SSH user certificates signed by a local CA, trusted by sshd for one user, with plain key logins refused for that user.
 - packages-08: switch Node.js from module stream 20 to 22 with the common profile, with nothing from the old stream left.
 - files-09: hard links, symbolic links with relative and absolute targets, a repaired broken link and all names of an inode.
 - files-08: reports built with text-processing pipelines from a web server log and a CSV file, graded byte for byte.
