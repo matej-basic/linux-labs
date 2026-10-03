@@ -1,0 +1,6 @@
+title: Configure dnf repositories from a base URL
+category: Packages
+complexity: Beginner
+objective: Write a repository file for BaseOS and AppStream with a base URL and install packages from it.
+needs: internet
+target: servera

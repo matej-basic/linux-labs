@@ -1,0 +1,51 @@
+OBJECTIVE
+  Configure access to two package repositories from their base URLs
+  and install one package from each of them.
+
+PREREQUISITES
+  - Internet access to dl.rockylinux.org, and sudo rights for
+    {{LAB_USER}}.
+  - Works on Rocky Linux 8 and 9.
+
+TASKS
+  1. Create the repository file /etc/yum.repos.d/labrepo.repo.
+  2. In that file, define the repository with the ID lab-baseos and
+     this base URL:
+
+       https://dl.rockylinux.org/pub/rocky/{{EL_MAJOR}}/BaseOS/{{ARCH}}/os/
+
+  3. In the same file, define the repository with the ID
+     lab-appstream and this base URL:
+
+       https://dl.rockylinux.org/pub/rocky/{{EL_MAJOR}}/AppStream/{{ARCH}}/os/
+
+  4. Both repositories are enabled. Both check package signatures,
+     with the Rocky Linux release key that is already on this
+     system in /etc/pki/rpm-gpg as their key file:
+
+       Rocky Linux 8    RPM-GPG-KEY-rockyofficial
+       Rocky Linux 9    RPM-GPG-KEY-Rocky-9
+
+  5. lab-baseos and lab-appstream are the only enabled repositories.
+     The repositories that setup disabled stay disabled.
+  6. Install the package zsh from lab-baseos and the package ksh from
+     lab-appstream.
+
+EXPECTED RESULT
+  The system gets its packages only from the two repositories in
+  labrepo.repo. zsh and ksh are installed, and dnf records lab-baseos
+  and lab-appstream as the repositories they came from.
+
+PRACTICE (not graded)
+  - Look at one of the stock repository files in /etc/yum.repos.d
+    and compare it with yours.
+  - Find out which repository each installed package came from.
+
+NOTES
+  - Setup disabled every repository of the system and removed zsh
+    and ksh. labctl reset puts the original repository files back.
+  - The repository file must be named exactly labrepo.repo.
+  - Reference: man dnf.conf (section REPO OPTIONS) and man dnf.
+
+GRADING
+  labctl grade packages-06
