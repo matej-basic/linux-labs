@@ -1,0 +1,47 @@
+OBJECTIVE
+  Make Apache serve the personal web page of the user webdev while
+  SELinux stays in enforcing mode. Find the cause of the failure in
+  the logs and fix it with an SELinux boolean and the smallest
+  permission change, not by weakening the policy.
+
+PREREQUISITES
+  - The lab installs httpd and policycoreutils-python-utils, creates
+    the user webdev and starts httpd.
+  - Apache is configured in /etc/httpd/conf.d/lab-userdir.conf to
+    serve the directory public_html in the home directory of webdev
+    at http://localhost/~webdev/. Do not change this file.
+
+TASKS
+  1. Make a request to http://localhost/~webdev/ return the file
+     /home/webdev/public_html/index.html with status 200. The page
+     contains the text "webdev personal page".
+  2. Turn on the SELinux boolean that lets Apache serve content from
+     user home directories, httpd_enable_homedirs. It must be on now
+     and in the persistent policy, so that it survives a reboot.
+  3. Give others only the search (execute) permission on
+     /home/webdev: no read and no write for others, and no write for
+     the group. The owner keeps full access.
+  4. Make /home/webdev/public_html and index.html readable by Apache.
+     Nothing in /home/webdev/public_html may be writable by the group
+     or by others.
+  5. Keep SELinux in enforcing mode, now and in /etc/selinux/config.
+     Do not add permissive domains and do not load new policy
+     modules.
+  6. Run the httpd service now, and make it start at every boot.
+
+EXPECTED RESULT
+  The page of webdev is served at http://localhost/~webdev/, the
+  boolean is on in the running and in the persistent policy, and no
+  SELinux denial is logged for the request any more.
+
+NOTES
+  - The request fails for more than one reason: a file permission and
+    SELinux. Each one shows up in a different log once the other is
+    out of the way.
+  - Look at the Apache error log and at the audit log. The
+    setroubleshoot tools may not be installed; the audit tools are.
+  - Reference: man getsebool, man setsebool, man semanage-boolean,
+    man ausearch and man audit2why.
+
+GRADING
+  labctl grade selinux-04

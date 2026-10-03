@@ -1,0 +1,6 @@
+title: SELinux booleans for Apache user directories
+category: SELinux
+complexity: Intermediate
+objective: Find why Apache cannot serve a user's public_html and fix it with an SELinux boolean and minimal permissions.
+needs: internet
+target: servera
