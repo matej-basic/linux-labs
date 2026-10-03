@@ -1,0 +1,6 @@
+title: GPT partitions, swap and file systems mounted by UUID
+category: Storage
+complexity: Intermediate
+objective: Partition a disk with GPT, create an XFS file system, a swap area and a vfat file system, and make all three persistent in /etc/fstab by UUID.
+target: servera
+needs: internet

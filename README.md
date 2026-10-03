@@ -1,6 +1,6 @@
 # linux-labs
 
-Hands-on Linux administration labs in the style of the RHCSA exam, for Rocky Linux, RHEL and AlmaLinux 8 and 9. Each lab prepares the machine, gives the student a task, grades the final state with one PASS or FAIL line per requirement, and resets the machine afterwards. There are 76 labs, from files and permissions to SELinux, storage, DNS, databases and three-node Pacemaker clusters.
+Hands-on Linux administration labs in the style of the RHCSA exam, for Rocky Linux, RHEL and AlmaLinux 8 and 9. Each lab prepares the machine, gives the student a task, grades the final state with one PASS or FAIL line per requirement, and resets the machine afterwards. There are 77 labs, from files and permissions to SELinux, storage, DNS, databases and three-node Pacemaker clusters.
 
 ## Install
 

@@ -1,0 +1,68 @@
+OBJECTIVE
+  Partition a disk with a GPT partition table, create an XFS file
+  system, a swap area and a vfat file system on it, and make all
+  three persistent in /etc/fstab by UUID.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - The lab has attached the image /srv/storage-06.img (1 GiB) to a
+    loop device with partition scanning enabled. That loop device is
+    the disk for this lab. Its name, for example /dev/loop0, is the
+    first line of /opt/linux-labs/state/storage-06.
+  - The partitions of a loop device are named after it with the
+    letter p and the partition number, for example /dev/loop0p1.
+  - Use only this loop device. Do not touch the disk of the operating
+    system or its swap.
+
+TASKS
+  1. Write a GPT partition table to the loop device. The disk has
+     exactly these three partitions:
+
+       number   size      contents
+       1        300 MiB   XFS file system with the label ARCHIVE
+       2        128 MiB   swap area
+       3        100 MiB   vfat file system
+
+     Each size is graded with a tolerance of 10 MiB.
+  2. Partition 1 is mounted on /mnt/archive and partition 3 on
+     /mnt/exchange.
+  3. The swap area on partition 2 is active.
+  4. /etc/fstab has an entry for each of the three partitions. Each
+     entry names its partition as UUID= followed by the UUID of the
+     file system or swap area, has the type xfs, swap or vfat, and
+     has the option nofail. The two file systems use their mount
+     points from task 2.
+  5. /etc/fstab as a whole passes the fstab verification of findmnt
+     without errors.
+
+  You should give partition 2 the partition type Linux swap. This is
+  not graded.
+
+EXPECTED RESULT
+  The loop device holds a GPT table with three partitions. ARCHIVE is
+  mounted on /mnt/archive, the vfat file system on /mnt/exchange, the
+  swap area is in use, and all three are listed in /etc/fstab by
+  UUID.
+
+PRACTICE (not graded)
+  - Unmount both file systems, turn the swap off and bring all three
+    back using only their fstab entries.
+  - Compare the UUIDs that blkid and lsblk show for the partitions.
+
+NOTES
+  - The vfat tools come in the package dosfstools, which may not be
+    installed yet.
+  - A vfat UUID is short, in the form XXXX-XXXX, not a long UUID.
+  - On Rocky Linux 9 an XFS file system must be at least 300 MiB.
+  - The loop device is not attached again at boot, so after a reboot
+    the three partitions are missing. The option nofail lets the
+    system boot anyway. Do not reboot servera during the lab; if it
+    happens, run labctl reset and start the lab again.
+  - labctl reset turns the swap off, unmounts the file systems,
+    removes the fstab entries of the three partitions, detaches the
+    loop device and removes the image and the mount points.
+  - Reference: man parted, man fdisk, man mkfs.xfs, man mkswap,
+    man mkfs.fat, man swapon, man fstab, man findmnt and man blkid.
+
+GRADING
+  labctl grade storage-06
