@@ -1,0 +1,5 @@
+title: Extend LVM volumes and grow XFS and ext4 file systems
+category: Storage
+complexity: Intermediate
+objective: Add a physical volume to a volume group, extend two logical volumes and grow their XFS and ext4 file systems while they stay mounted.
+target: servera

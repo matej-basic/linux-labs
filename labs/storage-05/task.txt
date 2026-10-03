@@ -1,0 +1,57 @@
+OBJECTIVE
+  Add a physical volume to a volume group, extend two logical volumes
+  and grow their XFS and ext4 file systems while they stay mounted.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - The lab has built the volume group growvg on a loop device that
+    backs the image /srv/growvg/disk1.img. It holds two logical
+    volumes:
+
+       xfslv    320 MiB, XFS, mounted on /mnt/xfsdata
+       extlv    128 MiB, ext4, mounted on /mnt/extdata
+
+  - Each file system holds a data file named records.bin.
+  - The second image /srv/growvg/disk2.img (512 MiB) is ready for
+    use. It is not attached to a loop device yet.
+  - Use only these two images. Do not touch the volume group of the
+    operating system or the disk that holds it.
+
+TASKS
+  1. Attach /srv/growvg/disk2.img to a loop device and add that loop
+     device to growvg as a second physical volume. growvg then has
+     exactly two physical volumes, the loop devices of disk1.img and
+     disk2.img.
+  2. Extend the logical volume xfslv to at least 512 MiB. Its XFS
+     file system fills the whole logical volume.
+  3. Extend the logical volume extlv to at least 256 MiB. Its ext4
+     file system fills the whole logical volume.
+  4. Both file systems are still the original ones and stay mounted
+     on /mnt/xfsdata and /mnt/extdata. The two records.bin files are
+     unchanged.
+
+  You should grow both file systems while they are mounted. This is
+  not graded.
+
+EXPECTED RESULT
+  growvg spans two physical volumes. The mounted file systems on
+  /mnt/xfsdata and /mnt/extdata report the larger sizes, and the data
+  on them is the same as before.
+
+PRACTICE (not graded)
+  - Compare the free space of growvg before and after each step.
+  - Try to shrink the XFS file system and read why it does not work.
+
+NOTES
+  - The free space in growvg is not enough for both extensions.
+  - Do not create the file systems again. That destroys the data.
+  - The loop devices do not survive a reboot, so no persistent
+    mounts are required. Do not reboot servera during the lab; if
+    it happens, run labctl reset and start the lab again.
+  - labctl reset removes growvg, the loop devices, the images and the
+    mount points.
+  - Reference: man losetup, man vgextend, man lvextend,
+    man xfs_growfs and man resize2fs.
+
+GRADING
+  labctl grade storage-05
