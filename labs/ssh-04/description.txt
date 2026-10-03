@@ -1,0 +1,5 @@
+title: SFTP-only group chrooted to per-user directories
+category: SSH
+complexity: Intermediate
+objective: Give the members of a group SFTP access only, each locked into a directory of its own under /srv/sftp, without changing SSH for other users.
+target: servera

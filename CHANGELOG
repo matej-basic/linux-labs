@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- ssh-04: an SFTP-only group whose members are chrooted to per-user directories under /srv/sftp with internal-sftp.
 - files-07: incremental rsync snapshots with hard links through --link-dest, run by a systemd service and a daily timer.
 - podman-03: a rootless pod with a MariaDB container on a host data directory and a PHP container that reads it over the pod's localhost.
 - networking-05: a break-fix lab where a NetworkManager connection on a free NIC does not come up because of a wrong interface name, the method and a competing profile.

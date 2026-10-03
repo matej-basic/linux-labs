@@ -1,0 +1,59 @@
+OBJECTIVE
+  Two partners exchange files with {{HOSTNAME}} over SFTP. Give their
+  accounts SFTP access with a key and nothing else: no shell, no
+  forwarding, and each account locked into a directory of its own
+  under /srv/sftp. SSH for every other account stays as it is.
+
+PREREQUISITES
+  - The lab has created a key pair for the partner accounts. The
+    public key is ~/sftp-lab.pub of {{LAB_USER}}.
+  - The private key is /opt/linux-labs/state/ssh-04.d/sftp-lab and
+    only root can read it. The grader logs in with it, and you may
+    use it with sudo to test your work.
+  - SELinux is in enforcing mode.
+
+TASKS
+  1. The group sftponly exists, and the users ftpa and ftpb are
+     members of it.
+  2. ftpa and ftpb cannot log in to a shell: their login shell is
+     nologin. Their home directories are /home/ftpa and /home/ftpb.
+  3. The public key from the PREREQUISITES is in the authorized keys
+     file of ftpa and of ftpb, in their home directories.
+  4. /srv/sftp/ftpa and /srv/sftp/ftpb are directories. Each of them
+     and every directory above it is owned by root and is not
+     writable by the group or by others.
+  5. Each of these directories has a subdirectory upload that belongs
+     to its user, who can create files in it.
+  6. The effective SSH server configuration for ftpa and for ftpb
+     has these settings: ChrootDirectory is the directory of the user
+     under /srv/sftp, ForceCommand is internal-sftp, and
+     AllowTcpForwarding and X11Forwarding are no.
+  7. An SFTP session as ftpa or ftpb with the lab key starts in the
+     directory /, and a file can be uploaded into upload.
+  8. A command sent over SSH as ftpa with the lab key does not run.
+  9. The effective SSH server configuration for {{LAB_USER}} has no
+     ChrootDirectory and no ForceCommand, and stays exactly as it was
+     at the start of the lab.
+  10. The SSH server configuration passes the sshd syntax test, and
+      sshd is enabled and running. SELinux stays in enforcing mode,
+      now and in /etc/selinux/config.
+
+NOTES
+  - Keep port 22 and key logins as {{LAB_USER}} working at all times.
+    labctl reaches this machine over SSH on port 22 with a key, and
+    so do you. Keep a second SSH session open while you change sshd,
+    and test the configuration before you reload sshd.
+  - The settings for the partners should be a conditional block that
+    matches the group sftponly (not graded beyond ftpa and ftpb).
+  - sshd reads the authorized keys before it changes the root
+    directory of the session.
+  - Reference: man sshd_config (Match, ChrootDirectory, ForceCommand
+    and StrictModes), man sshd (extended test mode), man sftp (batch
+    mode), man useradd and man groupadd.
+  - labctl reset restores the SSH server configuration exactly as it
+    was, removes ftpa, ftpb, sftponly, /srv/sftp and the lab key, and
+    removes the known_hosts entries for this machine that were added
+    during the lab.
+
+GRADING
+  labctl grade ssh-04
