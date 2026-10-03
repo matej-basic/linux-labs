@@ -1,0 +1,64 @@
+OBJECTIVE
+  Use AIDE (Advanced Intrusion Detection Environment) to watch the
+  application tree /srv/app. Build a baseline database, let a
+  simulated intruder change the tree, and find the changes with an
+  integrity check.
+
+PREREQUISITES
+  - The application tree /srv/app exists with the subdirectories bin,
+    etc and data. The application writes to /srv/app/data while it
+    runs, so changes there are expected.
+  - The helper /usr/local/sbin/lab-tamper changes /srv/app the way an
+    intruder and the running application would. It runs only once per
+    lab start.
+  - The package aide may not be installed yet.
+
+TASKS
+  1. Install the package aide.
+  2. Edit the AIDE configuration /etc/aide.conf so that AIDE checks
+     only /srv/app. Keep the database and report settings of the
+     file. Remove every other selection line, so that an
+     initialisation takes seconds instead of scanning the whole
+     system.
+  3. In /etc/aide.conf, define a rule for /srv/app that checks
+     exactly these attributes of each file:
+
+       content    a SHA-256 or SHA-512 checksum
+       mode       the permissions
+       owner      the user and the group
+
+     Exclude the directory /srv/app/data and everything below it.
+     /etc/aide.conf must pass the configuration check of AIDE.
+  4. Initialise the AIDE database and make it the active database
+     /var/lib/aide/aide.db.gz.
+  5. After that, run /usr/local/sbin/lab-tamper as root, once. It
+     refuses to run while the active database of step 4 is missing.
+     Do not initialise the database again afterwards.
+  6. Run an AIDE check against the active database and save its full
+     output in /root/aide-report.txt. The report names every file
+     that lab-tamper changed or added outside /srv/app/data, and
+     nothing below /srv/app/data.
+
+EXPECTED RESULT
+  A new AIDE check with /etc/aide.conf finds exactly three
+  differences: two changed files and one added file, all outside
+  /srv/app/data.
+
+PRACTICE (not graded)
+  - Read the detailed part of the report and find what changed in
+    each file.
+  - After you have reviewed the changes, update the database so that
+    the next check starts from the current state. This makes the
+    grading fail, so do it only after you have graded the lab.
+
+NOTES
+  - AIDE reads its rules and selection lines from /etc/aide.conf by
+    default. The man page lists the attributes a rule can check and
+    the kinds of selection lines.
+  - An initialisation writes a new database next to the active one.
+    AIDE does not replace the active database by itself.
+  - /root is readable only by root.
+  - Reference: man aide and man aide.conf.
+
+GRADING
+  labctl grade logging-07

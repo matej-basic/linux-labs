@@ -1,0 +1,6 @@
+title: File integrity checks with AIDE
+category: Logging
+complexity: Intermediate
+objective: Limit AIDE to an application tree, build its baseline database and find unauthorised changes with an integrity check.
+target: servera
+needs: internet
