@@ -1,0 +1,6 @@
+title: Apache with PHP-FPM and a dedicated pool
+category: Web Servers
+complexity: Intermediate
+objective: Serve a PHP application with Apache through its own PHP-FPM pool that runs as a separate user, with SELinux enforcing and the firewall open.
+target: servera
+needs: internet

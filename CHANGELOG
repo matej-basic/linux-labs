@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- webserver-06: Apache serving PHP through a dedicated PHP-FPM pool that runs as its own user, with SELinux labels and the firewall.
 - storage-11: a break-fix lab with a full file system (a hidden dump and a deleted file held open) and an fstab entry with the wrong file system type.
 - webserver-05: a break-fix lab where an intranet site does not load because of several faults in the service, SELinux, permissions and the firewall.
 - git-01: a bare Git repository on node 1 served over SSH by a git user with git-shell, cloned, committed to and pushed from node 2.

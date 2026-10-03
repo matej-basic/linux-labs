@@ -1,0 +1,66 @@
+OBJECTIVE
+  Serve the PHP application in /srv/phpapp/public on {{HOSTNAME}} with
+  Apache. Its PHP code runs in a PHP-FPM pool of its own, as the user
+  phpapp, separate from the default pool that runs as apache.
+
+PREREQUISITES
+  - The lab created the system user phpapp, with the home directory
+    /srv/phpapp and no login shell.
+  - The page /srv/phpapp/public/index.php prints the effective UID of
+    the process that runs it and the PHP memory_limit.
+  - SELinux is in enforcing mode and firewalld is running. Neither
+    httpd nor php-fpm is installed.
+
+TASKS
+  1. Install the packages httpd and php-fpm from the default
+     repositories. Make the services httpd and php-fpm run now and
+     start at every boot.
+  2. Create the PHP-FPM pool intranet in the file
+     /etc/php-fpm.d/intranet.conf, next to the default pool www:
+
+       user            phpapp
+       socket          /run/php-fpm/intranet.sock
+       process manager ondemand, at most 5 child processes
+       memory_limit    64M, set as an admin value
+
+     The default pool www keeps running as the user apache.
+     Apache must be able to connect to the socket. Other users must
+     not be able to write to it. The configuration test of PHP-FPM
+     must pass.
+  3. Configure Apache in the file /etc/httpd/conf.d/phpapp.conf so
+     that http://{{HOSTNAME}}/ serves the directory /srv/phpapp/public,
+     and every request for a .php file in it goes to the pool
+     intranet. The Apache configuration test must pass.
+  4. Requests for http://localhost/ on {{HOSTNAME}} and for the
+     address of {{HOSTNAME}} return the output of index.php with
+     status 200, never its source code. The output shows the UID of
+     phpapp and the memory limit 64M.
+  5. Everything in /srv/phpapp/public has the SELinux type
+     httpd_sys_content_t, and the file context rules of the policy
+     give these paths that type. SELinux stays in enforcing mode.
+  6. The firewall allows the service http in the default zone, in the
+     running configuration and permanently.
+
+EXPECTED RESULT
+  A browser or curl on the workstation shows a short text page at
+  http://{{HOSTNAME}}/ with the UID of phpapp and memory_limit=64M.
+  The default pool www still runs as apache.
+
+NOTES
+  - The default pool in /etc/php-fpm.d/www.conf and the file
+    /etc/httpd/conf.d/php.conf of the php-fpm package show how a pool
+    and its Apache side look.
+  - Use the PHP version that the repositories install by default:
+    PHP 7.2 on Rocky Linux 8 and PHP 8.0 on Rocky Linux 9. No other
+    module stream is needed.
+  - If the name {{HOSTNAME}} does not resolve on the workstation, use
+    the address of {{HOSTNAME}}.
+  - labctl reset removes the packages the lab added, the user phpapp
+    and /srv/phpapp.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man php-fpm, man httpd, man semanage-fcontext,
+    man restorecon and man firewall-cmd.
+
+GRADING
+  labctl grade webserver-06
