@@ -1,0 +1,6 @@
+title: Apache basic auth and IP access control
+category: Web Servers
+complexity: Intermediate
+objective: Protect one directory of an Apache site with Basic authentication from an htpasswd file and restrict another to requests from the machine itself.
+target: servera
+needs: internet

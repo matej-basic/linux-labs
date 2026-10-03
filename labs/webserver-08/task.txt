@@ -1,0 +1,67 @@
+OBJECTIVE
+  Serve the site in /var/www/html with Apache on {{HOSTNAME}}.
+  Protect the directory private with a user name and password, allow
+  the directory admin only for requests from {{HOSTNAME}} itself over
+  the loopback address, and keep everything else public.
+
+PREREQUISITES
+  - The lab created the site content in /var/www/html:
+
+      index.html          contains PUBLIC-PAGE-OK
+      private/index.html  contains PRIVATE-PAGE-OK
+      admin/index.html    contains ADMIN-PAGE-OK
+
+  - SELinux is in enforcing mode and firewalld is running. httpd may
+    not be installed.
+
+TASKS
+  1. Install the package httpd. The service httpd runs now and starts
+     at every boot. The Apache configuration test must pass.
+  2. Create the password file /etc/httpd/lab.htpasswd with exactly
+     these two users:
+
+       user   password
+       alice  redwood42
+       bob    seashell17
+
+     The passwords are stored as hashes (the default format of the
+     Apache password tool, or bcrypt), never in plain text. Users other
+     than the owner and the group cannot read the file, and the user
+     apache can read it.
+  3. Protect http://{{HOSTNAME}}/private/ with HTTP Basic authentication
+     against /etc/httpd/lab.htpasswd. A request without credentials
+     or with a wrong password gets status 401. alice and bob get the
+     private page with their passwords.
+  4. Allow http://{{HOSTNAME}}/admin/ only for the client addresses
+     127.0.0.1 and ::1. A request for http://127.0.0.1/admin/ on
+     {{HOSTNAME}} gets the admin page. A request to the IPv4 address
+     of the interface that carries the default route gets status
+     403, also when it is sent from {{HOSTNAME}} itself.
+  5. Everything else stays public: http://127.0.0.1/ and the address
+     of the default route interface return the public page without
+     credentials.
+  6. SELinux stays in enforcing mode. The firewall allows the service
+     http in the default zone, in the running configuration and
+     permanently.
+
+EXPECTED RESULT
+  Requests to {{HOSTNAME}} on port 80 get the public page from any
+  client. /private/ asks for a user name and password, and /admin/
+  answers only requests from the client addresses 127.0.0.1 and ::1.
+
+NOTES
+  - The password file lives outside the document root, so no client
+    can download it.
+  - A request from {{HOSTNAME}} to its own network address arrives with
+    that address as the client address, not 127.0.0.1. It must get
+    status 403 for /admin/.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - labctl reset removes the site, the password file, your Apache
+    configuration and the packages the lab added.
+  - Reference: man htpasswd, man curl, man firewall-cmd and the Apache
+    guide to authentication and access control:
+    https://httpd.apache.org/docs/2.4/howto/auth.html
+
+GRADING
+  labctl grade webserver-08
