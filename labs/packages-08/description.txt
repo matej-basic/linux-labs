@@ -1,0 +1,6 @@
+title: Switch Node.js to another dnf module stream
+category: Packages
+complexity: Intermediate
+objective: Move Node.js from module stream nodejs:20 to nodejs:22 and leave no package of the old stream behind.
+target: servera
+needs: internet

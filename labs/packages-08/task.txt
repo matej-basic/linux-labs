@@ -1,0 +1,45 @@
+OBJECTIVE
+  Move Node.js on {{HOSTNAME}} from the dnf module stream nodejs:20
+  to the stream nodejs:22, so that nothing of the old stream is left.
+
+PREREQUISITES
+  - The application team needs Node.js 22. The server has Node.js 20
+    from the module stream nodejs:20, with the common profile of that
+    stream installed.
+  - {{LAB_USER}} has sudo rights. The lab works the same on Rocky
+    Linux 8 and 9.
+
+TASKS
+  1. The stream 22 of the module nodejs is enabled. No other stream of
+     nodejs is enabled.
+  2. The common profile of the stream nodejs:22 is installed.
+  3. The packages nodejs and npm are installed from the stream
+     nodejs:22.
+  4. Every installed Node.js package comes from the stream nodejs:22.
+     No package from the stream nodejs:20 is installed.
+  5. The command node, run by {{LAB_USER}}, reports a version that
+     starts with 22.
+
+EXPECTED RESULT
+  The module list shows the stream 22 of nodejs as enabled, with its
+  common profile installed. Node.js 22 and its npm are the only
+  Node.js packages on the server.
+
+PRACTICE (not graded)
+  - Compare the profiles of the streams 20 and 22 and list the
+    packages each profile installs.
+  - Find out which module stream an installed package came from,
+    using only the rpm database.
+
+NOTES
+  - On Rocky Linux 9, the AppStream repository also has a nodejs
+    package outside any module stream. It does not count as a
+    package of the stream nodejs:22.
+  - Do not remove packages that do not belong to Node.js.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man dnf (sections Module Command and Distro-Sync
+    Command) and man rpm.
+
+GRADING
+  labctl grade packages-08
