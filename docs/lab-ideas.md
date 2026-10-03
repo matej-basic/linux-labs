@@ -91,7 +91,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Application deployment
 
-- git-01 (Beginner): Git basics and setup
 - git-02 (Intermediate): Repository management
 - git-03 (Advanced): GitLab/Gitea self-hosted setup
 - jenkins-01 (Beginner): Jenkins installation

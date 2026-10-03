@@ -1,0 +1,92 @@
+OBJECTIVE
+  Set up node 1 as a small Git server: a bare repository that a
+  dedicated account git serves over SSH, with git-shell as its login
+  shell. Clone the repository on node 2, commit a first file and push
+  it to the branch main.
+
+TOPOLOGY
+  Work from the workstation and log in to each node with the node
+  account, the SSH user of the lab configuration (opsadmin by
+  default).
+
+     workstation
+          |
+          | SSH as the node account, to both nodes
+          |
+     node 2  {{NODE2_IP}}
+     the clone ~/project of the node account
+          |
+          | Git over SSH as the user git
+          |
+     node 1  {{NODE1_IP}}
+     the user git, the bare repository /srv/git/project.git
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - The node account has full sudo on both nodes.
+  - On node 2, the node account has the SSH key pair
+    ~/.ssh/id_ed25519 and ~/.ssh/id_ed25519.pub.
+  - The nodes reach the Rocky Linux package repositories.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. The package git is installed on node 1 and on node 2.
+  2. Node 1 has the user git with the home directory /home/git. Its
+     login shell is the git-shell program of the git package, so the
+     account accepts Git commands over SSH and nothing else.
+  3. The login shell of the user git is listed in /etc/shells on
+     node 1.
+  4. /srv/git/project.git on node 1 is a bare Git repository. The
+     user git owns the repository directory and every file in it.
+  5. The default branch of the bare repository is main: its HEAD
+     names the branch main.
+  6. The public key ~/.ssh/id_ed25519.pub of the node account on
+     node 2 is authorized for the user git on node 1. The directory
+     /home/git/.ssh has the mode 0700, the file authorized_keys in it
+     has the mode 0600, and the user git owns both.
+  7. On node 2, the node account reaches the repository over SSH as
+     git with its key. A login as git that runs any command other
+     than a Git command is refused.
+  8. On node 2, ~/project of the node account is a clone of the
+     repository. Its remote origin is this URL:
+
+       git@{{NODE1_IP}}:/srv/git/project.git
+
+  9. The configuration of the repository ~/project itself (not only
+     the global configuration) sets the user name Lab Admin and the
+     email address admin@lab.example.
+  10. The branch main in the bare repository has a commit whose
+      README.md starts with this line:
+
+        Shared project repository
+
+      The latest commit on main has the author
+      Lab Admin <admin@lab.example>.
+  11. The branch main in ~/project tracks origin/main and has no
+      commits that are missing on node 1.
+
+EXPECTED RESULT
+  A new clone of git@{{NODE1_IP}}:/srv/git/project.git made on node 2
+  checks out the branch main with README.md. An SSH login as git on
+  node 1 opens no shell.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - Install missing packages on the node that needs them. The package
+    set of both nodes goes back to its state before the lab at reset.
+  - A new repository may start with a branch called master. The task
+    asks for main on both sides.
+  - The first SSH connection from node 2 to node 1 asks you to
+    confirm the host key of node 1.
+  - labctl reset removes the user git, /home/git and /srv/git on
+    node 1 and ~/project on node 2. It also puts /etc/shells on node 1
+    and the global Git configuration of the node account on node 2
+    back as they were.
+  - Reference: man git-shell, man git-init, man git-clone,
+    man git-config, man git-push, man useradd, man sshd (section
+    AUTHORIZED_KEYS FILE FORMAT) and the Pro Git book, chapter Git on
+    the Server: https://git-scm.com/book/en/v2
+
+GRADING
+  labctl grade git-01

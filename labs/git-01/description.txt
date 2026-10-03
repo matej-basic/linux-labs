@@ -1,0 +1,5 @@
+title: Shared Git repository served over SSH
+category: Automation
+complexity: Beginner
+objective: Serve a bare Git repository on node 1 through a git-shell account and push a first commit to it from a clone on node 2.
+needs: internet, nodes=2
