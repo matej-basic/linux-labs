@@ -1,0 +1,112 @@
+OBJECTIVE
+  Keep the password of a new user in Ansible Vault and write the
+  playbook users.yml. It creates the user and its groups with a loop,
+  writes /etc/motd from facts and installs a package only where a
+  custom fact allows it.
+
+TOPOLOGY
+  Log in to node 1 from the workstation over SSH, as the user that the
+  lab configuration uses for the nodes (SSH_USER, opsadmin in the
+  classroom). Do all work on node 1 as that user, called "your user"
+  below. Nodes 2 and 3 are the managed nodes.
+
+     workstation
+          |
+          | SSH as your user
+          |
+     node 1  {{NODE1_IP}}
+     Ansible control node, project directory ~/ansible-lab
+          |
+          | SSH as the user ansible
+          |
+     +----+-----------------------+
+     |                            |
+     node 2                       node 3
+     {{NODE2_IP}}                 {{NODE3_IP}}
+     managed node, role admin     managed node, role web
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 3 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - labctl start sets up the project, as at the end of ansible-01
+    without the playbook:
+    - ansible-core is installed on node 1.
+    - ~/ansible-lab of your user on node 1 holds ansible.cfg and
+      inventory. ansible.cfg sets the inventory, the remote user
+      ansible, the private key ~/.ssh/ansible_lab and privilege
+      escalation with sudo.
+    - The inventory has the group appservers with the hosts
+      {{NODE2_IP}} and {{NODE3_IP}}.
+    - The user ansible on nodes 2 and 3 accepts the key and may run
+      every command with sudo without a password.
+  - The file ~/appadmin-password.txt of your user on node 1 holds the
+    password for the user appadmin. labctl start generates a new one
+    each time.
+  - Nodes 2 and 3 have the custom fact file
+    /etc/ansible/facts.d/lab.fact. Its section server sets the key
+    role to admin on node 2 and to web on node 3.
+  - The nodes reach the Rocky Linux package repositories.
+
+TASKS
+  1. The file ~/ansible-lab/.vault_pass holds a vault password of your
+     choice and has mode 0600. ansible.cfg names it as the vault
+     password file, so no Ansible command asks for a vault password.
+  2. The file ~/ansible-lab/group_vars/appservers/vault.yml is
+     encrypted with ansible-vault (format 1.1, AES256, no vault ID).
+     Decrypted, it sets the variable appadmin_password to the password
+     from ~/appadmin-password.txt.
+  3. No other file in ~/ansible-lab holds the password as plain text.
+  4. The file ~/ansible-lab/group_vars/appservers/vars.yml sets the
+     variable app_groups to the list appdev, appops, appaudit, in this
+     order.
+  5. The playbook ~/ansible-lab/users.yml passes the syntax check. It
+     has a play for the group appservers, uses a loop and has a task
+     with a when condition.
+  6. On nodes 2 and 3 the playbook has reached this state:
+
+       - the groups in app_groups exist
+       - the user appadmin exists and is a member of these groups
+       - the password of appadmin is appadmin_password, stored as a
+         SHA-512 hash
+       - /etc/motd holds exactly two lines, built from facts in the
+         template ~/ansible-lab/templates/motd.j2, for example:
+
+           Managed by Ansible
+           Release 9 with 1771 MB of memory
+
+         The number after Release is the major version of the
+         distribution and the number before MB is the total memory in
+         MB, both as Ansible gathers them on that node.
+
+  7. The package zsh is installed on every managed node whose custom
+     fact role is admin, and on no other node. The when condition in
+     users.yml reads the custom fact from ansible_local, not the host
+     name or the address.
+  8. A run of users.yml in check mode completes without failures and
+     reports no changes on nodes 2 and 3.
+
+PRACTICE (not graded)
+  - Change the vault password with the rekey function of ansible-vault
+    and run the playbook again.
+  - Show all facts of node 3 with the module setup and find the custom
+    fact.
+
+NOTES
+  - Ansible reads group_vars next to the inventory and next to the
+    playbook. A directory named after the group may hold several
+    files, and Ansible loads all of them.
+  - A password hash with a new random salt differs on every run, and
+    the user module then reports a change.
+  - Custom facts in /etc/ansible/facts.d on a managed node appear under
+    the fact ansible_local.
+  - Only the modules of ansible-core (ansible.builtin) are available.
+    The documentation is in ansible-doc, and the filters are described
+    in the Ansible documentation at
+    https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_filters.html
+  - labctl reset removes ~/ansible-lab, ~/appadmin-password.txt, the SSH
+    key and known hosts that the lab added on node 1, the users
+    appadmin and ansible, the three groups, the custom fact and every
+    package the lab installed on the nodes, and restores /etc/motd.
+
+GRADING
+  labctl grade ansible-03

@@ -1,0 +1,5 @@
+title: Ansible Vault, facts and conditionals
+category: Automation
+complexity: Advanced
+objective: Keep a password in Ansible Vault and write a playbook that uses loops, facts in a template and a fact-based condition on two nodes.
+needs: internet, nodes=3
