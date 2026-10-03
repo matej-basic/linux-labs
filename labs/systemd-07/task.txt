@@ -1,0 +1,54 @@
+OBJECTIVE
+  Prepare {{HOSTNAME}} to save a memory dump when the kernel crashes:
+  reserve memory for the crash kernel on every installed kernel,
+  configure where and how kdump saves a dump, and enable the kdump
+  service. Then reboot and confirm that the crash kernel is loaded.
+
+TASKS
+  1. The package kexec-tools is installed.
+  2. The boot entry of every installed kernel, including the rescue
+     kernel, has the kernel argument crashkernel=256M. Keep all other
+     arguments.
+  3. /etc/kdump.conf has exactly one active path line, with the value
+     /var/crash/lab, and that directory exists.
+  4. /etc/kdump.conf has exactly one active core_collector line, with
+     the value makedumpfile -l --message-level 7 -d 17.
+  5. The kdump service is enabled.
+  6. Reboot {{HOSTNAME}} after you have made all changes. After the
+     reboot:
+     - the running kernel was booted with crashkernel=256M
+     - the kdump service is active
+     - the crash kernel is loaded, which the kernel reports as 1 in
+       /sys/kernel/kexec_crash_loaded
+
+EXPECTED RESULT
+  Every boot entry reserves 256 MiB for the crash kernel. After the
+  reboot kdump has loaded the crash kernel, and a kernel crash would
+  save its dump in a directory under /var/crash/lab.
+
+PRACTICE (not graded)
+  - Compare the size in /sys/kernel/kexec_crash_size before and after
+    the reboot.
+  - Read the comments in /etc/kdump.conf about the dump level and the
+    other core collector options.
+
+NOTES
+  - The lab starts without kexec-tools and without a crashkernel
+    argument on any kernel. The memory that the running kernel
+    reserved at boot stays until the next reboot.
+  - On Rocky Linux 9, installing kexec-tools sets a default
+    crashkernel value on every kernel. The required value is still
+    crashkernel=256M.
+  - Do not crash the kernel on purpose. The lab checks only that a
+    dump would be saved.
+  - A reboot of {{HOSTNAME}} closes your SSH connection to it. This is
+    expected: connect again once the system is back up.
+  - Resetting the lab restores the original boot configuration, the
+    kdump configuration and the kdump service. The memory reserved
+    with crashkernel=256M stays until the next reboot after the reset.
+  - Reference: man grubby, man kdump.conf, man kdumpctl,
+    man makedumpfile, man kernel-command-line.
+  - Run the grading after the reboot.
+
+GRADING
+  labctl grade systemd-07

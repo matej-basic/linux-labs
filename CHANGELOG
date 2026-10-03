@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- systemd-07: kdump with crashkernel=256M on every kernel, a dump path and dump level in kdump.conf, after a reboot.
 - webserver-04: an nginx HTTPS reverse proxy with a self-signed certificate, forwarded headers, an HTTP redirect and the SELinux boolean.
 - storage-09: an iSCSI target with a fileio backstore and an ACL on node 1, and a persistent initiator login with an XFS mount by UUID on node 2.
 - storage-07: a LUKS2 volume with a passphrase and a key file slot, opened and mounted, with crypttab and fstab entries.

@@ -1,0 +1,6 @@
+title: Kernel crash dumps with kdump
+category: Systemd
+complexity: Intermediate
+objective: Reserve crash kernel memory on every kernel, configure where kdump saves a dump and enable the kdump service.
+target: servera
+needs: internet, reboot
