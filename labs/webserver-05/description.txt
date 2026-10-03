@@ -1,0 +1,6 @@
+title: Troubleshoot a web site that does not load
+category: Web Servers
+complexity: Intermediate
+objective: Find and fix the faults that keep an Apache intranet site from loading, with SELinux enforcing and the firewall running.
+target: servera
+needs: internet

@@ -1,0 +1,51 @@
+OBJECTIVE
+  Bring the intranet site on {{HOSTNAME}} back online. The site does
+  not load, and more than one thing is wrong. Find each cause in the
+  service status and the logs, and fix it without weakening the
+  security of the server.
+
+PREREQUISITES
+  - The lab installs httpd and policycoreutils-python-utils.
+  - The site is the virtual host in /etc/httpd/conf.d/intranet.conf.
+    It serves the directory /srv/intranet on port 80. Its page is
+    /srv/intranet/index.html.
+  - SELinux is in enforcing mode and firewalld is running.
+
+TASKS
+  1. Make the httpd service run now and start at every boot. The
+     Apache configuration test must pass.
+  2. Make http://localhost/ on {{HOSTNAME}} and http://{{HOSTNAME}}/
+     return the page /srv/intranet/index.html with status 200. The
+     page contains the text "Welcome to the lab intranet".
+  3. Leave the site where it is. The content of index.html and the
+     file /etc/httpd/conf.d/intranet.conf stay unchanged.
+  4. Everything in /srv/intranet has the SELinux type
+     httpd_sys_content_t, and the file context rules of the policy
+     give these paths that type, so the labels survive a full
+     relabel of the file system.
+  5. The user apache can read index.html. Nothing in /srv/intranet
+     is writable by the group or by others.
+  6. The firewall allows the service http in the default zone, in the
+     running configuration and permanently.
+  7. SELinux stays in enforcing mode, now and in /etc/selinux/config.
+     Do not add permissive domains and do not load new policy
+     modules.
+
+EXPECTED RESULT
+  A browser or curl on the workstation shows the intranet page at
+  http://{{HOSTNAME}}/, and httpd comes up by itself after a reboot.
+
+NOTES
+  - Fix one problem, test again and read the logs again: one fault
+    can hide the next.
+  - You may change or remove other files in /etc/httpd as long as the
+    configuration test passes.
+  - If the name {{HOSTNAME}} does not resolve on the workstation, use
+    the address of {{HOSTNAME}}.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man systemctl, man journalctl, man httpd, man ausearch,
+    man semanage-fcontext, man restorecon and man firewall-cmd.
+
+GRADING
+  labctl grade webserver-05

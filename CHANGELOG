@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- webserver-05: a break-fix lab where an intranet site does not load because of several faults in the service, SELinux, permissions and the firewall.
 - git-01: a bare Git repository on node 1 served over SSH by a git user with git-shell, cloned, committed to and pushed from node 2.
 - logging-06: journald settings in a drop-in file (persistent storage, size limits, rate limiting, retention), in effect after a restart.
 - ansible-03: Ansible Vault with a password file, a loop, a template from facts and a condition on a custom fact, on two managed nodes.
