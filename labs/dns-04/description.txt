@@ -1,0 +1,5 @@
+title: BIND secondary zone with zone transfers
+category: DNS
+complexity: Intermediate
+objective: Make node 2 a BIND secondary for a zone of node 1, with transfers limited to node 2 and NOTIFY on every change.
+needs: internet, nodes=2

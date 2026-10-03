@@ -1,0 +1,88 @@
+OBJECTIVE
+  Node 1 is the primary DNS server for the zone lab.example. Make
+  node 2 a secondary server for the zone that gets its copy through
+  zone transfers from node 1. Only node 2 may transfer the zone, and
+  node 1 tells node 2 about every change of the zone.
+
+TOPOLOGY
+  Work from the workstation and log in to each node with the node
+  account, the SSH user of the lab configuration (opsadmin by
+  default).
+
+     workstation
+          |
+          | SSH as the node account, to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     primary for lab.example, zone file /var/named/lab.example.zone
+          |
+          | DNS on port 53: zone transfers and NOTIFY
+          |
+     node 2  {{NODE2_IP}}
+     secondary for lab.example, zone copy in /var/named/slaves
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - The node account has full sudo on both nodes.
+  - The nodes reach the Rocky Linux package repositories.
+  - Node 1 has the packages bind and bind-utils. Its /etc/named.conf
+    has a zone statement for lab.example as a primary zone, loaded
+    from /var/named/lab.example.zone. named is stopped and disabled
+    on node 1. Keep the zone file where it is.
+  - BIND is not configured on node 2.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. named is enabled at boot and running on node 1. Its
+     configuration passes the check of named-checkconf.
+  2. Node 1 answers DNS queries from node 2 on {{NODE1_IP}}, port 53,
+     and is authoritative for lab.example.
+  3. Node 1 allows zone transfers of lab.example to node 2 only. A
+     transfer requested from any other address is refused, including
+     the address {{NODE1_IP}} of node 1 itself.
+  4. Node 1 notifies node 2 when the zone changes. After named on
+     node 1 reloads a changed zone with a higher serial, node 2
+     serves the new serial within 15 seconds.
+  5. The packages bind and bind-utils are installed on node 2.
+  6. named is enabled at boot and running on node 2. Its
+     configuration passes the check of named-checkconf.
+  7. Node 2 is a secondary server for lab.example with node 1 as its
+     primary. It answers DNS queries on {{NODE2_IP}}, port 53, is
+     authoritative for lab.example and serves the same SOA serial as
+     node 1.
+  8. Node 2 keeps its copy of the zone in a file in the directory
+     /var/named/slaves.
+  9. The firewall on both nodes allows DNS on 53/tcp and 53/udp, in
+     the runtime and in the permanent configuration.
+
+EXPECTED RESULT
+  Node 2 answers queries for www.lab.example with the same data as
+  node 1, even though nobody edited a zone file on node 2. A change
+  of the zone on node 1 reaches node 2 within seconds, not after the
+  refresh time of one hour in the SOA record.
+
+PRACTICE (not graded)
+  - Add a record to the zone on node 1, raise the serial, reload the
+    zone and watch the transfer in the journal of named on node 2.
+  - Stop named on node 1 and check that node 2 still answers.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - Rocky Linux 8 has BIND 9.11, Rocky Linux 9 has BIND 9.16. BIND
+    9.11 does not know the newer keywords primary, secondary and
+    primaries. BIND 9.16 accepts the older and the newer keywords.
+  - named may write only to some directories under /var/named. The
+    SELinux policy and the file permissions there decide which.
+  - Grading changes the zone on node 1 to check task 4: it raises the
+    serial, sets a TXT record grade-check.lab.example and reloads the
+    zone. The zone file is written back in a normalised format,
+    without comments.
+  - Reference: man named.conf, man named-checkconf, man dig and
+    man firewall-cmd.
+  - labctl reset stops named on both nodes, removes the zone data and
+    the BIND configuration, restores the firewall of both nodes and
+    removes the packages the lab installed.
+
+GRADING
+  labctl grade dns-04
