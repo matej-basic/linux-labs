@@ -1,0 +1,37 @@
+OBJECTIVE
+  Queue a one-time job with at, allow only listed users to use at and
+  set a default umask for the login shells of {{LAB_USER}}.
+
+PREREQUISITES
+  - The at package is installed. The service atd is disabled and
+    stopped.
+  - The users reporter and intern exist.
+  - Work as {{LAB_USER}} and use sudo where root is needed.
+
+TASKS
+  1. The service atd is enabled and running.
+  2. As {{LAB_USER}}, queue one at job that runs at 23:30 on
+     31 December. The job writes the output of the command df -h to
+     the file /home/{{LAB_USER}}/disk-report.txt. The job stays in the
+     queue; it must not run during the lab.
+  3. Only root, {{LAB_USER}} and reporter may use at. The file
+     /etc/at.allow lists exactly these three users, one name per
+     line. The user intern is denied.
+  4. The default umask of {{LAB_USER}} is 027 in every login shell.
+     Set it in /home/{{LAB_USER}}/.bashrc. New files of
+     {{LAB_USER}} then get mode 640 and new directories mode 750.
+
+PRACTICE (not graded)
+  - Queue a second job as {{LAB_USER}} that runs two minutes from now
+    and writes the date to a file. Watch it leave the queue and check
+    the file and its mode.
+  - Try to list the at queue as reporter and as intern.
+
+NOTES
+  - Only the final state is graded. A login shell that was already
+    open before the change keeps its old umask.
+  - Reference: man at, man at.allow, man bash (section INVOCATION) and
+    the umask entry in man bash (section SHELL BUILTIN COMMANDS).
+
+GRADING
+  labctl grade scheduling-04

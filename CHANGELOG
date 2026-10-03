@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- scheduling-04: an at job for a fixed time, /etc/at.allow with exactly three users and a default umask of 027 in a login shell.
 - fail2ban-01: fail2ban from EPEL with an sshd jail in jail.local, ban limits, ignoreip for the local network and firewalld bans.
 - networking-04: a NetworkManager profile on a free NIC with static IPv4 and IPv6 addresses and static routes, without a default gateway.
 - packages-06: dnf repositories defined from a base URL with signature checks, and packages installed from them.

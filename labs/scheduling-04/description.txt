@@ -1,0 +1,6 @@
+title: One-time jobs with at and a default umask
+category: Scheduling
+complexity: Beginner
+objective: Queue a one-time at job, limit at to listed users and set a default umask for login shells.
+needs: internet
+target: servera
