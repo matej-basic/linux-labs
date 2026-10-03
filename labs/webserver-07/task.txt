@@ -1,0 +1,69 @@
+OBJECTIVE
+  Serve the intranet site https://intranet.lab.example/ from Apache on
+  {{HOSTNAME}} with a certificate signed by the company CA, and make
+  {{HOSTNAME}} trust that CA, so that clients accept the site without
+  warnings.
+
+PREREQUISITES
+  - The lab created the company CA in /srv/lab-ca: the certificate
+    /srv/lab-ca/ca.crt and its private key /srv/lab-ca/ca.key, which
+    only root can read.
+  - The site content is in /srv/intranet. Its index.html contains the
+    text INTRANET-LAB-EXAMPLE-OK.
+  - SELinux is in enforcing mode and firewalld is running. httpd is not
+    installed.
+
+TASKS
+  1. Install the packages httpd and mod_ssl. The service httpd runs now
+     and starts at every boot.
+  2. Create a server certificate for intranet.lab.example, signed by
+     the company CA, and store it with its key in these files:
+
+       private key  /etc/pki/tls/private/intranet.lab.example.key
+       certificate  /etc/pki/tls/certs/intranet.lab.example.crt
+
+     The key is an RSA key of at least 2048 bits, owned by root with
+     mode 0600. The certificate lists intranet.lab.example as a DNS
+     name in its subject alternative names and is valid for at least
+     365 days.
+  3. Configure a virtual host in the file
+     /etc/httpd/conf.d/intranet.conf that serves /srv/intranet on port
+     443 for the name intranet.lab.example, with the certificate and
+     key from task 2. The Apache configuration test must pass.
+  4. The name intranet.lab.example resolves on {{HOSTNAME}}, through
+     /etc/hosts, to the IPv4 address of the interface that carries the
+     default route.
+  5. Add the company CA certificate to the system trust store: a copy
+     of it is in /etc/pki/ca-trust/source/anchors, and the extracted
+     trust bundle contains it.
+  6. A request for https://intranet.lab.example/ with curl on
+     {{HOSTNAME}}, without any option that disables certificate checks,
+     returns the page with INTRANET-LAB-EXAMPLE-OK.
+  7. Everything in /srv/intranet has the SELinux type
+     httpd_sys_content_t, and the file context rules of the policy
+     give these paths that type. SELinux stays in enforcing mode.
+  8. The firewall allows the service https in the default zone, in the
+     running configuration and permanently.
+
+EXPECTED RESULT
+  Port 443 presents the certificate from task 2 when a client asks for
+  intranet.lab.example. It verifies against /srv/lab-ca/ca.crt, and
+  every program on {{HOSTNAME}} that uses the system trust store
+  accepts it.
+
+NOTES
+  - How the key and certificate are produced is not graded. The usual
+    way is a key and a certificate signing request, which the CA then
+    signs.
+  - Rocky Linux 8 ships OpenSSL 1.1.1 and Rocky Linux 9 ships OpenSSL
+    3. Choose options that both support.
+  - labctl reset removes the CA, the site, the keys and certificates
+    you created and the packages the lab added.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man openssl-req, man openssl-x509, man x509v3_config,
+    man update-ca-trust, man semanage-fcontext, man hosts and
+    man firewall-cmd.
+
+GRADING
+  labctl grade webserver-07

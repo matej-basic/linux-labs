@@ -50,7 +50,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - iptables-01 (Beginner): Iptables basics
 - iptables-02 (Intermediate): Firewall rules and NAT
 - iptables-03 (Advanced): Stateful firewalling
-- certs-01 (Beginner): Certificate basics and generation
 - certs-02 (Intermediate): Let's Encrypt automation
 - certs-03 (Advanced): Certificate pinning and validation
 - pwd-policy-03 (Advanced): Multi-factor authentication

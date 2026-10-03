@@ -1,0 +1,6 @@
+title: Internal CA and a trusted HTTPS certificate
+category: Web Servers
+complexity: Intermediate
+objective: Sign a server certificate with a company CA, serve an intranet site over HTTPS with Apache and make the system trust the CA.
+target: servera
+needs: internet

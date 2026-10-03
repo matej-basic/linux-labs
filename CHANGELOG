@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- webserver-07: a server certificate signed by an internal CA with a SAN, served by Apache over HTTPS, with the CA in the system trust store.
 - systemd-10: a break-fix lab with three custom services that fail to start: a mislabelled program without the execute bit, a missing environment file and a wrong service type.
 - packages-07: a break-fix lab where chronyd fails after a simulated update: merge the .rpmnew default with local lines and undo an unwanted dnf transaction.
 - users-06: a break-fix lab with four accounts that cannot log in: an expired account, a locked password, a nologin shell and a missing home directory.
