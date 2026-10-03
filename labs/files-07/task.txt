@@ -1,0 +1,64 @@
+OBJECTIVE
+  Write a backup script that makes incremental snapshots of /srv/data
+  with rsync, where unchanged files are hard links to the previous
+  snapshot, and run it every day with a systemd timer.
+
+PREREQUISITES
+  - Work as {{LAB_USER}} and use sudo where root is needed.
+  - /srv/data holds files of the users snapdev, snapops,
+    {{LAB_USER}} and root, with different modes. Some of them are
+    readable only by their owner.
+  - rsync is not installed. Install it from the Rocky Linux
+    repositories (internet access is required).
+  - The program /usr/local/sbin/lab-churn simulates one day of work
+    in /srv/data. Run as root, it changes projects/notes.txt, adds
+    reports/q3.csv and deletes reports/q2.csv, and it prints what it
+    did.
+
+TASKS
+  1. Create the script /usr/local/sbin/snapshot-backup, owned by root
+     and executable. Each run of the script, as root, does this:
+     - It creates a new snapshot directory /backup/snapshots/<name>.
+       <name> is the date and time of the run in the form
+       YYYY-MM-DD_HHMMSS, for example 2026-10-03_143005.
+     - The snapshot holds the contents of /srv/data directly, for
+       example /backup/snapshots/<name>/README.txt.
+     - Files whose names end in .cache are left out.
+     - Every file and directory keeps its owner, group and mode, and
+       every file keeps its modification time.
+     - A file that is unchanged since the newest earlier snapshot is
+       not copied again. It is a hard link to the same file in that
+       snapshot. The first run copies every file.
+     - The symbolic link /backup/snapshots/latest points to the new
+       snapshot.
+  2. Run the script once. Then run /usr/local/sbin/lab-churn once and
+     run the script again, so that the newest snapshot matches
+     /srv/data after the changes.
+  3. Create the service snapshot-backup.service. It has the type
+     oneshot and runs /usr/local/sbin/snapshot-backup.
+  4. Create the timer snapshot-backup.timer. It starts the service
+     every day at 02:30. When the system was off at that time, the
+     timer catches up on the missed run at the next start.
+  5. The timer is enabled and active.
+
+EXPECTED RESULT
+  /backup/snapshots holds at least two snapshot directories and the
+  link latest. In the snapshot before lab-churn and the newest one,
+  projects/plan.txt is the same file with one inode, while
+  projects/notes.txt has a separate copy in each.
+
+NOTES
+  - Only the final state is graded. Grading does not run the script,
+    the service or the timer.
+  - The grader compares the newest snapshot with /srv/data, and with
+    the newest older snapshot that still has reports/q2.csv. Extra
+    snapshots do no harm.
+  - The secure path of sudo does not include /usr/local/sbin. Use the
+    full path of the script and of lab-churn with sudo.
+  - To start over, start the lab again. That restores /srv/data and
+    removes /backup/snapshots, the script and both units.
+  - Reference: man rsync, man ln, man date, man systemd.service,
+    man systemd.timer and man systemd.time.
+
+GRADING
+  labctl grade files-07

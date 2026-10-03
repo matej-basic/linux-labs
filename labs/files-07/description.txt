@@ -1,0 +1,6 @@
+title: Incremental rsync snapshots with a systemd timer
+category: Files
+complexity: Intermediate
+objective: Write a script that makes hard-linked incremental rsync snapshots of a directory and run it daily with a persistent systemd timer.
+target: servera
+needs: internet

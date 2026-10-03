@@ -75,7 +75,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 
 ## Backup and disaster recovery
 
-- backup-rsync-02 (Intermediate): Incremental backups
 - backup-rsync-03 (Advanced): Automated backup strategies
 - amanda-01 (Beginner): Amanda backup system setup
 - amanda-02 (Intermediate): Backup scheduling
