@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- storage-09: an iSCSI target with a fileio backstore and an ACL on node 1, and a persistent initiator login with an XFS mount by UUID on node 2.
 - storage-07: a LUKS2 volume with a passphrase and a key file slot, opened and mounted, with crypttab and fstab entries.
 - redis-01: a Redis server with a password, AOF persistence, a memory limit and an open firewall port, all surviving a restart.
 - storage-08: user and group quotas on a loop-mounted XFS file system, persistent in fstab and enforced.

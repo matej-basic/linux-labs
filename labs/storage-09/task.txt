@@ -1,0 +1,94 @@
+OBJECTIVE
+  Turn node 1 into an iSCSI target that exports a file-backed disk to
+  node 2 only. Node 2 logs in to the target at every boot and mounts
+  an XFS file system from the disk persistently.
+
+TOPOLOGY
+  Work from the workstation and log in to each node with the node
+  account, the SSH user of the lab configuration (opsadmin by
+  default).
+
+     workstation
+          |
+          | SSH as the node account, to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     iSCSI target iqn.2026-10.lab.example:storage
+     LUN 0: the file /srv/iscsi/disk1.img, 512 MiB
+          |
+          | iSCSI, port 3260/tcp
+          |
+     node 2  {{NODE2_IP}}
+     initiator iqn.2026-10.lab.example:node2
+     XFS on LUN 0, mounted at /mnt/iscsi
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - The node account has full sudo on both nodes.
+  - The nodes reach the Rocky Linux package repositories. The target
+    tools come from the package targetcli, the initiator tools from
+    the package iscsi-initiator-utils.
+  - Node 1 has no iSCSI target configuration and no file
+    /srv/iscsi/disk1.img. Node 2 has no iSCSI session and nothing
+    mounted at /mnt/iscsi.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. Node 1 has a backstore of type fileio that keeps its data in the
+     file /srv/iscsi/disk1.img. The backstore is 512 MiB in size. You
+     choose its name, for example disk1.
+  2. Node 1 has the iSCSI target iqn.2026-10.lab.example:storage. Its
+     target portal group has:
+
+       LUN 0     the backstore from task 1
+       portal    TCP port 3260
+       ACL       for the initiator iqn.2026-10.lab.example:node2,
+                 with LUN 0 mapped
+
+  3. The target configuration of tasks 1 and 2 is saved in
+     /etc/target/saveconfig.json, and the service target is enabled
+     on node 1, so the configuration comes back at boot.
+  4. Node 1 listens on port 3260/tcp. Its firewall allows 3260/tcp,
+     in the runtime and in the permanent configuration.
+  5. The initiator name of node 2, in /etc/iscsi/initiatorname.iscsi,
+     is iqn.2026-10.lab.example:node2.
+  6. Node 2 has an active iSCSI session to the target
+     iqn.2026-10.lab.example:storage at {{NODE1_IP}}, port 3260.
+  7. On node 2 the node record of that target logs in automatically
+     at boot.
+  8. LUN 0 of the target holds an XFS file system, mounted at
+     /mnt/iscsi on node 2.
+  9. The file /etc/fstab on node 2 mounts that file system at
+     /mnt/iscsi by its UUID, with the options _netdev and nofail.
+     The verification of /etc/fstab by findmnt reports no errors on
+     node 2.
+
+EXPECTED RESULT
+  On node 2 the iSCSI disk shows up as a new SCSI disk of 512 MiB.
+  After a reboot of node 2, the session and the mount at /mnt/iscsi
+  come back without any manual step.
+
+PRACTICE (not graded)
+  - Reboot node 2 and check the session and the mount.
+  - Look at the persistent device names of the iSCSI disk under
+    /dev/disk on node 2.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - The disk name on node 2, such as sdb, can change between boots.
+    The UUID of the file system does not.
+  - The backstore file should be sparse, so that it takes almost no
+    space on node 1 (not graded).
+  - With _netdev, systemd waits for the network before it mounts the
+    file system. With nofail, a missing iSCSI disk does not stop the
+    boot of node 2.
+  - Reference: man targetcli, man iscsiadm, man mkfs.xfs, man fstab,
+    man findmnt and man firewall-cmd.
+  - labctl reset logs node 2 out, removes the mount, the fstab entry,
+    the node records and the initiator name, clears the target
+    configuration, removes /srv/iscsi and restores the firewall of
+    node 1. Where the lab installed packages, reset removes them.
+
+GRADING
+  labctl grade storage-09

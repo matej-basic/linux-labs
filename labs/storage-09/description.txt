@@ -1,0 +1,5 @@
+title: iSCSI target and a persistent initiator login
+category: Storage
+complexity: Advanced
+objective: Export a 512 MiB file-backed LUN from node 1 over iSCSI and have node 2 log in to it at every boot and mount an XFS file system from it by UUID.
+needs: internet, nodes=2
