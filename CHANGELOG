@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- networking-05: a break-fix lab where a NetworkManager connection on a free NIC does not come up because of a wrong interface name, the method and a competing profile.
 - webserver-08: Apache Basic authentication from an htpasswd file and an admin area limited to the loopback addresses.
 - webserver-07: a server certificate signed by an internal CA with a SAN, served by Apache over HTTPS, with the CA in the system trust store.
 - systemd-10: a break-fix lab with three custom services that fail to start: a mislabelled program without the execute bit, a missing environment file and a wrong service type.

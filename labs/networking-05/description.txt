@@ -1,0 +1,6 @@
+title: A network connection that does not come up
+category: Networking
+complexity: Intermediate
+objective: Find and fix the faults that keep a static NetworkManager profile on a free interface from coming up.
+target: servera
+needs: free-nic

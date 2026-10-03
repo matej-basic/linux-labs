@@ -1,0 +1,51 @@
+OBJECTIVE
+  A colleague prepared the NetworkManager profile labnet to give the
+  first free interface of {{HOSTNAME}} a static address on the lab
+  network. The connection does not come up, and after a restart the
+  interface gets the wrong address. Find every cause and fix it, so
+  that labnet works now and after every boot.
+
+PREREQUISITES
+  - {{HOSTNAME}} has a default-route interface (it carries SSH) and
+    free Ethernet interfaces on an isolated network without a DHCP
+    server.
+  - The lab uses the first free interface: the first Ethernet
+    interface, in name order, that does not carry the default route.
+    Its name is the first line of /opt/linux-labs/state/networking-05.
+  - The automatic NetworkManager profile of that interface, if there
+    is one, is disabled while the lab is active. "labctl reset" turns
+    it back on.
+
+TASKS
+  1. The profile labnet exists and is bound to the free interface by
+     its interface name.
+  2. labnet configures IPv4 statically with exactly one address,
+     192.168.50.10/24, and no gateway.
+  3. labnet connects automatically.
+  4. labnet is active on the free interface now, and the interface
+     has the address 192.168.50.10/24. No default route uses the free
+     interface.
+  5. No other profile for the free interface connects automatically,
+     so labnet is the profile the interface gets at every boot.
+  6. Do not change the default-route interface or its connection
+     profile. The default route must still use it.
+
+EXPECTED RESULT
+  labnet is active on the free interface with 192.168.50.10/24 and
+  comes up by itself after a reboot. The SSH session is unaffected.
+
+PRACTICE (not graded)
+  - Take labnet down and up again and check that the address returns.
+  - Read the NetworkManager messages in the journal for each failed
+    activation and match them with the cause you found.
+
+NOTES
+  - Fix one problem, try again and read the error again: one fault
+    can hide the next.
+  - Editing labnet or replacing it with a new profile of the same
+    name are both fine. Only the final state is graded.
+  - Reference: man nmcli, man nmcli-examples, man nm-settings-nmcli
+    (sections connection and ipv4) and man journalctl.
+
+GRADING
+  labctl grade networking-05
