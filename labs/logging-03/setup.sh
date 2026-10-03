@@ -29,3 +29,6 @@ fi
 # restarts, so restart it after removing the directory.
 rm -rf /var/log/journal
 systemctl restart systemd-journald
+# rsyslog reads the journal through imjournal and stops following it
+# when the journal files go away, so restart it as well
+systemctl try-restart rsyslog 2>/dev/null || true

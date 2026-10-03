@@ -16,5 +16,8 @@ if [ -d "$BACKUP" ]; then
 	restorecon -R /var/log/journal 2>/dev/null || true
 fi
 systemctl restart systemd-journald 2>/dev/null || true
+# rsyslog reads the journal through imjournal and stops following it
+# when the journal files go away, so restart it as well
+systemctl try-restart rsyslog 2>/dev/null || true
 rm -f "$STATE_FILE"
 exit 0
