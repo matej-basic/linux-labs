@@ -16,8 +16,9 @@ Requires:       openssh-clients
 Hands-on Linux system administration labs in the style of the RHCSA
 exam for Rocky Linux and RHEL 8 and 9. labctl prepares a lab on the
 lab servers, prints the task, gives hints, grades the result and resets
-the machines. 55 labs in 17 topics, from files and users to
-replication, load balancing and Pacemaker clustering.
+the machines. 118 labs in 19 topics, from files and users to
+replication, load balancing and Pacemaker clustering, including
+break-fix labs that start from a broken system.
 
 %prep
 %setup -q

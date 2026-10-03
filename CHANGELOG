@@ -5,69 +5,73 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
-- fail2ban-02: a custom fail2ban filter that matches exactly the failed logins of an application log, and a jail with its own port and limits.
-- logging-07: AIDE limited to an application tree with a custom rule and an exclusion, a baseline database and a saved report of the changes.
-- ssh-05: SSH user certificates signed by a local CA, trusted by sshd for one user, with plain key logins refused for that user.
-- packages-08: switch Node.js from module stream 20 to 22 with the common profile, with nothing from the old stream left.
-- files-09: hard links, symbolic links with relative and absolute targets, a repaired broken link and all names of an inode.
-- files-08: reports built with text-processing pipelines from a web server log and a CSV file, graded byte for byte.
-- systemd-11: kernel parameters in sysctl.d with a precedence trap, and tmpfiles.d rules for a runtime directory and a cleaned cache, after a reboot.
-- ssh-04: an SFTP-only group whose members are chrooted to per-user directories under /srv/sftp with internal-sftp.
-- files-07: incremental rsync snapshots with hard links through --link-dest, run by a systemd service and a daily timer.
-- podman-03: a rootless pod with a MariaDB container on a host data directory and a PHP container that reads it over the pod's localhost.
-- networking-05: a break-fix lab where a NetworkManager connection on a free NIC does not come up because of a wrong interface name, the method and a competing profile.
-- webserver-08: Apache Basic authentication from an htpasswd file and an admin area limited to the loopback addresses.
-- webserver-07: a server certificate signed by an internal CA with a SAN, served by Apache over HTTPS, with the CA in the system trust store.
-- systemd-10: a break-fix lab with three custom services that fail to start: a mislabelled program without the execute bit, a missing environment file and a wrong service type.
-- packages-07: a break-fix lab where chronyd fails after a simulated update: merge the .rpmnew default with local lines and undo an unwanted dnf transaction.
-- users-06: a break-fix lab with four accounts that cannot log in: an expired account, a locked password, a nologin shell and a missing home directory.
-- postgres-04: a break-fix lab where PostgreSQL does not start because of an SELinux port type, a pg_hba.conf error and the data directory mode.
-- scheduling-05: a break-fix lab with three cron jobs that never run because of a file mode, a missing user field, cron's PATH and an unescaped percent sign.
-- ssh-03: a break-fix lab where key login fails for a user with a home under /srv because of modes, SELinux labels, a Match block and the login shell.
-- dns-05: a break-fix lab where name resolution fails on servera because of the NetworkManager DNS settings, an immutable resolv.conf and a stale hosts entry.
-- dns-04: a BIND secondary zone on node 2 with zone transfers limited to it and NOTIFY from the primary on node 1.
-- systemd-09: find a CPU hog and a memory hog and the units that start them, and collect sar data every 2 minutes through a timer drop-in.
-- webserver-06: Apache serving PHP through a dedicated PHP-FPM pool that runs as its own user, with SELinux labels and the firewall.
-- storage-11: a break-fix lab with a full file system (a hidden dump and a deleted file held open) and an fstab entry with the wrong file system type.
-- webserver-05: a break-fix lab where an intranet site does not load because of several faults in the service, SELinux, permissions and the firewall.
-- git-01: a bare Git repository on node 1 served over SSH by a git user with git-shell, cloned, committed to and pushed from node 2.
-- logging-06: journald settings in a drop-in file (persistent storage, size limits, rate limiting, retention), in effect after a restart.
-- ansible-03: Ansible Vault with a password file, a loop, a template from facts and a condition on a custom fact, on two managed nodes.
-- systemd-08: a drop-in override for a vendor unit with a restart policy, an environment variable and memory and CPU limits.
-- storage-10: a software RAID 1 array with a hot spare on loop devices, persistent in mdadm.conf and fstab, and a failed disk replaced.
-- systemd-07: kdump with crashkernel=256M on every kernel, a dump path and dump level in kdump.conf, after a reboot.
-- webserver-04: an nginx HTTPS reverse proxy with a self-signed certificate, forwarded headers, an HTTP redirect and the SELinux boolean.
-- storage-09: an iSCSI target with a fileio backstore and an ACL on node 1, and a persistent initiator login with an XFS mount by UUID on node 2.
-- storage-07: a LUKS2 volume with a passphrase and a key file slot, opened and mounted, with crypttab and fstab entries.
-- redis-01: a Redis server with a password, AOF persistence, a memory limit and an open firewall port, all surviving a restart.
-- storage-08: user and group quotas on a loop-mounted XFS file system, persistent in fstab and enforced.
-- scheduling-04: an at job for a fixed time, /etc/at.allow with exactly three users and a default umask of 027 in a login shell.
-- fail2ban-01: fail2ban from EPEL with an sshd jail in jail.local, ban limits, ignoreip for the local network and firewalld bans.
-- networking-04: a NetworkManager profile on a free NIC with static IPv4 and IPv6 addresses and static routes, without a default gateway.
-- packages-06: dnf repositories defined from a base URL with signature checks, and packages installed from them.
-- scripting-01: two Bash scripts with arguments, exit codes, conditions and loops, graded on random test data.
-- storage-06: a GPT partition table with XFS, swap and vfat partitions, mounted and activated by UUID with nofail.
-- logging-05: a central rsyslog server over TCP with per-host log files and a client that forwards through a disk-assisted queue.
-- systemd-06: change the nice value of running processes, end processes with SIGTERM and SIGKILL and start a background job that survives logout.
-- files-06: an xz tar archive that keeps owners, an rsync copy to a second node without temporary files, and a restore from the archive.
-- selinux-04: serve user home directories with Apache under enforcing SELinux, with the httpd_enable_homedirs boolean and minimal permissions.
-- systemd-05: kernel arguments for every kernel, the GRUB menu timeout, a module with an option at boot and a blacklisted module.
-- users-05: sudo rules with a drop-in file and a command alias, with and without a password.
-- Lab storage-05 (Storage, Intermediate): add a physical volume to a volume group, extend an XFS and an ext4 logical volume and grow both file systems without losing data.
-- Lab samba-01 (Storage, Intermediate, two nodes): a Samba share for a group with samba_share_t and the samba firewall service, mounted persistently on node 2 through fstab with a credentials file.
-- Lab ansible-02 (Automation, Intermediate, three nodes): an Ansible role with defaults, templates and a handler, variables in group_vars and host_vars, and a playbook that applies it.
-- Lab files-05 (Files, Beginner): find files by owner, size, age and permissions, search a log with grep, and keep a command's errors apart from its output.
-- Lab podman-02 (Containers, Intermediate): build an image from a Containerfile with a label and an environment variable, and run it rootless with a published port, a named volume and a restart policy.
-- Lab users-04 (Users, Intermediate): a password policy with pwquality, account lockout with faillock and password history through authselect features.
-- Lab time-01 (Networking, Intermediate, two nodes): node 1 serves time with chrony from a local stratum, and node 2 synchronises only from node 1 and uses the time zone Europe/Zagreb.
-- Lab logging-04 (Logging, Intermediate): persistent audit rules in rules.d for a file watch and a deletion rule by login UID, and auditd log settings.
-- Lab nfs-02 (Storage, Intermediate, two nodes): an all_squash export with a fixed anonymous user, a read-only export, and on-demand mounts through an autofs indirect map.
+- 63 new labs. The collection is now 118 labs in 19 topics. SSH, Containers and Automation are new categories, and 10 labs are break-fix labs, where setup breaks a working system and the student finds and fixes the causes.
 - Lab ansible-01 (Automation, Beginner, three nodes): an Ansible control node on servera with ansible.cfg, an inventory, key access to a sudo account on the managed nodes and a playbook that installs and starts httpd. Automation is a new category.
-- Lab storage-04 (Storage, Intermediate, reboot): a persistent swap file with a priority, vm.swappiness in sysctl.d and a tuned profile.
-- Lab ssh-02 (SSH, Advanced): sshd hardening with key-only root login, a Match block that disables passwords for a group, and a second port with its SELinux type and firewall rule.
-- Lab podman-01 (Containers, Advanced): a rootless httpd container with an SELinux-labelled volume, run as a systemd user service with linger. Containers is a new category.
+- Lab ansible-02 (Automation, Intermediate, three nodes): an Ansible role with defaults, templates and a handler, variables in group_vars and host_vars, and a playbook that applies it.
+- Lab ansible-03 (Automation, Advanced, three nodes): Ansible Vault with a password file, a loop, a template from facts and a condition on a custom fact, on two managed nodes.
+- Lab dns-04 (DNS, Intermediate, two nodes): a BIND secondary zone on node 2 with zone transfers limited to it and NOTIFY from the primary on node 1.
+- Lab dns-05 (DNS, Intermediate): a break-fix lab where name resolution fails on servera because of the NetworkManager DNS settings, an immutable resolv.conf and a stale hosts entry.
+- Lab fail2ban-01 (SSH, Beginner): fail2ban from EPEL with an sshd jail in jail.local, ban limits, ignoreip for the local network and firewalld bans.
+- Lab fail2ban-02 (SSH, Intermediate): a custom fail2ban filter that matches exactly the failed logins of an application log, and a jail with its own port and limits.
+- Lab files-05 (Files, Beginner): find files by owner, size, age and permissions, search a log with grep, and keep a command's errors apart from its output.
+- Lab files-06 (Files, Intermediate, two nodes): an xz tar archive that keeps owners, an rsync copy to a second node without temporary files, and a restore from the archive.
+- Lab files-07 (Files, Intermediate): incremental rsync snapshots with hard links through --link-dest, run by a systemd service and a daily timer.
+- Lab files-08 (Files, Intermediate): reports built with text-processing pipelines from a web server log and a CSV file, graded byte for byte.
+- Lab files-09 (Files, Beginner): hard links, symbolic links with relative and absolute targets, a repaired broken link and all names of an inode.
+- Lab git-01 (Automation, Beginner, two nodes): a bare Git repository on node 1 served over SSH by a git user with git-shell, cloned, committed to and pushed from node 2.
+- Lab logging-04 (Logging, Intermediate): persistent audit rules in rules.d for a file watch and a deletion rule by login UID, and auditd log settings.
+- Lab logging-05 (Logging, Intermediate, two nodes): a central rsyslog server over TCP with per-host log files and a client that forwards through a disk-assisted queue.
+- Lab logging-06 (Logging, Intermediate): journald settings in a drop-in file (persistent storage, size limits, rate limiting, retention), in effect after a restart.
+- Lab logging-07 (Logging, Intermediate): AIDE limited to an application tree with a custom rule and an exclusion, a baseline database and a saved report of the changes.
+- Lab networking-04 (Networking, Intermediate, free NIC): a NetworkManager profile on a free NIC with static IPv4 and IPv6 addresses and static routes, without a default gateway.
+- Lab networking-05 (Networking, Intermediate, free NIC): a break-fix lab where a NetworkManager connection on a free NIC does not come up because of a wrong interface name, the method and a competing profile.
 - Lab nfs-01 (Storage, Intermediate, two nodes): an NFS export from node 1 to node 2 only, with root squashing, and a persistent mount on node 2.
+- Lab nfs-02 (Storage, Intermediate, two nodes): an all_squash export with a fixed anonymous user, a read-only export, and on-demand mounts through an autofs indirect map.
+- Lab packages-06 (Packages, Beginner): dnf repositories defined from a base URL with signature checks, and packages installed from them.
+- Lab packages-07 (Packages, Intermediate): a break-fix lab where chronyd fails after a simulated update: merge the .rpmnew default with local lines and undo an unwanted dnf transaction.
+- Lab packages-08 (Packages, Intermediate): switch Node.js from module stream 20 to 22 with the common profile, with nothing from the old stream left.
+- Lab podman-01 (Containers, Advanced): a rootless httpd container with an SELinux-labelled volume, run as a systemd user service with linger. Containers is a new category.
+- Lab podman-02 (Containers, Intermediate): build an image from a Containerfile with a label and an environment variable, and run it rootless with a published port, a named volume and a restart policy.
+- Lab podman-03 (Containers, Advanced): a rootless pod with a MariaDB container on a host data directory and a PHP container that reads it over the pod's localhost.
+- Lab postgres-04 (Databases, Intermediate): a break-fix lab where PostgreSQL does not start because of an SELinux port type, a pg_hba.conf error and the data directory mode.
+- Lab redis-01 (Databases, Beginner): a Redis server with a password, AOF persistence, a memory limit and an open firewall port, all surviving a restart.
+- Lab samba-01 (Storage, Intermediate, two nodes): a Samba share for a group with samba_share_t and the samba firewall service, mounted persistently on node 2 through fstab with a credentials file.
+- Lab scheduling-04 (Scheduling, Beginner): an at job for a fixed time, /etc/at.allow with exactly three users and a default umask of 027 in a login shell.
+- Lab scheduling-05 (Scheduling, Intermediate): a break-fix lab with three cron jobs that never run because of a file mode, a missing user field, cron's PATH and an unescaped percent sign.
+- Lab scripting-01 (Automation, Intermediate): two Bash scripts with arguments, exit codes, conditions and loops, graded on random test data.
+- Lab selinux-04 (SELinux, Intermediate): serve user home directories with Apache under enforcing SELinux, with the httpd_enable_homedirs boolean and minimal permissions.
 - Lab ssh-01 (SSH, Beginner): an ed25519 key pair, an authorized key for a second account and a client host alias. SSH is a new category.
+- Lab ssh-02 (SSH, Advanced): sshd hardening with key-only root login, a Match block that disables passwords for a group, and a second port with its SELinux type and firewall rule.
+- Lab ssh-03 (SSH, Intermediate): a break-fix lab where key login fails for a user with a home under /srv because of modes, SELinux labels, a Match block and the login shell.
+- Lab ssh-04 (SSH, Intermediate): an SFTP-only group whose members are chrooted to per-user directories under /srv/sftp with internal-sftp.
+- Lab ssh-05 (SSH, Advanced): SSH user certificates signed by a local CA, trusted by sshd for one user, with plain key logins refused for that user.
+- Lab storage-04 (Storage, Intermediate, reboot): a persistent swap file with a priority, vm.swappiness in sysctl.d and a tuned profile.
+- Lab storage-05 (Storage, Intermediate): add a physical volume to a volume group, extend an XFS and an ext4 logical volume and grow both file systems without losing data.
+- Lab storage-06 (Storage, Intermediate): a GPT partition table with XFS, swap and vfat partitions, mounted and activated by UUID with nofail.
+- Lab storage-07 (Storage, Intermediate): a LUKS2 volume with a passphrase and a key file slot, opened and mounted, with crypttab and fstab entries.
+- Lab storage-08 (Storage, Intermediate): user and group quotas on a loop-mounted XFS file system, persistent in fstab and enforced.
+- Lab storage-09 (Storage, Advanced, two nodes): an iSCSI target with a fileio backstore and an ACL on node 1, and a persistent initiator login with an XFS mount by UUID on node 2.
+- Lab storage-10 (Storage, Intermediate): a software RAID 1 array with a hot spare on loop devices, persistent in mdadm.conf and fstab, and a failed disk replaced.
+- Lab storage-11 (Storage, Intermediate): a break-fix lab with a full file system (a hidden dump and a deleted file held open) and an fstab entry with the wrong file system type.
+- Lab systemd-05 (Systemd, Intermediate, reboot): kernel arguments for every kernel, the GRUB menu timeout, a module with an option at boot and a blacklisted module.
+- Lab systemd-06 (Systemd, Beginner): change the nice value of running processes, end processes with SIGTERM and SIGKILL and start a background job that survives logout.
+- Lab systemd-07 (Systemd, Intermediate, reboot): kdump with crashkernel=256M on every kernel, a dump path and dump level in kdump.conf, after a reboot.
+- Lab systemd-08 (Systemd, Intermediate): a drop-in override for a vendor unit with a restart policy, an environment variable and memory and CPU limits.
+- Lab systemd-09 (Systemd, Intermediate): find a CPU hog and a memory hog and the units that start them, and collect sar data every 2 minutes through a timer drop-in.
+- Lab systemd-10 (Systemd, Intermediate): a break-fix lab with three custom services that fail to start: a mislabelled program without the execute bit, a missing environment file and a wrong service type.
+- Lab systemd-11 (Systemd, Intermediate, reboot): kernel parameters in sysctl.d with a precedence trap, and tmpfiles.d rules for a runtime directory and a cleaned cache, after a reboot.
+- Lab time-01 (Networking, Intermediate, two nodes): node 1 serves time with chrony from a local stratum, and node 2 synchronises only from node 1 and uses the time zone Europe/Zagreb.
+- Lab users-04 (Users, Intermediate): a password policy with pwquality, account lockout with faillock and password history through authselect features.
+- Lab users-05 (Users, Intermediate): sudo rules with a drop-in file and a command alias, with and without a password.
+- Lab users-06 (Users, Intermediate): a break-fix lab with four accounts that cannot log in: an expired account, a locked password, a nologin shell and a missing home directory.
+- Lab webserver-04 (Web Servers, Intermediate): an nginx HTTPS reverse proxy with a self-signed certificate, forwarded headers, an HTTP redirect and the SELinux boolean.
+- Lab webserver-05 (Web Servers, Intermediate): a break-fix lab where an intranet site does not load because of several faults in the service, SELinux, permissions and the firewall.
+- Lab webserver-06 (Web Servers, Intermediate): Apache serving PHP through a dedicated PHP-FPM pool that runs as its own user, with SELinux labels and the firewall.
+- Lab webserver-07 (Web Servers, Intermediate): a server certificate signed by an internal CA with a SAN, served by Apache over HTTPS, with the CA in the system trust store.
+- Lab webserver-08 (Web Servers, Intermediate): Apache Basic authentication from an htpasswd file and an admin area limited to the loopback addresses.
+
+### Changed
+- The repository root may hold .gitguardian.yaml, which keeps GitGuardian from reporting the example passwords of lab accounts in labs/ as secrets.
 
 ### Fixed
 - logging-03: setup and cleanup now restart rsyslog after they remove the persistent journal. On Rocky 8 rsyslog stopped writing /var/log/messages after a reset until the next reboot.
