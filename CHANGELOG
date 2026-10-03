@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- systemd-06: change the nice value of running processes, end processes with SIGTERM and SIGKILL and start a background job that survives logout.
 - files-06: an xz tar archive that keeps owners, an rsync copy to a second node without temporary files, and a restore from the archive.
 - selinux-04: serve user home directories with Apache under enforcing SELinux, with the httpd_enable_homedirs boolean and minimal permissions.
 - systemd-05: kernel arguments for every kernel, the GRUB menu timeout, a module with an option at boot and a blacklisted module.

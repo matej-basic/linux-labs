@@ -1,0 +1,5 @@
+title: Process priorities and signals
+category: Systemd
+complexity: Beginner
+objective: Change the niceness of running processes, end processes with the right signal and start a background job that survives logout.
+target: servera

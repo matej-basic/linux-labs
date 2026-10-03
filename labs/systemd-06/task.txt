@@ -1,0 +1,43 @@
+OBJECTIVE
+  Change the scheduling priority of running processes, end processes
+  with the right signal and start a background job that keeps running
+  after you log out.
+
+PREREQUISITES
+  - Root privileges through sudo.
+  - Works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. Four worker programs run on this machine as the user labjobs.
+     Their process names are lab-report, lab-ingest, lab-stale and
+     lab-hung, and the programs are in /usr/local/bin. Do not restart
+     any of them: the grader checks the processes that were started
+     with the lab.
+  2. Set the nice value of the running lab-report process to 15.
+  3. Set the nice value of the running lab-ingest process to -5.
+  4. End the lab-stale process with the signal SIGTERM.
+  5. lab-hung ignores SIGTERM. End it with the signal SIGKILL.
+  6. As {{LAB_USER}}, without root or sudo, start the program
+     /usr/local/bin/lab-batch with the nice value 10. It must keep
+     running after your SSH session to {{HOSTNAME}} ends, so log out
+     and log in again before you grade.
+
+EXPECTED RESULT
+  lab-report and lab-ingest still run with their original process
+  IDs, at nice 15 and -5. No lab-stale or lab-hung process is left.
+  One lab-batch process owned by {{LAB_USER}} runs at nice 10, also
+  when nobody is logged in.
+
+PRACTICE (not graded)
+  - Watch the processes in top and compare their NI and PR columns.
+  - Try to lower the nice value of your own lab-batch process as
+    {{LAB_USER}} without root privileges and read the error.
+
+NOTES
+  - The signal used in tasks 4 and 5 and the logout in task 6 are not
+    graded; only the final state is.
+  - Reference: man ps, man pgrep, man nice, man renice, man kill,
+    man 7 signal and man nohup.
+
+GRADING
+  labctl grade systemd-06
