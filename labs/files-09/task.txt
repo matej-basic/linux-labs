@@ -1,0 +1,59 @@
+OBJECTIVE
+  Create hard links and symbolic links, repair a broken link, point a
+  link at another directory and find every name of an inode.
+
+PREREQUISITES
+  The lab created the tree /srv/linklab, owned by {{LAB_USER}}. All
+  tasks work as {{LAB_USER}} without sudo. The empty directory answers
+  is ready in the home directory of {{LAB_USER}}. All paths below are
+  relative to /srv/linklab unless they start with a slash.
+
+TASKS
+  1. Make backup/report.txt a hard link to data/report.txt, so that
+     both names refer to the same inode.
+  2. Create the symbolic link current. The target stored in the link
+     must be exactly the relative path releases/v2.
+  3. The symbolic link app.conf is broken: its target does not exist.
+     Make app.conf a symbolic link whose stored target is the absolute
+     path /srv/linklab/etc/app.conf. app.conf must stay a symbolic
+     link, not a copy of the file.
+  4. The file /srv/linklab/data/shared.dat has more than one name.
+     Find every name (hard link) of its inode under /srv/linklab and
+     write their absolute paths to ~/answers/inode-names.txt, one path
+     per line. A file with the same content but a different inode is
+     not a name of it, and neither is a symbolic link to it.
+  5. Remove the name data/old.txt. Its data must stay available
+     through its other hard link, archive/2024/old-copy.txt, which
+     keeps the same inode and content and is then the only name of
+     that data.
+  6. The symbolic link latest points to releases/v1. Change latest so
+     that it points to releases/v2. The stored target may be the
+     relative path releases/v2 or the absolute path
+     /srv/linklab/releases/v2. Replace the link itself: no new link
+     named v2 may appear inside releases/v1.
+  7. Leave everything else in /srv/linklab as it is: the files in
+     data, etc, releases and archive keep their content and inodes.
+
+EXPECTED RESULT
+  A long listing of /srv/linklab shows app.conf, current and latest as
+  symbolic links, the first to /srv/linklab/etc/app.conf and the other
+  two to releases/v2. The order of the lines in inode-names.txt is not
+  graded.
+
+PRACTICE (not graded)
+  - Compare the link count of data/report.txt before and after task 1.
+  - Show the inode numbers of the files in data and archive/2024 and
+    explain why archive/2024/shared.dat is not a name of shared.dat.
+  - Create a symbolic link to a directory and a hard link to a
+    directory, and explain why the second attempt fails.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - A hard link is another directory entry for the same inode. A
+    symbolic link is a small file that stores a path; a relative path
+    is resolved from the directory that holds the link.
+  - Reference: man ln, man stat, man readlink, man find (tests -inum
+    and -samefile), man ls (option for inode numbers).
+
+GRADING
+  labctl grade files-09

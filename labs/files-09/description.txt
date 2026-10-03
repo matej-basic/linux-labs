@@ -1,0 +1,5 @@
+title: Hard links, symbolic links and inodes
+category: Files
+complexity: Beginner
+objective: Create hard and symbolic links, repair a broken link, retarget a link to a directory and find every name of an inode.
+target: servera

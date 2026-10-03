@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- files-09: hard links, symbolic links with relative and absolute targets, a repaired broken link and all names of an inode.
 - files-08: reports built with text-processing pipelines from a web server log and a CSV file, graded byte for byte.
 - systemd-11: kernel parameters in sysctl.d with a precedence trap, and tmpfiles.d rules for a runtime directory and a cleaned cache, after a reboot.
 - ssh-04: an SFTP-only group whose members are chrooted to per-user directories under /srv/sftp with internal-sftp.
