@@ -1,0 +1,6 @@
+title: Custom fail2ban filter and jail for an application log
+category: SSH
+complexity: Intermediate
+objective: Write a fail2ban filter for the failed logins in an application log and a jail that bans those addresses.
+target: servera
+needs: internet

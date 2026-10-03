@@ -1,0 +1,68 @@
+OBJECTIVE
+  The application labapp writes its logins to /var/log/labapp/auth.log.
+  Ban addresses that fail to log in to labapp too often with fail2ban,
+  using a filter of your own and a jail of your own.
+
+PREREQUISITES
+  - Internet access to the Rocky Linux and EPEL mirrors.
+  - fail2ban is not installed when the lab starts, and firewalld is
+    running.
+
+TASKS
+  1. Install the package fail2ban from the EPEL repository. Enable
+     EPEL first if this system does not have it yet.
+  2. Create the filter labapp in the file
+     /etc/fail2ban/filter.d/labapp.local or
+     /etc/fail2ban/filter.d/labapp.conf. A failed login is a line whose
+     message starts with LOGIN FAILED. These lines show the format of
+     the log:
+
+       2026-10-01T15:03:03 labapp[3100]: LOGIN FAILED user=ftp
+         src=198.51.100.200 reason=expired
+       2026-10-01T15:03:50 labapp[3100]: LOGIN OK user=test
+         src=192.0.2.41 method=password
+
+     Each entry is one line in the file; the examples are wrapped
+     here. The filter matches exactly the failed logins, and the
+     address after src= is the address to ban. Successful logins and
+     all other lines do not match, also when they contain the words
+     LOGIN FAILED somewhere else.
+  3. Create the jail labapp in a file in /etc/fail2ban/jail.d whose
+     name ends in .local. The jail is enabled, uses the filter labapp
+     and reads the log /var/log/labapp/auth.log.
+  4. The jail labapp bans an address on port 8443/tcp, where labapp
+     listens, after 3 failed logins within 10 minutes. A ban lasts 30
+     minutes.
+  5. The jail labapp never bans these addresses (setting ignoreip):
+
+       127.0.0.1/8
+       ::1
+       the IPv4 network of the interface that carries the default
+       route of {{HOSTNAME}}, in CIDR notation, for example
+       172.25.250.0/24
+
+  6. The service fail2ban is enabled and running, and its
+     configuration reloads without errors.
+
+EXPECTED RESULT
+  The log /var/log/labapp/auth.log has 37 failed logins, all of them
+  older than the jail's 10 minutes, so the jail starts with no banned
+  addresses. A new failed login appended to the log counts at once.
+
+NOTES
+  - The log is a plain file, not the systemd journal.
+  - All addresses in the log are documentation addresses, which no
+    real client uses.
+  - The grader tests the filter against a copy of the log that the lab
+    keeps. It then appends 4 failed logins from 192.0.2.88 to the log,
+    expects a ban within 20 seconds, unbans the address and removes
+    the lines again.
+  - Do not test the jail with addresses from your local network. A ban
+    of the workstation can lock labctl out of {{HOSTNAME}}.
+  - Root privileges (sudo) are needed for all tasks.
+  - Reference: man jail.conf, man fail2ban-regex, man fail2ban-client.
+  - labctl reset removes fail2ban with its configuration, its bans,
+    the EPEL repository and the log of labapp.
+
+GRADING
+  labctl grade fail2ban-02
