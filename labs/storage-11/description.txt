@@ -1,0 +1,5 @@
+title: Full file system and a broken fstab entry
+category: Storage
+complexity: Intermediate
+objective: Find out why a file system is nearly full, free the space without touching the application data, and repair an fstab entry so that a second file system mounts again.
+target: servera

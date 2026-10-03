@@ -1,0 +1,55 @@
+OBJECTIVE
+  An application on {{HOSTNAME}} reports that its file system is
+  almost full, and a second file system no longer mounts. Find the
+  causes and repair both without losing data.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - /etc/fstab mounts two image files by their paths:
+
+      /srv/storage-11-appdata.img   on /srv/appdata
+      /srv/storage-11-archive.img   on /srv/archive
+
+  - The service app-logger.service writes the application log on
+    /srv/appdata.
+
+TASKS
+  1. /srv/appdata stays mounted from /srv/storage-11-appdata.img and
+     is less than 50% used, as df reports it.
+  2. The files in /srv/appdata/data are unchanged. Everything else on
+     /srv/appdata is disposable, and the disposable files that take up
+     its space are deleted.
+  3. app-logger.service is active, and no process keeps a deleted file
+     on /srv/appdata open.
+  4. /etc/fstab passes the fstab verification of findmnt without
+     errors.
+  5. /srv/archive is mounted from /srv/storage-11-archive.img through
+     its entry in /etc/fstab. The entry still names the image by its
+     path and keeps the option nofail. The files on /srv/archive are
+     intact.
+  6. All other lines of /etc/fstab are unchanged.
+
+EXPECTED RESULT
+  df and du agree on /srv/appdata, the application keeps logging, and
+  both file systems mount from /etc/fstab.
+
+PRACTICE (not graded)
+  - Compare the use of /srv/appdata as df shows it with the size of
+    its files as du shows it, before and after the repair.
+  - Unmount /srv/archive and mount it again by its mount point only.
+
+NOTES
+  - Free the space and repair the configuration. Do not enlarge or
+    recreate a file system.
+  - The tool lsof is not installed. Everything needed can be found
+    under /proc.
+  - Do not reboot {{HOSTNAME}} during the lab. Repair the running
+    system.
+  - labctl reset stops and removes app-logger.service, unmounts both
+    file systems, removes the images and the mount points and puts
+    /etc/fstab back as it was before the lab.
+  - Reference: man df, man du, man proc (the fd directory),
+    man findmnt, man fstab, man mount, man blkid, man systemctl.
+
+GRADING
+  labctl grade storage-11
