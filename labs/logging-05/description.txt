@@ -1,0 +1,5 @@
+title: Central rsyslog server over TCP
+category: Logging
+complexity: Intermediate
+objective: Collect the syslog messages of node 2 on node 1 over TCP, in one file per host, with a disk-assisted forwarding queue on node 2.
+needs: nodes=2

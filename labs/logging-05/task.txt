@@ -1,0 +1,77 @@
+OBJECTIVE
+  Make node 1 a central rsyslog server that receives syslog messages
+  over TCP and keeps the messages of every client host in a file of
+  its own. Node 2 forwards its messages to node 1 and keeps them in a
+  disk-assisted queue while node 1 cannot be reached.
+
+TOPOLOGY
+  Work from the workstation and log in to each node with the node
+  account, the SSH user of the lab configuration (opsadmin by
+  default).
+
+     workstation
+          |
+          | SSH as the node account, to both nodes
+          |
+     node 2  {{NODE2_IP}}
+     rsyslog client, disk-assisted forwarding queue
+          |
+          | syslog over TCP, port 514
+          |
+     node 1  {{NODE1_IP}}
+     rsyslog server, /var/log/remote
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - The node account has full sudo on both nodes.
+  - rsyslog is installed and running on both nodes.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. rsyslog is enabled at boot and running on node 1 and on node 2.
+  2. rsyslog on node 1 receives syslog messages over TCP on port 514.
+  3. The firewall on node 1 allows 514/tcp, in the runtime and in the
+     permanent configuration, as a port or as a service of the zone
+     that holds the interface with the address {{NODE1_IP}}.
+  4. Node 1 writes the messages it receives from other hosts to
+     /var/log/remote/<host>/messages, where <host> is the host name
+     the sender puts in the message, for example
+     /var/log/remote/serverb/messages. The file name comes from a
+     template. The messages that node 1 logs about itself stay in its
+     usual log files and never go to /var/log/remote.
+  5. Node 2 forwards all messages of priority info and higher to
+     {{NODE1_IP}}, port 514, over TCP.
+  6. The forwarding action on node 2 has a disk-assisted queue: a
+     queue of type LinkedList with a queue file name, so that queued
+     messages go to disk when the queue fills up or rsyslog stops.
+  7. The forwarding action retries without limit when node 1 cannot
+     be reached, so no message is dropped.
+
+EXPECTED RESULT
+  The grader logs a test message on node 2. Within a few seconds it is
+  in /var/log/remote/<node 2 short host name>/messages on node 1. A
+  test message that the grader logs on node 1 itself appears in
+  /var/log/messages on node 1 and nowhere in /var/log/remote.
+
+PRACTICE (not graded)
+  - Stop rsyslog on node 1 and log a few messages on node 2. Look for
+    the queue files in the rsyslog work directory on node 2. Start
+    rsyslog on node 1 again and check that the messages arrive.
+
+NOTES
+  - Only the final state is graded. Use any valid Linux commands.
+  - The configuration should go into new files in /etc/rsyslog.d on
+    both nodes (not graded). Leave /etc/rsyslog.conf as it is.
+  - SELinux stays enforcing. Port 514/tcp already has the syslog port
+    type.
+  - labctl reset restores the rsyslog configuration, the firewall and
+    the rsyslog work directory of both nodes and removes
+    /var/log/remote.
+  - Reference: man rsyslog.conf, man logger, man firewall-cmd, and the
+    rsyslog documentation of the modules imtcp, omfile and omfwd, of
+    templates and of action queues:
+    https://www.rsyslog.com/doc/
+
+GRADING
+  labctl grade logging-05
