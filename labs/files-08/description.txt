@@ -1,0 +1,5 @@
+title: Text processing reports from a web server log
+category: Files
+complexity: Intermediate
+objective: Build exact reports from a web server log and a CSV file with pipes, sorting, counting and redirection.
+target: servera

@@ -1,0 +1,79 @@
+OBJECTIVE
+  Build exact reports from a web server log and a CSV file with pipes,
+  sorting, counting and redirection.
+
+PREREQUISITES
+  The lab created two read-only data files owned by root:
+
+       /srv/textlab/access.log     about 2000 web server requests
+       /srv/textlab/accounts.csv   a list of accounts
+
+  Each line of access.log is one request in the Apache combined log
+  format. The fields are separated by single spaces. The first ten
+  fields are:
+
+       1      client address, for example 192.0.2.250
+       2      always -
+       3      user name, or - when there is none
+       4, 5   time stamp in square brackets
+       6      method, after a double quote, for example "GET
+       7      request path, for example /index.html
+       8      protocol, followed by a double quote
+       9      status code, for example 200 or 404
+       10     response size in bytes, or - when no body was sent
+
+  The referer and the user agent follow, each in double quotes. The
+  user agent contains spaces.
+
+  The first line of accounts.csv is the header name,uid,dept,shell.
+  Every other line is one account with these four comma-separated
+  fields.
+
+TASKS
+  1. Work as your normal user, {{LAB_USER}}. Create the directory
+     reports in your home directory. The directory and the five
+     report files in it belong to {{LAB_USER}}.
+  2. Save in ~/reports/top-ips.txt the 5 client addresses with the
+     most requests in access.log, the address with the most requests
+     first. Each line has the form <count> <address>: the number of
+     requests, one space and the address, with no spaces before the
+     count. Example of one line:
+
+       312 198.51.100.250
+
+  3. Save in ~/reports/not-found.txt the number of requests in
+     access.log with the status code 404, as a single number. Only
+     the status code field counts, not a 404 in another field.
+  4. Save in ~/reports/paths.txt every distinct request path of
+     access.log, one per line, each path once, sorted in byte order.
+     The path is field 7 exactly as logged, including a query string
+     after a question mark. Byte order is the sort order of the C
+     locale, in which /Zoo.html comes before /apple.html.
+  5. Save in ~/reports/bytes.txt the sum of the response sizes of all
+     requests in access.log, as a single number. A size of - counts
+     as 0.
+  6. Save in ~/reports/bash-users.txt one line <name>:<uid> for every
+     account in accounts.csv whose shell is exactly /bin/bash, sorted
+     by UID in numeric order, smallest first. The header line is not
+     an account. Other shells, such as /usr/bin/bash, do not count.
+
+EXPECTED RESULT
+  ~/reports holds top-ips.txt, not-found.txt, paths.txt, bytes.txt
+  and bash-users.txt. Each file holds only the lines described above,
+  with no blank lines and no leading or trailing spaces.
+
+NOTES
+  - You should create each report with one pipeline of commands whose
+    output is redirected into the file. How the files are created is
+    not graded.
+  - The grader computes the expected reports from the data files with
+    the C locale and compares them with your files exactly. Every
+    line ends with a newline; a missing newline at the very end of a
+    file is tolerated.
+  - Do not change the files in /srv/textlab. The grader checks them.
+  - labctl reset removes ~/reports.
+  - Reference: man sort, man uniq, man cut, man awk, man wc, man head
+    and man bash (sections Pipelines and REDIRECTION).
+
+GRADING
+  labctl grade files-08
