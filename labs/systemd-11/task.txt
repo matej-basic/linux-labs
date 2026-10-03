@@ -1,0 +1,61 @@
+OBJECTIVE
+  Tune three kernel parameters on {{HOSTNAME}} so that they are set at
+  every boot, resolve a conflict with an older configuration file, and
+  have systemd create two directories at boot from a tmpfiles.d
+  configuration file. Then reboot and confirm that the running system
+  uses all of it.
+
+TASKS
+  1. The file /etc/sysctl.d/80-labtune.conf sets these kernel
+     parameters:
+
+       fs.inotify.max_user_watches   524288
+       net.core.somaxconn            4096
+       kernel.panic                  10
+
+  2. No sysctl configuration file that is applied after
+     80-labtune.conf sets any of the three parameters. The file
+     /etc/sysctl.d/99-zz-legacy.conf still exists and still sets
+     vm.vfs_cache_pressure to 150.
+  3. The file /etc/tmpfiles.d/labapp.conf is accepted by
+     systemd-tmpfiles without errors and has two rules:
+     - the directory /run/labapp is created with mode 0750, owner
+       {{LAB_USER}} and group root
+     - the directory /var/tmp/labcache is created with mode 1777, and
+       files in it that are older than 7 days are cleaned up
+  4. Reboot {{HOSTNAME}} after you have made all changes. After the
+     reboot:
+     - the three parameters from task 1 have their values
+     - vm.vfs_cache_pressure is 150
+     - /run/labapp exists with mode 0750, owner {{LAB_USER}} and group
+       root
+     - /var/tmp/labcache exists with mode 1777
+
+EXPECTED RESULT
+  The kernel parameters come from 80-labtune.conf at every boot, the
+  older file keeps only the setting that is still needed, and systemd
+  creates /run/labapp at every boot even though /run starts empty.
+
+PRACTICE (not graded)
+  - Before the reboot, find out which value of net.core.somaxconn the
+    boot would apply, and from which file.
+  - Put a file into /var/tmp/labcache and give it a modification time
+    of ten days ago. Run the cleanup of systemd-tmpfiles for
+    labapp.conf and check that the file is gone.
+
+NOTES
+  - /etc/sysctl.d/99-zz-legacy.conf is left from an earlier setup of
+    this server. Its vm.vfs_cache_pressure setting is still needed.
+  - The order in which sysctl configuration files are applied is
+    described in man sysctl.d.
+  - /run is a tmpfs, so its content is gone after every reboot.
+  - A reboot of {{HOSTNAME}} closes your SSH connection to it. This is
+    expected: connect again once the system is back up.
+  - Resetting the lab removes the lab files and restores the original
+    kernel parameter values. Do not undo your changes yourself.
+  - Reference: man sysctl.d, man sysctl, man tmpfiles.d,
+    man systemd-tmpfiles.
+  - Run the grading after the reboot.
+
+GRADING
+  labctl grade systemd-11

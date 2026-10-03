@@ -71,7 +71,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - nagios-02 (Intermediate): Host and service monitoring
 - nagios-03 (Advanced): Custom checks and plugins
 - tuning-02 (Intermediate): CPU and I/O optimization
-- tuning-03 (Advanced): Kernel parameter tuning
 
 ## Backup and disaster recovery
 

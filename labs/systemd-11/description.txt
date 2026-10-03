@@ -1,0 +1,6 @@
+title: Persistent kernel parameters and tmpfiles.d rules
+category: Systemd
+complexity: Intermediate
+objective: Set kernel parameters in sysctl.d that survive a reboot, resolve a conflicting legacy file and create boot-time directories with tmpfiles.d.
+target: servera
+needs: reboot
