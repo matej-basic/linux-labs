@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- networking-04: a NetworkManager profile on a free NIC with static IPv4 and IPv6 addresses and static routes, without a default gateway.
 - packages-06: dnf repositories defined from a base URL with signature checks, and packages installed from them.
 - scripting-01: two Bash scripts with arguments, exit codes, conditions and loops, graded on random test data.
 - storage-06: a GPT partition table with XFS, swap and vfat partitions, mounted and activated by UUID with nofail.

@@ -1,0 +1,6 @@
+title: IPv6 address and a static route on a free NIC
+category: Networking
+complexity: Intermediate
+objective: Configure a persistent NetworkManager profile with static IPv4 and IPv6 addresses and static routes on a free interface.
+target: servera
+needs: free-nic

@@ -1,0 +1,60 @@
+OBJECTIVE
+  Configure a persistent NetworkManager profile with a static IPv4
+  address, a static IPv6 address and one static route for each
+  protocol on a free network interface.
+
+PREREQUISITES
+  - {{HOSTNAME}} has a default-route interface (it carries SSH) and
+    free Ethernet interfaces on an isolated network without DHCP or
+    IPv6 router advertisements.
+  - The lab uses the first free interface: the first Ethernet
+    interface, in name order, that does not carry the default route.
+    Its name is the first line of /opt/linux-labs/state/networking-04.
+  - The automatic NetworkManager profile of that interface, if there
+    is one, is disabled while the lab is active. "labctl reset" turns
+    it back on.
+
+TASKS
+  1. Create a NetworkManager connection profile named lab-v6, bound
+     to the free interface by its interface name. The profile is
+     saved on disk and connects automatically.
+  2. Configure IPv4 statically in lab-v6:
+
+       address   192.168.150.10/24
+       route     10.150.0.0/24 through the gateway 192.168.150.254
+
+  3. Configure IPv6 statically in lab-v6, without stateless address
+     autoconfiguration and without DHCPv6:
+
+       address   fd00:150::10/64
+       route     fd00:250::/64 through the gateway fd00:150::fe
+
+  4. lab-v6 defines no default gateway for IPv4 or IPv6. No default
+     route may use the free interface.
+  5. Activate lab-v6 now. The free interface has both addresses, the
+     IPv6 address is usable (duplicate address detection passed), and
+     the kernel routing tables contain both routes on the free
+     interface.
+  6. Do not change the default-route interface or its connection
+     profile. The default route must still use it.
+
+EXPECTED RESULT
+  lab-v6 is active on the free interface with 192.168.150.10/24 and
+  fd00:150::10/64, and the two routes appear both in the profile and
+  in the kernel routing tables. The SSH session is unaffected.
+
+PRACTICE (not graded)
+  - Take lab-v6 down and up again and check that the addresses and
+    routes return.
+  - Compare the IPv4 and the IPv6 routing table of {{HOSTNAME}}.
+
+NOTES
+  - Use any valid Linux commands. Only the final state is graded.
+  - The gateways 192.168.150.254 and fd00:150::fe do not exist on the
+    isolated network. The routes are still valid, because both
+    gateways are inside the networks of the interface addresses.
+  - Reference: man nmcli, man nmcli-examples, man nm-settings-nmcli
+    (sections ipv4 and ipv6) and man ip-route.
+
+GRADING
+  labctl grade networking-04

@@ -41,7 +41,6 @@ prefixes in `labs/` and takes the next free two-digit number.
 - bonding-01 (Beginner): Network interface bonding
 - bonding-02 (Intermediate): Team networking
 - bonding-03 (Advanced): LACP and advanced bonding
-- routing-01 (Beginner): Static routing configuration
 - routing-02 (Intermediate): Dynamic routing with OSPF
 - routing-03 (Advanced): BGP configuration
 
