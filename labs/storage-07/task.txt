@@ -1,0 +1,72 @@
+OBJECTIVE
+  Encrypt a disk with LUKS2, unlock it with a passphrase and with a
+  key file, put an XFS file system on the opened volume and make the
+  volume persistent in /etc/crypttab and /etc/fstab.
+
+PREREQUISITES
+  - Root access through sudo. Rocky Linux 8 and 9 behave the same.
+  - The lab has attached the image /srv/storage-07.img (512 MiB) to a
+    loop device. That loop device is the disk for this lab. Its name,
+    for example /dev/loop0, is the first line of
+    /opt/linux-labs/state/storage-07.
+  - The starting passphrase is the first line of the file
+    /root/luks-passphrase, which only root can read. The line end is
+    not part of the passphrase.
+  - Use only this loop device. Do not touch the disk of the operating
+    system.
+
+TASKS
+  1. The loop device holds a LUKS2 header. The starting passphrase
+     unlocks it.
+  2. A key file /etc/luks-keys/secret.key with random content unlocks
+     the LUKS volume through a second key slot. The passphrase keeps
+     working. The key file is owned by root with mode 0400, and the
+     directory /etc/luks-keys is owned by root with mode 0700.
+  3. The LUKS volume is open as the device mapping securedata, so the
+     opened volume is /dev/mapper/securedata.
+  4. /dev/mapper/securedata holds an XFS file system with the label
+     SECURE, mounted on /mnt/secure.
+  5. /etc/crypttab has an entry for securedata. It names the device
+     as UUID= followed by the UUID of the LUKS header, uses the key
+     file from task 2 and has the option nofail.
+  6. /etc/fstab has an entry for the XFS file system on /mnt/secure
+     with the type xfs and the option nofail. The entry names the
+     device as /dev/mapper/securedata or as UUID= followed by the
+     UUID of the XFS file system.
+  7. /etc/fstab as a whole passes the fstab verification of findmnt
+     without errors.
+  8. After systemd reloads its configuration, it has a cryptsetup
+     unit for securedata generated from /etc/crypttab.
+
+EXPECTED RESULT
+  The loop device is encrypted. Both the passphrase and the key file
+  unlock it. The opened volume securedata holds the XFS file system
+  SECURE on /mnt/secure, and /etc/crypttab and /etc/fstab describe
+  both layers so that the volume would be opened and mounted at boot.
+
+PRACTICE (not graded)
+  - Unmount the file system, close the mapping and bring both back
+    using only the entries in /etc/crypttab and /etc/fstab.
+  - Look at the key slots and the key derivation settings stored in
+    the LUKS header.
+
+NOTES
+  - The LUKS tools come in the package cryptsetup, which may not be
+    installed yet.
+  - By default LUKS2 derives each key slot with a memory-hard function
+    that can use up to 1 GiB of memory, and servera has about 2 GiB.
+    You should limit that memory to 64 MiB for both key slots. This
+    is not graded.
+  - The loop device is not attached again at boot, so after a reboot
+    the encrypted disk is missing. The option nofail in both files
+    lets the system boot anyway. Do not reboot servera during the
+    lab; if it happens, run labctl reset and start the lab again.
+  - labctl reset unmounts the file system, closes the mapping, removes
+    the lab entries from /etc/fstab, restores /etc/crypttab, removes
+    the key file, detaches the loop device and removes the image, the
+    passphrase file and the mount point.
+  - Reference: man cryptsetup, man crypttab, man mkfs.xfs, man fstab,
+    man findmnt, man blkid and man systemd-cryptsetup-generator.
+
+GRADING
+  labctl grade storage-07

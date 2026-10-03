@@ -1,0 +1,6 @@
+title: Encrypted LUKS volume unlocked at boot by a key file
+category: Storage
+complexity: Intermediate
+objective: Encrypt a disk with LUKS2, add a key file to a second key slot, put XFS on the opened volume and make it persistent in /etc/crypttab and /etc/fstab.
+target: servera
+needs: internet
