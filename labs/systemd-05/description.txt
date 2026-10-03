@@ -1,0 +1,6 @@
+title: Kernel arguments, GRUB timeout and kernel modules
+category: Systemd
+complexity: Intermediate
+objective: Add a kernel argument to every kernel, set the GRUB menu timeout, load a module with an option at boot and blacklist another.
+needs: reboot
+target: servera

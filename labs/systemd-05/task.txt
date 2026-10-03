@@ -1,0 +1,62 @@
+OBJECTIVE
+  Change the boot configuration of {{HOSTNAME}}: add a kernel argument
+  to every installed kernel, set the GRUB menu timeout, load a kernel
+  module with an option at boot and blacklist another module. Then
+  reboot and confirm that the running system uses all of it.
+
+TASKS
+  1. Add the kernel argument consoleblank=0 to the boot entry of every
+     installed kernel, including the rescue kernel. The argument is
+     also part of GRUB_CMDLINE_LINUX in /etc/default/grub, so that
+     kernels installed later get it too. Keep all other arguments.
+  2. Set the GRUB menu timeout to 10 seconds. GRUB_TIMEOUT in
+     /etc/default/grub is 10, and the GRUB configuration file that the
+     boot loader reads uses a timeout of 10 seconds.
+  3. The GRUB menu is set to hide itself automatically. Turn that off
+     in the GRUB environment block, so that the menu is shown with the
+     timeout from task 2.
+  4. The kernel module dummy is loaded at every boot through a
+     configuration file in /etc/modules-load.d. It is loaded with the
+     module option numdummies=2, set in a configuration file in
+     /etc/modprobe.d. That value is the one in effect when the module
+     is loaded.
+  5. The kernel module pcspkr is blacklisted in a configuration file
+     in /etc/modprobe.d, so that it is not loaded automatically.
+  6. Reboot {{HOSTNAME}} after you have made all changes. After the
+     reboot:
+     - the running kernel was booted with consoleblank=0
+     - the module dummy is loaded, and the only dummy interfaces are
+       dummy0 and dummy1
+     - the module pcspkr is not loaded
+
+EXPECTED RESULT
+  Every boot entry carries consoleblank=0, the GRUB menu waits 10
+  seconds, and after the reboot the system has two dummy interfaces
+  and no PC speaker driver.
+
+PRACTICE (not graded)
+  - Compare /proc/cmdline with the arguments of the boot entries
+    before and after the reboot.
+  - After the reboot, load pcspkr by hand and find out why the
+    blacklist does not stop it. Unload it again before grading.
+
+NOTES
+  - Rocky Linux 8 and 9 keep the kernel arguments in different places.
+    Check the result for every kernel, not only the default one.
+  - On a BIOS system, and on every Rocky Linux 9 system, the boot
+    loader reads /boot/grub2/grub.cfg.
+  - The system already sets an option for dummy in a file under
+    /usr/lib/modprobe.d. The order in which modprobe reads its
+    configuration files is described in man modprobe.d.
+  - The module dummy does not show its options under /sys, so the
+    graded result of the option is the number of dummy interfaces.
+  - A reboot of {{HOSTNAME}} closes your SSH connection to it. This is
+    expected: connect again once the system is back up.
+  - Resetting the lab restores the original boot configuration. Do not
+    undo your changes yourself.
+  - Reference: man grubby, man grub2-mkconfig, man grub2-editenv,
+    man modules-load.d, man modprobe.d, man kernel-command-line.
+  - Run the grading after the reboot.
+
+GRADING
+  labctl grade systemd-05

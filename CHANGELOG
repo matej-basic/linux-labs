@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- systemd-05: kernel arguments for every kernel, the GRUB menu timeout, a module with an option at boot and a blacklisted module.
 - users-05: sudo rules with a drop-in file and a command alias, with and without a password.
 - Lab storage-05 (Storage, Intermediate): add a physical volume to a volume group, extend an XFS and an ext4 logical volume and grow both file systems without losing data.
 - Lab samba-01 (Storage, Intermediate, two nodes): a Samba share for a group with samba_share_t and the samba firewall service, mounted persistently on node 2 through fstab with a credentials file.
