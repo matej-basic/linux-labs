@@ -1,0 +1,6 @@
+title: A service fails after a package update
+category: Packages
+complexity: Intermediate
+objective: Bring chronyd back after an update left an outdated chrony.conf and a .rpmnew file, and undo an unwanted package install.
+target: servera
+needs: internet

@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- packages-07: a break-fix lab where chronyd fails after a simulated update: merge the .rpmnew default with local lines and undo an unwanted dnf transaction.
 - users-06: a break-fix lab with four accounts that cannot log in: an expired account, a locked password, a nologin shell and a missing home directory.
 - postgres-04: a break-fix lab where PostgreSQL does not start because of an SELinux port type, a pg_hba.conf error and the data directory mode.
 - scheduling-05: a break-fix lab with three cron jobs that never run because of a file mode, a missing user field, cron's PATH and an unescaped percent sign.

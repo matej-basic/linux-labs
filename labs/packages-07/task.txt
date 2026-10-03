@@ -1,0 +1,61 @@
+OBJECTIVE
+  Bring the time service on {{HOSTNAME}} back after a botched package
+  update, and undo a package install that nobody asked for.
+
+PREREQUISITES
+  - During an update of chrony, rpm found a locally changed
+    /etc/chrony.conf. It kept that file and put the default
+    configuration of the new package next to it. Since then, chronyd
+    no longer starts.
+  - In the same session, the most recent dnf transaction installed a
+    package that is not wanted on this server, together with its
+    dependencies.
+  - {{LAB_USER}} has sudo rights. The lab works the same on Rocky
+    Linux 8 and 9.
+
+TASKS
+  1. The service chronyd is enabled at boot and running.
+  2. chronyd reads /etc/chrony.conf without errors or warnings.
+  3. /etc/chrony.conf is the default configuration of the installed
+     chrony package, plus these two local lines, kept from the old
+     file:
+
+       allow 172.25.250.0/24
+       local stratum 10
+
+     Every other active line equals a line of the default
+     configuration, and no line of the default is missing. Comments
+     and blank lines do not matter.
+  4. No .rpmnew or .rpmsave file of chrony is left anywhere under
+     /etc.
+  5. The package that the most recent dnf transaction installed at
+     the start of the lab, and the dependencies that came with it,
+     are no longer installed.
+  6. Every package that was installed before the lab started is
+     still installed.
+
+EXPECTED RESULT
+  chronyd runs with the configuration that the current chrony package
+  ships, serves time to the classroom network and keeps serving it
+  when no time source is reachable.
+
+PRACTICE (not graded)
+  - List the files of the chrony package that changed since it was
+    installed, and explain each flag in the output.
+  - Find out which package owns a program that the unwanted package
+    installed.
+
+NOTES
+  - The old /etc/chrony.conf was written for ntpd and later moved to
+    chrony. Apart from the two local lines, nothing in it needs to be
+    kept.
+  - Find the unwanted package in the history of dnf. Do not remove
+    other packages.
+  - Use any valid Linux commands. Only the final state is graded;
+    command history is not evaluated.
+  - Reference: man rpm (section VERIFY OPTIONS), man dnf (section
+    History Command), man chrony.conf, man chronyd and man
+    journalctl.
+
+GRADING
+  labctl grade packages-07
