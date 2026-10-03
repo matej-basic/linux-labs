@@ -1,0 +1,83 @@
+OBJECTIVE
+  Share a group directory of node 1 over SMB with Samba, and mount the
+  share on node 2 at every boot with a protected credentials file.
+
+TOPOLOGY
+  Work from the workstation and administer the nodes over SSH.
+
+     workstation
+          |
+          | SSH to both nodes
+          |
+     node 1  {{NODE1_IP}}
+     Samba server: shares /srv/samba/team as [team]
+          |
+          | SMB, port 445
+          |
+     node 2  {{NODE2_IP}}
+     CIFS client: mounts //{{NODE1_IP}}/team on /mnt/team
+
+PREREQUISITES
+  - Multi-node labs are enabled with at least 2 nodes
+    (NODE_COUNT={{NODE_COUNT}}).
+  - SSH access to both nodes works from the workstation, and the SSH
+    user has sudo on the nodes.
+  - The nodes reach the Rocky Linux package repositories. The Samba
+    server comes from the package samba, the CIFS mount helper from
+    the package cifs-utils and the SELinux management tool semanage
+    from the package policycoreutils-python-utils.
+  - Node 1 has the group smbteam (GID 3410) and the user smbuser
+    (UID 3411), a member of smbteam. smbuser has no Samba password.
+  - Node 1 has the directory /srv/samba/team, owned by root and the
+    group smbteam, mode 2770, with its default SELinux type.
+  - Samba is not configured, smb is not running and the firewall on
+    node 1 has no rule for Samba. Node 2 has nothing mounted on
+    /mnt/team and no fstab entry for it.
+  - The lab works the same on Rocky Linux 8 and 9.
+
+TASKS
+  1. The service smb is enabled at boot and running on node 1.
+  2. Node 1 shares the directory /srv/samba/team under the share name
+     team. The share is writable, and the only valid users of the
+     share are the members of the group smbteam.
+  3. /srv/samba/team has the SELinux type samba_share_t. A local file
+     context rule in the SELinux policy gives /srv/samba/team and
+     everything below it that type, so that a relabel keeps it.
+  4. The firewall on node 1 allows the samba service, at runtime and
+     permanently.
+  5. smbuser has a Samba account on node 1 with the password
+     Smb.Team.2468.
+  6. The file /root/team.creds on node 2 holds the user name smbuser
+     and its Samba password. It is owned by root, with mode 0600.
+  7. An entry in /etc/fstab on node 2 mounts //{{NODE1_IP}}/team on
+     /mnt/team with the file system type cifs. It reads the
+     credentials from /root/team.creds and has the option _netdev, so
+     that the mount waits for the network at boot.
+  8. The share is mounted on /mnt/team on node 2.
+  9. A file that root creates on node 2 in /mnt/team belongs to the
+     user smbuser on node 1.
+
+EXPECTED RESULT
+  Files that node 2 writes to /mnt/team show up in /srv/samba/team on
+  node 1, owned by smbuser and the group smbteam. The SELinux type of
+  the directory survives a full relabel, and node 2 mounts the share
+  again after a reboot.
+
+PRACTICE (not graded)
+  - List the shares of node 1 from node 2 as smbuser with the Samba
+    client tools (package samba-client).
+  - Reboot node 2 and check that the share is mounted again.
+
+NOTES
+  - Use the address {{NODE1_IP}} of node 1 in the share name on
+    node 2, not a host name.
+  - Reference: man smb.conf, man testparm, man smbpasswd, man pdbedit,
+    man semanage-fcontext, man restorecon, man mount.cifs and
+    man fstab.
+  - labctl reset removes the mount, the fstab entry, /root/team.creds,
+    the share, the Samba account, the file context rule, the firewall
+    rule, /srv/samba/team and the lab user and group. Where the lab
+    installed samba or cifs-utils, reset removes them again.
+
+GRADING
+  labctl grade samba-01

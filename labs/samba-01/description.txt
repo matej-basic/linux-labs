@@ -1,0 +1,5 @@
+title: Samba file sharing with a persistent CIFS mount
+category: Storage
+complexity: Intermediate
+objective: Share a group directory from node 1 with Samba, SELinux and the firewall, and mount it on node 2 through fstab with a credentials file.
+needs: internet, nodes=2

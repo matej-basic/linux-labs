@@ -5,6 +5,7 @@ All notable changes to linux-labs. The version matches `Version:` in rpm/linux-l
 ## Unreleased
 
 ### Added
+- Lab samba-01 (Storage, Intermediate, two nodes): a Samba share for a group with samba_share_t and the samba firewall service, mounted persistently on node 2 through fstab with a credentials file.
 - Lab ansible-02 (Automation, Intermediate, three nodes): an Ansible role with defaults, templates and a handler, variables in group_vars and host_vars, and a playbook that applies it.
 - Lab files-05 (Files, Beginner): find files by owner, size, age and permissions, search a log with grep, and keep a command's errors apart from its output.
 - Lab podman-02 (Containers, Intermediate): build an image from a Containerfile with a label and an environment variable, and run it rootless with a published port, a named volume and a restart policy.
