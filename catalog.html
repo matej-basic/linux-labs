@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lab catalog - linux-labs</title>
-<meta name="description" content="All 55 linux-labs labs by category, with level, target, course, what each lab needs and known issues.">
+<meta name="description" content="All 118 linux-labs labs by category, with level, target, course, what each lab needs and known issues.">
 <meta name="color-scheme" content="light dark">
 <link rel="stylesheet" href="site.css">
 </head>
@@ -24,10 +24,34 @@
 
 <main id="main" class="page">
 <h1>Lab catalog</h1>
-<p class="lead">All 55 labs by category. Start one with <code>sudo labctl start &lt;lab&gt;</code>. Needs lists what a lab requires from your machine, for example internet access or extra nodes.</p>
+<p class="lead">All 118 labs by category. Start one with <code>sudo labctl start &lt;lab&gt;</code>. Needs lists what a lab requires from your machine, for example internet access or extra nodes.</p>
 <nav aria-label="Categories">
-<ul class="subnav"><li><a href="#database-replication">Database Replication</a></li><li><a href="#databases">Databases</a></li><li><a href="#dns">DNS</a></li><li><a href="#files">Files</a></li><li><a href="#firewall">Firewall</a></li><li><a href="#high-availability-clustering">High Availability Clustering</a></li><li><a href="#load-balancing">Load Balancing</a></li><li><a href="#logging">Logging</a></li><li><a href="#networking">Networking</a></li><li><a href="#packages">Packages</a></li><li><a href="#scheduling">Scheduling</a></li><li><a href="#selinux">SELinux</a></li><li><a href="#storage">Storage</a></li><li><a href="#systemd">Systemd</a></li><li><a href="#users">Users</a></li><li><a href="#web-servers">Web Servers</a></li></ul>
+<ul class="subnav"><li><a href="#automation">Automation</a></li><li><a href="#containers">Containers</a></li><li><a href="#database-replication">Database Replication</a></li><li><a href="#databases">Databases</a></li><li><a href="#dns">DNS</a></li><li><a href="#files">Files</a></li><li><a href="#firewall">Firewall</a></li><li><a href="#high-availability-clustering">High Availability Clustering</a></li><li><a href="#load-balancing">Load Balancing</a></li><li><a href="#logging">Logging</a></li><li><a href="#networking">Networking</a></li><li><a href="#packages">Packages</a></li><li><a href="#scheduling">Scheduling</a></li><li><a href="#selinux">SELinux</a></li><li><a href="#ssh">SSH</a></li><li><a href="#storage">Storage</a></li><li><a href="#systemd">Systemd</a></li><li><a href="#users">Users</a></li><li><a href="#web-servers">Web Servers</a></li></ul>
 </nav>
+<h2 id="automation">Automation</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>ansible-01</code></td><td>Ansible control node and a first playbook</td><td>Beginner</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+<tr><td><code>ansible-02</code></td><td>Ansible roles, templates and handlers</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+<tr><td><code>ansible-03</code></td><td>Ansible Vault, facts and conditionals</td><td>Advanced</td><td>nodes</td><td>-</td><td>internet, 3 nodes</td><td>-</td></tr>
+<tr><td><code>git-01</code></td><td>Shared Git repository served over SSH</td><td>Beginner</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>scripting-01</code></td><td>Bash scripts with arguments, conditions and loops</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="containers">Containers</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>podman-01</code></td><td>Rootless httpd container as a systemd user service</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>podman-02</code></td><td>Build a container image and run it with Podman</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>podman-03</code></td><td>Rootless pod with a database and a web container</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
 <h2 id="database-replication">Database Replication</h2>
 <div class="table-wrap">
 <table class="labs">
@@ -50,6 +74,8 @@
 <tr><td><code>postgres-01</code></td><td>PostgreSQL installation and first start</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>postgres-02</code></td><td>PostgreSQL database and role management</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>postgres-03</code></td><td>PostgreSQL backup and restore</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>postgres-04</code></td><td>PostgreSQL that does not start</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>redis-01</code></td><td>Redis server with a password and persistence</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -61,6 +87,8 @@
 <tr><td><code>dns-01</code></td><td>Install and start the BIND DNS server</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>dns-02</code></td><td>DNS forward zone with A, CNAME and MX records</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>dns-03</code></td><td>DNSSEC signed zone with zone transfer</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>dns-04</code></td><td>BIND secondary zone with zone transfers</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>dns-05</code></td><td>Name resolution fails on a client</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -73,6 +101,11 @@
 <tr><td><code>files-02</code></td><td>Web directory permissions and ownership</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>files-03</code></td><td>Special permissions, ACLs and backup</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>files-04</code></td><td>Brace expansion and file organisation</td><td>Beginner</td><td>servera</td><td>aoos 01</td><td>-</td><td>-</td></tr>
+<tr><td><code>files-05</code></td><td>Finding files and searching text</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>files-06</code></td><td>Archives and rsync transfer between nodes</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>files-07</code></td><td>Incremental rsync snapshots with a systemd timer</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>files-08</code></td><td>Text processing reports from a web server log</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>files-09</code></td><td>Hard links, symbolic links and inodes</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -117,6 +150,10 @@
 <tr><td><code>logging-01</code></td><td>Filtering the systemd journal with journalctl</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td><a href="https://github.com/matej-basic/linux-labs/blob/main/labs/logging-01/known-issues.md">2 workaround</a></td></tr>
 <tr><td><code>logging-02</code></td><td>Custom rsyslog rules and logrotate</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>logging-03</code></td><td>Persistent journal and a failing service</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>logging-04</code></td><td>Persistent audit rules and auditd log settings</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>logging-05</code></td><td>Central rsyslog server over TCP</td><td>Intermediate</td><td>nodes</td><td>-</td><td>2 nodes</td><td>-</td></tr>
+<tr><td><code>logging-06</code></td><td>journald size limits, rate limiting and retention</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>logging-07</code></td><td>File integrity checks with AIDE</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -128,6 +165,9 @@
 <tr><td><code>networking-01</code></td><td>Static IP address and DNS with NetworkManager</td><td>Beginner</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
 <tr><td><code>networking-02</code></td><td>VLAN interface and hostname</td><td>Intermediate</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
 <tr><td><code>networking-03</code></td><td>Network bonding with failover</td><td>Advanced</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+<tr><td><code>networking-04</code></td><td>IPv6 address and a static route on a free NIC</td><td>Intermediate</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+<tr><td><code>networking-05</code></td><td>A network connection that does not come up</td><td>Intermediate</td><td>servera</td><td>-</td><td>free NIC</td><td>-</td></tr>
+<tr><td><code>time-01</code></td><td>Chrony time server and client</td><td>Intermediate</td><td>nodes</td><td>-</td><td>2 nodes</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -141,6 +181,9 @@
 <tr><td><code>packages-03</code></td><td>Package file lists</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>packages-04</code></td><td>RPM queries and installing from a file</td><td>Intermediate</td><td>servera</td><td>aoos 02</td><td>internet</td><td><a href="https://github.com/matej-basic/linux-labs/blob/main/labs/packages-04/known-issues.md">1 workaround</a></td></tr>
 <tr><td><code>packages-05</code></td><td>Build joe from source with a custom prefix</td><td>Advanced</td><td>servera</td><td>aoos 02</td><td>internet</td><td>-</td></tr>
+<tr><td><code>packages-06</code></td><td>Configure dnf repositories from a base URL</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>packages-07</code></td><td>A service fails after a package update</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>packages-08</code></td><td>Switch Node.js to another dnf module stream</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -152,6 +195,8 @@
 <tr><td><code>scheduling-01</code></td><td>Cron jobs basics</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>scheduling-02</code></td><td>Systemd timers</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>scheduling-03</code></td><td>Anacron, persistent timers and cron variables</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>scheduling-04</code></td><td>One-time jobs with at and a default umask</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>scheduling-05</code></td><td>Troubleshoot cron jobs that never run</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -163,6 +208,22 @@
 <tr><td><code>selinux-01</code></td><td>SELinux enforcing mode</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>selinux-02</code></td><td>SELinux contexts for a web application</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>selinux-03</code></td><td>SELinux labels for Apache on a non-standard port</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>selinux-04</code></td><td>SELinux booleans for Apache user directories</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="ssh">SSH</h2>
+<div class="table-wrap">
+<table class="labs">
+<thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
+<tbody>
+<tr><td><code>fail2ban-01</code></td><td>Protect SSH with fail2ban</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>fail2ban-02</code></td><td>Custom fail2ban filter and jail for an application log</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>ssh-01</code></td><td>SSH key authentication and a client host alias</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>ssh-02</code></td><td>Hardening the SSH server</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>ssh-03</code></td><td>Key login fails for a user with a non-standard home</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>ssh-04</code></td><td>SFTP-only group chrooted to per-user directories</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>ssh-05</code></td><td>SSH user certificates signed by a local CA</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -171,9 +232,20 @@
 <table class="labs">
 <thead><tr><th scope="col">Lab</th><th scope="col">Title</th><th scope="col">Level</th><th scope="col">Target</th><th scope="col">Course</th><th scope="col">Needs</th><th scope="col">Known issues</th></tr></thead>
 <tbody>
+<tr><td><code>nfs-01</code></td><td>NFS server and persistent client mount</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>nfs-02</code></td><td>NFS export security and autofs client mounts</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>samba-01</code></td><td>Samba file sharing with a persistent CIFS mount</td><td>Intermediate</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
 <tr><td><code>storage-01</code></td><td>Loopback filesystem with persistent mount</td><td>Beginner</td><td>servera</td><td>-</td><td>reboot</td><td>-</td></tr>
 <tr><td><code>storage-02</code></td><td>LVM basics on a loopback device</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>storage-03</code></td><td>LVM snapshots on a loopback volume group</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>storage-04</code></td><td>Swap file, swappiness and a tuned profile</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet, reboot</td><td>-</td></tr>
+<tr><td><code>storage-05</code></td><td>Extend LVM volumes and grow XFS and ext4 file systems</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>storage-06</code></td><td>GPT partitions, swap and file systems mounted by UUID</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>storage-07</code></td><td>Encrypted LUKS volume unlocked at boot by a key file</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>storage-08</code></td><td>User and group disk quotas on an XFS file system</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>storage-09</code></td><td>iSCSI target and a persistent initiator login</td><td>Advanced</td><td>nodes</td><td>-</td><td>internet, 2 nodes</td><td>-</td></tr>
+<tr><td><code>storage-10</code></td><td>Software RAID 1 with a hot spare and a disk replacement</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>storage-11</code></td><td>Full file system and a broken fstab entry</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -186,6 +258,13 @@
 <tr><td><code>systemd-02</code></td><td>Custom systemd service</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>systemd-03</code></td><td>Systemd timers and scheduled services</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>systemd-04</code></td><td>Default boot target</td><td>Beginner</td><td>servera</td><td>aoos 01</td><td>reboot</td><td>-</td></tr>
+<tr><td><code>systemd-05</code></td><td>Kernel arguments, GRUB timeout and kernel modules</td><td>Intermediate</td><td>servera</td><td>-</td><td>reboot</td><td>-</td></tr>
+<tr><td><code>systemd-06</code></td><td>Process priorities and signals</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>systemd-07</code></td><td>Kernel crash dumps with kdump</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet, reboot</td><td>-</td></tr>
+<tr><td><code>systemd-08</code></td><td>Drop-in overrides, restart policy and resource limits</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>systemd-09</code></td><td>Runaway processes and sar data collection</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>systemd-10</code></td><td>Custom services that fail to start</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>systemd-11</code></td><td>Persistent kernel parameters and tmpfiles.d rules</td><td>Intermediate</td><td>servera</td><td>-</td><td>reboot</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -197,6 +276,9 @@
 <tr><td><code>users-01</code></td><td>Users, groups and shared directories</td><td>Beginner</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>users-02</code></td><td>User accounts, password aging and limits</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 <tr><td><code>users-03</code></td><td>Users, groups and ACLs for shared directories</td><td>Advanced</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>users-04</code></td><td>Password policy with pwquality, faillock and pwhistory</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>users-05</code></td><td>Sudo rules with drop-in files and command aliases</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
+<tr><td><code>users-06</code></td><td>Accounts that cannot log in</td><td>Intermediate</td><td>servera</td><td>-</td><td>-</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
@@ -208,13 +290,18 @@
 <tr><td><code>webserver-01</code></td><td>Install and run Apache HTTP Server</td><td>Beginner</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>webserver-02</code></td><td>Apache name-based virtual host</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 <tr><td><code>webserver-03</code></td><td>HTTPS with a self-signed certificate</td><td>Advanced</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-04</code></td><td>Nginx HTTPS reverse proxy for a local application</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-05</code></td><td>Troubleshoot a web site that does not load</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-06</code></td><td>Apache with PHP-FPM and a dedicated pool</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-07</code></td><td>Internal CA and a trusted HTTPS certificate</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
+<tr><td><code>webserver-08</code></td><td>Apache basic auth and IP access control</td><td>Intermediate</td><td>servera</td><td>-</td><td>internet</td><td>-</td></tr>
 </tbody>
 </table>
 </div>
 </main>
 
 <footer class="foot">
-  <span>linux-labs 2.0.0 &middot; <a href="catalog.html">Catalog</a> &middot; <a href="docs/getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span>linux-labs 2.1.0 &middot; <a href="catalog.html">Catalog</a> &middot; <a href="docs/getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
   <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
 </footer>
 </body>
