@@ -2,7 +2,7 @@
 
 All notable changes to linux-labs. The version matches `Version:` in rpm/linux-labs.spec and the git tag vX.Y.Z.
 
-## Unreleased
+## 2.1.0 (2026-10-07)
 
 ### Added
 - 63 new labs. The collection is now 118 labs in 19 topics. SSH, Containers and Automation are new categories, and 10 labs are break-fix labs, where setup breaks a working system and the student finds and fixes the causes.

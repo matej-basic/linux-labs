@@ -1,5 +1,5 @@
 Name:           linux-labs
-Version:        2.0.0
+Version:        2.1.0
 Release:        1
 Summary:        Hands-on Linux system administration labs
 License:        MIT
@@ -98,6 +98,12 @@ visudo -cf %{buildroot}/etc/sudoers.d/labctl
 %doc %{_docdir}/%{name}
 
 %changelog
+* Wed Oct 07 2026 Matej Basic <matej.basic@outlook.com> - 2.1.0-1
+- 63 new labs, 118 labs in 19 topics
+- New categories SSH, Containers and Automation, and 10 break-fix labs
+- Fix the saved-profile lookup in the network labs and the logging-03 reset
+- Runtime-tested on Rocky Linux 8.10 and 9.8
+
 * Sat Oct 03 2026 Matej Basic <matej.basic@outlook.com> - 2.0.0-1
 - Lab framework 2.0 with task text, hints and a shared grading library
 - Labs run on servera over SSH; the student needs no sudo on the workstation

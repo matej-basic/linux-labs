@@ -27,7 +27,7 @@ If you see a list of labs, it is installed. If you see
 
 The installer prints a few lines that start with "==>" and ends with:
 
-    Installed: linux-labs-2.0.0-1.noarch
+    Installed: linux-labs-2.1.0-1.noarch
 
     Next steps:
       labctl list
