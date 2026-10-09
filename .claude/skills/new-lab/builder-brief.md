@@ -6,7 +6,7 @@ agent prompt. Delete lines that do not apply.
 ---
 
 Build the new lab `<id>` in the linux-labs repo at
-/Users/matej/Documents/git/linux-labs, following lab framework 2.0.
+/Users/matej/git/linux-labs, following lab framework 2.0.
 
 Read first, completely: `docs/author/framework.md` (the binding spec: lab contract,
 "Describe the end state, never the solution", grading library, network
