@@ -75,7 +75,7 @@ usage() {
   echo "  configure reset          - Reset to defaults"
   echo ""
   echo "Documentation: man labctl, /usr/share/doc/linux-labs/"
-  echo "Online: https://matej-basic.github.io/linux-labs/"
+  echo "Online: https://linux-labs.matejbasic.com/"
   exit "${1:-1}"
 }
 

@@ -94,6 +94,13 @@ description starts with "linux-labs "); the user's own snapshots such as
 
 `scripts/build-rpm-linux.sh` builds the RPM on an EL8 host or in a `rockylinux/rockylinux:8` container; `--deploy root@10.0.0.149` reinstalls it on the author's personal test VM, so ask before using it. `rpm/linux-labs.spec` `Version:` is the release version; pushing a matching tag `vX.Y.Z` signs, releases and publishes to the dnf repo on GitHub Pages. Edit `labs/`, `src/`, `docs/student/` and `rpm/linux-labs.spec`, never the copies under the gitignored `packaging/`. Details: `docs/author/releasing.md`.
 
+## Deployment and domains
+
+The dnf repo is served by GitHub Pages (legacy build from the `gh-pages` branch) at https://linux-labs.matejbasic.com, HTTPS enforced, since the domain migration of 2026-10-11. DNS is in the Cloudflare zone `matejbasic.com`, DNS-only (grey cloud).
+
+- The custom domain is held by a `CNAME` file on `gh-pages`; the publish workflow keeps it. Never delete or recreate `gh-pages` as an orphan branch, or the domain and HTTPS setting are lost.
+- The old https://matej-basic.github.io/linux-labs/X 301-redirects to https://linux-labs.matejbasic.com/X, and dnf follows it (tested on Rocky 8 and 9), so `.repo` files installed earlier keep working. The old URL must keep redirecting.
+
 ## Known issues
 
 - There is no "Tested clustering-NN" commit for the clustering labs.

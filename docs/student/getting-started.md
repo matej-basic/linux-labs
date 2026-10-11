@@ -23,7 +23,7 @@ run:
 If you see a list of labs, it is installed. If you see
 "command not found", install it. You need sudo rights for this:
 
-    curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
+    curl -fsSL https://linux-labs.matejbasic.com/install | sudo bash
 
 The installer prints a few lines that start with "==>" and ends with:
 

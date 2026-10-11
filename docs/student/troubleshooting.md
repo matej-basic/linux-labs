@@ -31,7 +31,7 @@ cannot fix a FAIL line yourself.
 linux-labs is not installed on this machine. Install it, or ask your
 teacher:
 
-    curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
+    curl -fsSL https://linux-labs.matejbasic.com/install | sudo bash
 
 ## Unknown lab: files-1
 

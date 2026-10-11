@@ -2,6 +2,11 @@
 
 All notable changes to linux-labs. The version matches `Version:` in rpm/linux-labs.spec and the git tag vX.Y.Z.
 
+## 2.1.1 (2026-10-11)
+
+### Changed
+- The site, installer and dnf repository moved to https://linux-labs.matejbasic.com/. The installer, `linux-labs.repo`, the docs and the `Online:` line of `labctl help` use the new address. The old address https://matej-basic.github.io/linux-labs/ redirects to it, so repo files installed earlier keep working; running the installer again switches them to the new URLs.
+
 ## 2.1.0 (2026-10-07)
 
 ### Added

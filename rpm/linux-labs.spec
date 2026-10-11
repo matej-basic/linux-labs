@@ -1,5 +1,5 @@
 Name:           linux-labs
-Version:        2.1.0
+Version:        2.1.1
 Release:        1
 Summary:        Hands-on Linux system administration labs
 License:        MIT
@@ -98,6 +98,9 @@ visudo -cf %{buildroot}/etc/sudoers.d/labctl
 %doc %{_docdir}/%{name}
 
 %changelog
+* Sun Oct 11 2026 Matej Basic <matej.basic@outlook.com> - 2.1.1-1
+- Move the site, installer and dnf repository to https://linux-labs.matejbasic.com/
+
 * Wed Oct 07 2026 Matej Basic <matej.basic@outlook.com> - 2.1.0-1
 - 63 new labs, 118 labs in 19 topics
 - New categories SSH, Containers and Automation, and 10 break-fix labs

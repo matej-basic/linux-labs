@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Installer for linux-labs on Rocky Linux / RHEL / AlmaLinux 8 and 9.
 #
-#   curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
+#   curl -fsSL https://linux-labs.matejbasic.com/install | sudo bash
 #
 # Adds the linux-labs dnf repository, imports its signing key and installs
 # (or upgrades) the linux-labs package. Everything runs inside main(), which
@@ -9,7 +9,7 @@
 
 set -euo pipefail
 
-BASE_URL="https://matej-basic.github.io/linux-labs"
+BASE_URL="https://linux-labs.matejbasic.com"
 REPO_URL="$BASE_URL/rpm/"
 KEY_URL="$BASE_URL/RPM-GPG-KEY-linux-labs"
 REPO_FILE="/etc/yum.repos.d/linux-labs.repo"

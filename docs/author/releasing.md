@@ -73,7 +73,11 @@ The `publish` job checks out the `gh-pages` branch (or creates it on the first r
 
 The committed pages hold the placeholders `@VERSION@` and `@LAB_COUNT@`. `update-pages.sh` replaces them with the spec `Version:` and the number of labs. All pages link `site.css`, use system fonts and load nothing from other hosts. The publish job installs `createrepo-c` and `pandoc` with apt. Locally the script uses `pandoc` from `PATH`, or the `pandoc/core` docker image when there is none.
 
-The job commits and pushes `gh-pages`. GitHub Pages serves the branch at https://matej-basic.github.io/linux-labs/. Pages has to be enabled once in the repository settings (Settings, Pages, source "Deploy from a branch", branch `gh-pages`, folder `/`).
+The job commits and pushes `gh-pages`. GitHub Pages serves the branch at https://linux-labs.matejbasic.com/. Pages has to be enabled once in the repository settings (Settings, Pages, source "Deploy from a branch", branch `gh-pages`, folder `/`), with the custom domain `linux-labs.matejbasic.com` and "Enforce HTTPS" on. DNS for that name is a CNAME to `matej-basic.github.io` on Cloudflare, DNS only (not proxied), so GitHub can issue the certificate.
+
+Setting the custom domain made GitHub commit a `CNAME` file to `gh-pages`. The publish job checks out the existing branch and only adds or overwrites the files listed above, so `CNAME` survives every release. Do not delete it or recreate `gh-pages` from scratch: without `CNAME` Pages drops the custom domain.
+
+The old address https://matej-basic.github.io/linux-labs/ answers with a 301 to the same path on the new host (`/linux-labs/rpm/...` becomes `/rpm/...`). Workstations installed before the move still have the old `baseurl` and `gpgkey` in `/etc/yum.repos.d/linux-labs.repo`; dnf follows the redirect, and the next `linux-labs` package does not change that file (the installer writes it). Running the installer again rewrites it with the new URLs.
 
 ### Previewing the site
 

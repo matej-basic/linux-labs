@@ -54,14 +54,14 @@ The rule must be passwordless. `labctl grade` runs the grader as root by calling
 On every workstation (not on the servers):
 
 ```bash
-curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
+curl -fsSL https://linux-labs.matejbasic.com/install | sudo bash
 ```
 
 The installer writes `/etc/yum.repos.d/linux-labs.repo`, imports the signing key and installs the package, or upgrades it when it is already there. To do the same by hand:
 
 ```bash
-sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://matej-basic.github.io/linux-labs/linux-labs.repo
-sudo rpm --import https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-labs
+sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://linux-labs.matejbasic.com/linux-labs.repo
+sudo rpm --import https://linux-labs.matejbasic.com/RPM-GPG-KEY-linux-labs
 sudo dnf install linux-labs
 ```
 

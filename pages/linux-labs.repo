@@ -1,7 +1,7 @@
 [linux-labs]
 name=linux-labs
-baseurl=https://matej-basic.github.io/linux-labs/rpm/
+baseurl=https://linux-labs.matejbasic.com/rpm/
 enabled=1
 gpgcheck=1
 repo_gpgcheck=0
-gpgkey=https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-labs
+gpgkey=https://linux-labs.matejbasic.com/RPM-GPG-KEY-linux-labs

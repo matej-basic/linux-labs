@@ -5,7 +5,7 @@ Hands-on Linux administration labs in the style of the RHCSA exam, for Rocky Lin
 ## Install
 
 ```bash
-curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash
+curl -fsSL https://linux-labs.matejbasic.com/install | sudo bash
 ```
 
 The installer adds the `linux-labs` dnf repository, imports its signing key and installs the package. Other distributions and EL10 are rejected.
