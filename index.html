@@ -27,7 +27,7 @@
     <section id="install" aria-labelledby="hero-title">
       <h1 id="hero-title">Start a lab. Do the task. Get graded.</h1>
       <p class="lead">118 hands-on labs for Rocky Linux and RHEL 8 and 9, from files and users to SELinux, storage and clustering. One command installs everything.</p>
-      <div class="cmd"><code id="install-cmd">curl -fsSL https://matej-basic.github.io/linux-labs/install | sudo bash</code></div>
+      <div class="cmd"><code id="install-cmd">curl -fsSL https://linux-labs.matejbasic.com/install | sudo bash</code></div>
       <p class="req">Rocky Linux, RHEL or AlmaLinux 8 or 9 &middot; a user with sudo &middot; internet access</p>
     </section>
     <figure class="term" aria-label="Example terminal session: start lab files-04, then grade it with 3 of 6 criteria met">
@@ -68,15 +68,15 @@ Overall result .................................................... <span class=
     <details>
       <summary>Install by hand instead</summary>
       <p>These three commands do the same as the install script: add the dnf repository, import the signing key and install the package.</p>
-<pre><code>sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://matej-basic.github.io/linux-labs/linux-labs.repo
-sudo rpm --import https://matej-basic.github.io/linux-labs/RPM-GPG-KEY-linux-labs
+<pre><code>sudo curl -fsSL -o /etc/yum.repos.d/linux-labs.repo https://linux-labs.matejbasic.com/linux-labs.repo
+sudo rpm --import https://linux-labs.matejbasic.com/RPM-GPG-KEY-linux-labs
 sudo dnf install linux-labs</code></pre>
     </details>
   </div>
 </main>
 
 <footer class="foot">
-  <span>linux-labs 2.1.0 &middot; <a href="catalog.html">Catalog</a> &middot; <a href="docs/getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
+  <span>linux-labs 2.1.1 &middot; <a href="catalog.html">Catalog</a> &middot; <a href="docs/getting-started.html">Docs</a> &middot; Stuck? <code>labctl hint &lt;lab&gt;</code></span>
   <span><a href="https://github.com/matej-basic/linux-labs">GitHub</a></span>
 </footer>
 
